@@ -1,0 +1,192 @@
+import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, Avatar, Chip, Tooltip, IconButton, Divider, alpha } from '@mui/material';
+import { motion, AnimatePresence } from 'framer-motion';
+import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
+import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
+import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
+import ArticleRoundedIcon from '@mui/icons-material/ArticleRounded';
+import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
+import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded';
+import DiamondRoundedIcon from '@mui/icons-material/DiamondRounded';
+import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
+import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
+import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
+import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
+import { currentUser } from '../../data/mockData';
+import Logo, { LogoIcon } from '../Logo';
+import { logoutAgent } from '../../auth/auth';
+
+const navItems = [
+  { path: '/dashboard', label: 'Дашборд', icon: <DashboardRoundedIcon /> },
+  { path: '/rating', label: 'Рейтинг', icon: <EmojiEventsRoundedIcon /> },
+  { path: '/academy', label: 'Академия', icon: <SchoolRoundedIcon /> },
+  { path: '/news', label: 'Новости', icon: <ArticleRoundedIcon /> },
+  { path: '/team', label: 'Команда', icon: <GroupsRoundedIcon /> },
+  { path: '/agents', label: 'База агентов', icon: <PeopleRoundedIcon /> },
+  { path: '/shares', label: 'Акции', icon: <DiamondRoundedIcon /> },
+  { path: '/profile', label: 'Профиль', icon: <AccountCircleRoundedIcon /> },
+];
+
+const getLevelColor = (level: number) => {
+  if (level >= 3) return '#C9A84C';
+  if (level >= 2) return '#94A3B8';
+  return '#78716C';
+};
+
+export default function Sidebar() {
+  const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  return (
+    <motion.div
+      animate={{ width: collapsed ? 72 : 240 }}
+      transition={{ duration: 0.3 }}
+      style={{ flexShrink: 0, overflow: 'hidden' }}
+    >
+      <Box sx={{
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'linear-gradient(180deg, #0D1628 0%, #080C18 100%)',
+        borderRight: '1px solid rgba(201,168,76,0.1)',
+        position: 'sticky',
+        top: 0,
+        overflow: 'hidden',
+      }}>
+        {/* Logo */}
+        <Box sx={{ p: collapsed ? 1.5 : 2.5, pt: 3, display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 1.5 }}>
+          {collapsed ? (
+            <LogoIcon size={40} color="#C9A84C" />
+          ) : (
+            <AnimatePresence>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} style={{ display: 'flex', alignItems: 'center' }}>
+                <Logo variant="full" size={32} color="#F1F5F9" />
+              </motion.div>
+            </AnimatePresence>
+          )}
+        </Box>
+
+        <Divider sx={{ borderColor: 'rgba(201,168,76,0.08)', mx: 2 }} />
+
+        {/* Nav */}
+        <List sx={{ flex: 1, px: 1.5, py: 2, gap: 0.5, display: 'flex', flexDirection: 'column' }}>
+          {navItems.map((item) => {
+            const active = location.pathname === item.path;
+            return (
+              <ListItem key={item.path} disablePadding>
+                <Tooltip title={collapsed ? item.label : ''} placement="right">
+                  <ListItemButton
+                    onClick={() => navigate(item.path)}
+                    sx={{
+                      borderRadius: 3,
+                      minHeight: 48,
+                      px: collapsed ? 1.5 : 2,
+                      justifyContent: collapsed ? 'center' : 'flex-start',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      background: active ? 'linear-gradient(135deg, rgba(201,168,76,0.15), rgba(201,168,76,0.08))' : 'transparent',
+                      border: active ? '1px solid rgba(201,168,76,0.2)' : '1px solid transparent',
+                      color: active ? '#C9A84C' : '#94A3B8',
+                      '&:hover': {
+                        background: 'rgba(201,168,76,0.08)',
+                        color: '#E2C97E',
+                        border: '1px solid rgba(201,168,76,0.15)',
+                      },
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    {active && (
+                      <Box sx={{
+                        position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)',
+                        width: 3, height: 24, background: '#C9A84C', borderRadius: '0 4px 4px 0',
+                      }} />
+                    )}
+                    <ListItemIcon sx={{ minWidth: collapsed ? 0 : 36, color: 'inherit' }}>
+                      {item.icon}
+                    </ListItemIcon>
+                    <AnimatePresence>
+                      {!collapsed && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+                          <ListItemText
+                            primary={item.label}
+                            slotProps={{ primary: { style: { fontSize: 14, fontWeight: active ? 700 : 500 } } }}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </ListItemButton>
+                </Tooltip>
+              </ListItem>
+            );
+          })}
+        </List>
+
+        <Divider sx={{ borderColor: 'rgba(201,168,76,0.08)', mx: 2 }} />
+
+        {/* User */}
+        <Box sx={{ p: collapsed ? 1 : 2, pb: 2.5 }}>
+          {!collapsed ? (
+            <Box sx={{
+              display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5,
+              borderRadius: 3, background: 'rgba(201,168,76,0.06)',
+              border: '1px solid rgba(201,168,76,0.1)',
+              cursor: 'pointer', '&:hover': { background: 'rgba(201,168,76,0.1)' },
+              transition: 'all 0.2s',
+            }} onClick={() => navigate('/profile')}>
+              <Avatar sx={{
+                width: 36, height: 36, fontSize: 14, fontWeight: 700,
+                background: `linear-gradient(135deg, ${getLevelColor(currentUser.level)}, ${alpha(getLevelColor(currentUser.level), 0.6)})`,
+                color: '#0A0E1A',
+              }}>
+                {currentUser.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+              </Avatar>
+              <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: '#F1F5F9', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {currentUser.name.split(' ')[0]} {currentUser.name.split(' ')[1]}
+                </Typography>
+                <Chip label={`Уровень ${currentUser.level}`} size="small" sx={{ height: 16, fontSize: 10, fontWeight: 700, background: alpha(getLevelColor(currentUser.level), 0.2), color: getLevelColor(currentUser.level), '& .MuiChip-label': { px: 1 } }} />
+              </Box>
+            </Box>
+          ) : (
+            <Tooltip title="Профиль" placement="right">
+              <Avatar onClick={() => navigate('/profile')} sx={{
+                width: 40, height: 40, fontSize: 14, fontWeight: 700, mx: 'auto', cursor: 'pointer',
+                background: `linear-gradient(135deg, ${getLevelColor(currentUser.level)}, ${alpha(getLevelColor(currentUser.level), 0.6)})`,
+                color: '#0A0E1A',
+              }}>
+                {currentUser.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+              </Avatar>
+            </Tooltip>
+          )}
+
+          <Box sx={{ display: 'flex', justifyContent: collapsed ? 'center' : 'space-between', mt: 1, alignItems: 'center' }}>
+            <Tooltip title={collapsed ? 'Выйти' : 'Выйти из аккаунта'} placement="right">
+              <IconButton
+                size="small"
+                onClick={() => { logoutAgent(); navigate('/login'); }}
+                sx={{ color: '#64748B', '&:hover': { color: '#EF4444', background: 'rgba(239,68,68,0.08)' } }}
+              >
+                <LogoutRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            {!collapsed && (
+              <IconButton size="small" onClick={() => setCollapsed(true)} sx={{ color: '#64748B', '&:hover': { color: '#C9A84C' } }}>
+                <ChevronLeftRoundedIcon fontSize="small" />
+              </IconButton>
+            )}
+          </Box>
+
+          {collapsed && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 0.5 }}>
+              <IconButton size="small" onClick={() => setCollapsed(false)} sx={{ color: '#64748B', '&:hover': { color: '#C9A84C' } }}>
+                <ChevronRightRoundedIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          )}
+        </Box>
+      </Box>
+    </motion.div>
+  );
+}
