@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box, Card, CardContent, Typography, Avatar, Chip, Grid, Divider, Button,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, Stack, IconButton, Alert, Tooltip,
@@ -20,7 +20,32 @@ import InstagramIcon from '@mui/icons-material/Instagram';
 import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 import ChatRoundedIcon from '@mui/icons-material/ChatRounded';
 import InputAdornment from '@mui/material/InputAdornment';
-import { currentUser, achievements } from '../data/mockData';
+import { currentUser as mockUser, achievements as mockAchievements, type Achievement } from '../data/mockData';
+import { fetchMe, getCurrentAgent } from '../auth/auth';
+import { api } from '../api/apiClient';
+import { dealsApi } from '../api/deals';
+import { teamApi } from '../api/team';
+
+type RawAch = { id: string; title: string; description: string; icon: string; tier: 'bronze'|'silver'|'gold'|'platinum'; trigger_type: string; threshold: number; active: number };
+
+// Вычисляет earned-флаг и (приблизительную) дату заработка на основе реальных данных.
+function computeEarned(
+  def: RawAch,
+  ctx: { totalDeals: number; yearDeals: number; lifetimeCommission: number; yearCommission: number; currentLevel: 1|2|3; l1Size: number; teamSize: number },
+): { earned: boolean; date: string } {
+  const today = new Date().toISOString().slice(0, 10);
+  let earned = false;
+  switch (def.trigger_type) {
+    case 'first_deal':           earned = ctx.totalDeals >= def.threshold; break;
+    case 'first_agent_invited':  earned = ctx.l1Size >= def.threshold; break;
+    case 'commission_year':      earned = ctx.yearCommission >= def.threshold; break;
+    case 'level_reached':        earned = ctx.currentLevel >= def.threshold; break;
+    case 'team_l1_size':         earned = ctx.l1Size >= def.threshold; break;
+    case 'deals_year':           earned = ctx.yearDeals >= def.threshold; break;
+    case 'commission_total':     earned = ctx.lifetimeCommission >= def.threshold; break;
+  }
+  return { earned, date: earned ? today : '' };
+}
 
 const tierColor: Record<string, { bg: string; ring: string; text: string }> = {
   bronze:   { bg: 'rgba(180,83,9,0.15)',    ring: 'rgba(217,119,6,0.4)',  text: '#D97706' },
@@ -29,36 +54,119 @@ const tierColor: Record<string, { bg: string; ring: string; text: string }> = {
   platinum: { bg: 'rgba(168,85,247,0.15)',  ring: 'rgba(168,85,247,0.4)', text: '#A855F7' },
 };
 
-const daysAt = (() => {
-  const ms = Date.now() - new Date(currentUser.joinDate).getTime();
-  return Math.floor(ms / 86_400_000);
-})();
-
 export default function Profile() {
   const [editOpen, setEditOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [refCopied, setRefCopied] = useState(false);
+
+  // Загружаем актуального юзера с бэка (на старте + после save).
+  const [user, setUser] = useState<Record<string, unknown> | null>(() => getCurrentAgent());
+  useEffect(() => {
+    fetchMe().then(u => { if (u) setUser(u); });
+  }, []);
+
+  // Данные для расчёта ачивок: сделки + размер L1 команды.
+  const [achievements, setAchievements] = useState<Achievement[]>(mockAchievements);
+  useEffect(() => {
+    let cancelled = false;
+    const me = getCurrentAgent();
+    const meId = typeof me?.id === 'number' ? me.id : undefined;
+    Promise.all([
+      api.get<RawAch[]>('/api/achievements').catch(() => [] as RawAch[]),
+      dealsApi.list({ agentId: meId }).catch(() => []),
+      teamApi.get().catch(() => ({ levels: [] as Array<{ level: number; count: number }>, totals: { agents: 0 } })),
+    ]).then(([defs, deals, team]) => {
+      if (cancelled || !defs.length) return;
+      const currentYear = String(new Date().getFullYear());
+      const yearDeals  = deals.filter(d => d.date?.startsWith(currentYear));
+      const yearVkd    = yearDeals.reduce((s, d) => s + d.vkd, 0);
+      const yearComm   = yearDeals.reduce((s, d) => s + d.income, 0);
+      const lifetimeComm = deals.reduce((s, d) => s + d.income, 0);
+      const currentLevel: 1|2|3 = yearVkd >= 5_000_000 ? 3 : yearVkd >= 2_000_000 ? 2 : 1;
+      const l1 = team.levels?.find(l => l.level === 1)?.count || 0;
+      const ctx = { totalDeals: deals.length, yearDeals: yearDeals.length, lifetimeCommission: lifetimeComm, yearCommission: yearComm, currentLevel, l1Size: l1, teamSize: team.totals?.agents || 0 };
+      const computed: Achievement[] = defs.filter(d => d.active).map(d => {
+        const r = computeEarned(d, ctx);
+        return { id: d.id, title: d.title, description: d.description, icon: d.icon, tier: d.tier, earned: r.earned, date: r.date };
+      });
+      setAchievements(computed);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // currentUser — единая точка для всех ссылок: реальный юзер если загружен, иначе mock.
+  const currentUser = {
+    ...(mockUser as Record<string, unknown>),
+    ...(user || {}),
+  } as typeof mockUser;
+
+  const daysAt = (() => {
+    if (!currentUser.joinDate) return 0;
+    const ms = Date.now() - new Date(currentUser.joinDate).getTime();
+    return Math.max(0, Math.floor(ms / 86_400_000));
+  })();
+
   const [form, setForm] = useState({
-    name: currentUser.name,
-    email: currentUser.email,
-    phone: currentUser.phone,
-    city: currentUser.city,
-    specialization: currentUser.specialization.join(', '),
-    telegram: currentUser.socials?.telegram || '',
-    telegramChannel: currentUser.socials?.telegramChannel || '',
-    instagram: currentUser.socials?.instagram || '',
-    vk: currentUser.socials?.vk || '',
-    max: currentUser.socials?.max || '',
+    name: '', email: '', phone: '', city: '',
+    specialization: '',
+    telegram: '', telegramChannel: '', instagram: '', vk: '', max: '',
   });
+
+  // Когда user пришёл с бэка — синхронизируем форму.
+  useEffect(() => {
+    if (!user) return;
+    setForm({
+      name: currentUser.name,
+      email: currentUser.email,
+      phone: currentUser.phone || '',
+      city: currentUser.city || '',
+      specialization: (currentUser.specialization || []).join(', '),
+      telegram: currentUser.socials?.telegram || '',
+      telegramChannel: currentUser.socials?.telegramChannel || '',
+      instagram: currentUser.socials?.instagram || '',
+      vk: currentUser.socials?.vk || '',
+      max: currentUser.socials?.max || '',
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   const [supportForm, setSupportForm] = useState({ topic: '', message: '' });
 
   const referralLink = `https://app.welcome24.ru/r/${currentUser.id}-mk`;
 
-  const handleSave = () => {
-    setSaved(true); setEditOpen(false);
-    setTimeout(() => setSaved(false), 2500);
+  const handleSave = async () => {
+    if (!user || typeof user.id !== 'number') { setSaveError('Профиль не загружен'); return; }
+    setSaveError(null);
+    try {
+      const updated = await api.patch<Record<string, unknown>>(`/api/agents/${user.id}`, {
+        name: form.name,
+        phone: form.phone,
+        city: form.city,
+        specialization: form.specialization.split(',').map(s => s.trim()).filter(Boolean),
+        socials: {
+          telegram: form.telegram || undefined,
+          telegramChannel: form.telegramChannel || undefined,
+          instagram: form.instagram || undefined,
+          vk: form.vk || undefined,
+          max: form.max || undefined,
+        },
+      });
+      // Приводим snake_case → camelCase минимально для использования в Profile.
+      const normalized = {
+        ...updated,
+        joinDate: (updated as { join_date?: string }).join_date ?? currentUser.joinDate,
+      };
+      setUser(normalized);
+      // Обновляем localStorage чтобы Header и т.д. подхватили новые данные.
+      localStorage.setItem('w24_agent_user', JSON.stringify({ ...normalized, loginAt: new Date().toISOString() }));
+      setSaved(true); setEditOpen(false);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Не удалось сохранить');
+    }
   };
 
   const handleSupportSend = () => {
@@ -409,6 +517,7 @@ export default function Profile() {
               slotProps={{ input: { startAdornment: <InputAdornment position="start"><ChatRoundedIcon sx={{ color: '#7C3AED', fontSize: 18 }} /></InputAdornment> } }}
             />
           </Stack>
+          {saveError && <Alert severity="error" sx={{ mt: 2 }}>{saveError}</Alert>}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
           <Button onClick={() => setEditOpen(false)} sx={{ color: '#64748B' }}>Отмена</Button>
