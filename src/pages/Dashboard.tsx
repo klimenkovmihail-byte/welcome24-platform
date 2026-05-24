@@ -235,7 +235,7 @@ export default function Dashboard() {
           <Box sx={{ position: 'absolute', right: -40, top: -40, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(201,168,76,0.08) 0%, transparent 70%)' }} />
           <Box sx={{ flex: '1 1 320px', minWidth: 0, position: 'relative' }}>
             <Typography variant="h5" sx={{ fontWeight: 800, color: '#F1F5F9' }}>
-              {greeting.text}, Михаил! {greeting.emoji}
+              {greeting.text}, {(getCurrentAgent()?.name || '').split(' ')[1] || 'агент'}! {greeting.emoji}
             </Typography>
             <Typography sx={{ color: '#94A3B8', mt: 0.5 }}>
               {commission.toNext > 0 ? (
