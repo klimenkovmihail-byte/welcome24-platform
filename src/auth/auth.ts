@@ -1,10 +1,16 @@
-// Demo auth (no real backend). In production: JWT cookie on .welcome24.ru domain.
+// Реальный auth: POST /api/auth/login → JWT в localStorage + объект пользователя.
+// Логика SSO/импернсонации сохранена (для перехода между порталом и админкой).
+
+import { api, setToken, getToken, ApiError } from '../api/apiClient';
 
 export interface AgentUser {
+  id?: number;
   email: string;
   name: string;
   role: 'agent' | 'admin';
   loginAt: string;
+  // Дополнительные поля из бэка — пробрасываются как есть.
+  [key: string]: unknown;
 }
 
 export interface ImpersonationState {
@@ -16,7 +22,6 @@ export interface ImpersonationState {
 
 const USER_KEY = 'w24_agent_user';
 const IMPERSONATION_KEY = 'w24_impersonation';
-const ADMIN_EMAILS = ['admin@w24.agency'];
 
 // URL'ы автоматически выбираются:
 //  1) env-переменная (если задана на Vercel) — приоритет
@@ -43,33 +48,57 @@ function detectPortalUrl(): string {
   if (fromEnv) return fromEnv.replace(/\/$/, '');
   const host = window.location.hostname;
   if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:5173';
-  // Если мы УЖЕ на портале — отдадим текущий origin
   return window.location.origin;
 }
 export const PORTAL_URL = detectPortalUrl();
 export const ADMIN_URL = detectAdminUrl();
 
-export function loginAgent(email: string): { ok: true; user: AgentUser } | { ok: false; error: string; redirectTo?: string } {
+interface LoginResponse {
+  token: string;
+  user: Record<string, unknown> & { id: number; email: string; name: string; role: 'agent' | 'admin' };
+}
+
+export async function loginAgent(
+  email: string,
+  password: string,
+): Promise<{ ok: true; user: AgentUser } | { ok: false; error: string; redirectTo?: string }> {
   const e = email.trim().toLowerCase();
   if (!e) return { ok: false, error: 'Введите email' };
+  if (!password) return { ok: false, error: 'Введите пароль' };
 
-  // Admin emails → bounce to admin
-  if (ADMIN_EMAILS.includes(e)) {
-    return { ok: false, error: 'Это администраторский email. Перенаправляем в админ-панель…', redirectTo: `${ADMIN_URL}/login?ssoEmail=${encodeURIComponent(e)}` };
+  try {
+    const data = await api.post<LoginResponse>('/api/auth/login', { email: e, password });
+
+    // Если на портал зашёл админ — отправляем его в админку (SSO ему нужен будет ещё раз войти, увы)
+    if (data.user.role === 'admin' && e !== 'mk@w24.agency') {
+      // mk@w24.agency — гибридный (CEO работает и как агент), оставляем
+      setToken(null);
+      return {
+        ok: false,
+        error: 'Это администраторский email. Перенаправляем в админ-панель…',
+        redirectTo: `${ADMIN_URL}/login?ssoEmail=${encodeURIComponent(e)}`,
+      };
+    }
+
+    setToken(data.token);
+    const user: AgentUser = {
+      ...data.user,
+      loginAt: new Date().toISOString(),
+    };
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    return { ok: true, user };
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { ok: false, error: err.message };
+    }
+    return { ok: false, error: 'Не удалось войти. Попробуйте ещё раз.' };
   }
-
-  // Treat anything else as a valid agent
-  const user: AgentUser = {
-    email: e,
-    name: e === 'mk@w24.agency' ? 'Клименков Михаил Михайлович' : 'Агент Welcome 24',
-    role: e === 'mk@w24.agency' ? 'admin' : 'agent', // mk@w24 is also an admin → дополнительная кнопка в шапке
-    loginAt: new Date().toISOString(),
-  };
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
-  return { ok: true, user };
 }
 
 export function logoutAgent() {
+  // Best-effort logout на бэке (можно в фоне).
+  api.post('/api/auth/logout').catch(() => { /* ignore */ });
+  setToken(null);
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(IMPERSONATION_KEY);
 }
@@ -81,16 +110,34 @@ export function getCurrentAgent(): AgentUser | null {
   } catch { return null; }
 }
 
-export function trySsoFromUrl(): AgentUser | null {
+/** Подтверждает токен на бэке и обновляет user в localStorage. Если 401 — стираем. */
+export async function fetchMe(): Promise<AgentUser | null> {
+  if (!getToken()) return null;
+  try {
+    const fresh = await api.get<Record<string, unknown> & { id: number; email: string; name: string; role: 'agent' | 'admin' }>('/api/auth/me');
+    const user: AgentUser = { ...fresh, loginAt: new Date().toISOString() };
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    return user;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) {
+      localStorage.removeItem(USER_KEY);
+      return null;
+    }
+    // Бэк недоступен — оставляем кэш localStorage, чтобы UI не разваливался.
+    return getCurrentAgent();
+  }
+}
+
+/** SSO из URL: просто префиллим email (пароль вводит пользователь). */
+export function trySsoFromUrl(): { ssoEmail: string } | null {
   const params = new URLSearchParams(window.location.search);
   const ssoEmail = params.get('ssoEmail');
   if (!ssoEmail) return null;
-  const result = loginAgent(ssoEmail);
-  if (result.ok) {
-    window.history.replaceState({}, '', window.location.pathname);
-    return result.user;
-  }
-  return null;
+  // Чистим только этот параметр
+  const url = new URL(window.location.href);
+  url.searchParams.delete('ssoEmail');
+  window.history.replaceState({}, '', url.pathname + url.search);
+  return { ssoEmail };
 }
 
 /** Read impersonation params from URL (set by admin panel) and persist them. */
@@ -105,7 +152,6 @@ export function tryImpersonationFromUrl(): ImpersonationState | null {
     startedAt: new Date().toISOString(),
   };
   localStorage.setItem(IMPERSONATION_KEY, JSON.stringify(state));
-  // Clean impersonation params from URL but keep current path
   const url = new URL(window.location.href);
   url.searchParams.delete('impersonate');
   url.searchParams.delete('agentName');

@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
-import { Box, Card, CardContent, Typography, Avatar, Chip, ToggleButton, ToggleButtonGroup, alpha, Menu, MenuItem, Divider } from '@mui/material';
+import { useEffect, useMemo, useState } from 'react';
+import { Box, Card, CardContent, Typography, Avatar, Chip, ToggleButton, ToggleButtonGroup, alpha, Menu, MenuItem, Divider, CircularProgress, Alert } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded';
 import MonetizationOnRoundedIcon from '@mui/icons-material/MonetizationOnRounded';
-import { currentUser, myDeals, teamDeals, teamAgents } from '../data/mockData';
+import { ratingApi, type RatingAgent } from '../api/rating';
+import { getCurrentAgent } from '../auth/auth';
 
 const fmt = (n: number) => n.toLocaleString('ru-RU');
 const fmtCompact = (n: number) =>
@@ -28,26 +29,16 @@ interface AgentStat {
   isMe: boolean;
 }
 
-// Unified deal list including the user
-interface FlatDeal { agentId: number; agentName: string; date: string; vkd: number }
-const myAsFlat: FlatDeal[] = myDeals.map(d => ({ agentId: 1, agentName: 'Клименков Михаил Михайлович', date: d.date, vkd: d.vkd }));
-const teamAsFlat: FlatDeal[] = teamDeals.map(d => ({ agentId: d.agentId, agentName: d.agentName, date: d.date, vkd: d.vkd }));
-const allFlatDeals: FlatDeal[] = [...myAsFlat, ...teamAsFlat];
-
-// Lookup: agentId → city/level
-const agentLookup: Record<number, { city: string; level: 1 | 2 | 3 }> = {
-  1: { city: currentUser.city, level: currentUser.level as 1 | 2 | 3 },
-};
-teamAgents.forEach(a => { agentLookup[a.id] = { city: a.city, level: a.level }; });
-
-// Resolves the date predicate for selected period.
-function inPeriod(dateStr: string, year: number, month: MonthFilter): boolean {
-  const [yStr, mStr] = dateStr.split('-');
-  const y = Number(yStr);
-  const m = Number(mStr);
-  if (y !== year) return false;
-  if (month === null) return true; // весь год
-  return m === month;
+function agentToStat(a: RatingAgent, meId: number | null): AgentStat {
+  return {
+    agentId: a.id,
+    agentName: a.name,
+    city: a.city,
+    level: (a.level || 1) as 1 | 2 | 3,
+    vkd: a.vkd,
+    deals: a.deals,
+    isMe: meId != null && a.id === meId,
+  };
 }
 
 const now = new Date();
@@ -134,39 +125,36 @@ function PeriodPill({ active, label, options, value, onChange }: PeriodPillProps
 export default function Rating() {
   const [sortBy, setSortBy] = useState<SortKey>('vkd');
   const [year, setYear] = useState<number>(now.getFullYear());
-  // null = весь год (накопительный, по умолчанию)
   const [month, setMonth] = useState<MonthFilter>(null);
+
+  const [agents, setAgents] = useState<RatingAgent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    const opts: { year?: string; month?: string; limit?: number } = { year: String(year), limit: 100 };
+    if (month !== null) opts.month = String(month).padStart(2, '0');
+    ratingApi.get(opts)
+      .then(r => { if (!cancelled) setAgents(r.agents); })
+      .catch(err => { if (!cancelled) setError(err?.message || 'Ошибка загрузки рейтинга'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [year, month]);
+
+  const me = getCurrentAgent();
+  const meId = typeof me?.id === 'number' ? me.id : null;
 
   const periodLabel = month === null
     ? `${year} год`
     : `${MONTH_NAMES[month - 1]} ${year}`;
 
-  // Build ranking
+  // Общефирменный рейтинг (бэк уже отсортировал по ВКД desc).
   const ranking: AgentStat[] = useMemo(() => {
-    const buckets = new Map<number, AgentStat>();
-    for (const d of allFlatDeals) {
-      if (!inPeriod(d.date, year, month)) continue;
-      const existing = buckets.get(d.agentId);
-      if (existing) {
-        existing.vkd += d.vkd;
-        existing.deals += 1;
-      } else {
-        const meta = agentLookup[d.agentId] || { city: '—', level: 1 as const };
-        buckets.set(d.agentId, {
-          agentId: d.agentId,
-          agentName: d.agentName,
-          city: meta.city,
-          level: meta.level,
-          vkd: d.vkd,
-          deals: 1,
-          isMe: d.agentId === 1,
-        });
-      }
-    }
-    return Array.from(buckets.values()).sort((a, b) =>
-      sortBy === 'vkd' ? b.vkd - a.vkd : b.deals - a.deals
-    );
-  }, [sortBy, year, month]);
+    const all = agents.map(a => agentToStat(a, meId));
+    return all.sort((a, b) => sortBy === 'vkd' ? b.vkd - a.vkd : b.deals - a.deals);
+  }, [agents, sortBy, meId]);
 
   const top3 = ranking.slice(0, 3);
   const top5 = ranking.slice(0, 5);
@@ -199,6 +187,12 @@ export default function Rating() {
 
   return (
     <Box>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {loading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress sx={{ color: '#C9A84C' }} />
+        </Box>
+      )}
       {/* Filters */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>

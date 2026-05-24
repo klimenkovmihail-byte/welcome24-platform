@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, Grid, Divider,
   ToggleButtonGroup, ToggleButton, Avatar,
@@ -11,7 +11,8 @@ import DiamondRoundedIcon from '@mui/icons-material/DiamondRounded';
 import RedeemRoundedIcon from '@mui/icons-material/RedeemRounded';
 import ShoppingCartRoundedIcon from '@mui/icons-material/ShoppingCartRounded';
 import SellRoundedIcon from '@mui/icons-material/SellRounded';
-import { shareHistory, myShares, sharesSummary, currentSharePrice } from '../data/mockData';
+import { sharesApi } from '../api/shares';
+import type { ShareQuote, SharePacket } from '../types/api';
 
 const fmt = (n: number) => n.toLocaleString('ru-RU');
 const fmtCompact = (n: number) =>
@@ -37,6 +38,30 @@ const TYPE_CFG = {
 export default function Shares() {
   const [range, setRange] = useState<RangeKey>('all');
 
+  // С бэка: котировки и мои пакеты.
+  const [shareHistory, setShareHistory] = useState<ShareQuote[]>([]);
+  const [myShares, setMyShares] = useState<SharePacket[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([sharesApi.quotes(), sharesApi.myPackets()])
+      .then(([q, p]) => { if (!cancelled) { setShareHistory(q); setMyShares(p); } })
+      .catch(() => { /* tolerate */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Текущая цена = последняя котировка (или 0 если их нет).
+  const currentSharePrice = shareHistory.length ? shareHistory[shareHistory.length - 1].price : 0;
+
+  // Сводка по пакетам.
+  const sharesSummary = useMemo(() => {
+    const total  = myShares.reduce((s, p) => s + p.quantity, 0);
+    const cost   = myShares.reduce((s, p) => s + p.quantity * p.acquiredPrice, 0);
+    const value  = total * currentSharePrice;
+    const growth = value - cost;
+    const growthPct = cost > 0 ? (growth / cost) * 100 : 0;
+    return { total, cost, value, growth, growthPct, currentPrice: currentSharePrice };
+  }, [myShares, currentSharePrice]);
+
   // Smart period filter:
   //  • If range === 'all'  → all quotes
   //  • Otherwise: take (a) last quote strictly BEFORE cutoff as starting anchor,
@@ -56,7 +81,7 @@ export default function Shares() {
     const arr = lastBefore ? [lastBefore, ...inRange, todayPoint] : [...inRange, todayPoint];
     // Dedup if last quote equals today
     return arr.filter((p, i) => i === 0 || p.date !== arr[i - 1].date);
-  }, [range, today]);
+  }, [range, today, shareHistory, currentSharePrice]);
 
   // Period change: from first to last point in chartData
   const firstPrice = chartData[0]?.price ?? currentSharePrice;
@@ -109,7 +134,7 @@ export default function Shares() {
                   </Grid>
                   <Grid size={{ xs: 4 }}>
                     <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>Средняя ст. покупки</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#F1F5F9' }}>{fmt(Math.round(sharesSummary.cost / sharesSummary.total))} ₽</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#F1F5F9' }}>{sharesSummary.total > 0 ? fmt(Math.round(sharesSummary.cost / sharesSummary.total)) : 0} ₽</Typography>
                   </Grid>
                   <Grid size={{ xs: 4 }}>
                     <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>Инвестировано</Typography>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, LinearProgress, Grid, Tabs, Tab, alpha,
   Button, Dialog, DialogContent, IconButton, ToggleButtonGroup, ToggleButton, Divider,
@@ -25,7 +25,8 @@ import FavoriteBorderRoundedIcon from '@mui/icons-material/FavoriteBorderRounded
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import { Rating, TextField } from '@mui/material';
-import { academyCourses, webinarRecordings, academyEvents, currentUser, type AcademyEvent, type AcademyCourse, type WebinarRecording } from '../data/mockData';
+import { currentUser } from '../data/mockData';
+import { academyApi, type AcademyEvent, type AcademyCourse, type WebinarRecording } from '../api/academy';
 
 const courseCategoryColors: Record<string, string> = {
   'Базовый':     '#22C55E',
@@ -368,6 +369,26 @@ function EventCard({ e, compact = false }: { e: AcademyEvent; compact?: boolean 
 }
 
 export default function Academy() {
+  // Данные с бэка
+  const [academyCourses, setAcademyCourses] = useState<AcademyCourse[]>([]);
+  const [webinarRecordings, setWebinarRecordings] = useState<WebinarRecording[]>([]);
+  const [academyEvents, setAcademyEvents] = useState<AcademyEvent[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      academyApi.courses().catch(() => []),
+      academyApi.webinars().catch(() => []),
+      academyApi.events().catch(() => []),
+    ]).then(([c, w, e]) => {
+      if (cancelled) return;
+      setAcademyCourses(c);
+      setWebinarRecordings(w);
+      setAcademyEvents(e);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   const [tab, setTab] = useState<'courses' | 'recordings' | 'schedule'>('courses');
   const [openCourse, setOpenCourse] = useState<AcademyCourse | null>(null);
   const [openWebinar, setOpenWebinar] = useState<WebinarRecording | null>(null);
@@ -432,24 +453,26 @@ export default function Academy() {
       const d = new Date(e.date);
       return d.getFullYear() === viewDate.getFullYear() && d.getMonth() === viewDate.getMonth();
     }).sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
-  , [viewDate]);
+  , [viewDate, academyEvents]);
 
   const eventsOnSelected = useMemo(() =>
     academyEvents
       .filter(e => e.date === selectedDate)
       .sort((a, b) => a.startTime.localeCompare(b.startTime))
-  , [selectedDate]);
+  , [selectedDate, academyEvents]);
 
   const upcomingEvents = useMemo(() =>
     academyEvents
       .filter(e => new Date(`${e.date}T${e.endTime}`).getTime() >= today.getTime())
       .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
       .slice(0, 5)
-  , []);
+  , [academyEvents]);
 
   const completed = academyCourses.filter(c => c.completed).length;
   const inProgress = academyCourses.filter(c => c.progress > 0 && !c.completed).length;
-  const overallProgress = Math.round(academyCourses.reduce((s, c) => s + c.progress, 0) / academyCourses.length);
+  const overallProgress = academyCourses.length
+    ? Math.round(academyCourses.reduce((s, c) => s + c.progress, 0) / academyCourses.length)
+    : 0;
 
   return (
     <Box>

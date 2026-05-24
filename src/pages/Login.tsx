@@ -14,21 +14,20 @@ export default function Login() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('mk@w24.agency');
-  const [password, setPassword] = useState('••••••••');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
   useEffect(() => {
-    const ssoUser = trySsoFromUrl();
-    if (ssoUser) navigate('/dashboard', { replace: true });
-  }, [navigate]);
+    const sso = trySsoFromUrl();
+    if (sso) setEmail(sso.ssoEmail);
+  }, []);
 
   const handleLogin = async () => {
     setError(null); setInfo(null);
     setLoading(true);
-    await new Promise(r => setTimeout(r, 500));
-    const result = loginAgent(email);
+    const result = await loginAgent(email, password);
     if (result.ok) {
       navigate('/dashboard');
     } else {
@@ -118,7 +117,7 @@ export default function Login() {
               <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>
             )}
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <Box component="form" onSubmit={(e) => { e.preventDefault(); handleLogin(); }} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
               <TextField
                 label="Email"
                 value={email}
@@ -153,10 +152,10 @@ export default function Login() {
               </Box>
 
               <Button
+                type="submit"
                 variant="contained"
                 size="large"
                 fullWidth
-                onClick={handleLogin}
                 disabled={loading}
                 endIcon={<ArrowForwardRoundedIcon />}
                 sx={{ py: 1.5, fontSize: 16, fontWeight: 800 }}

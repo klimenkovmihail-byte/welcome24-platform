@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Typography, Avatar, Chip, IconButton, Badge, Tooltip, Button, Popover, Divider, List, ListItem, ListItemAvatar, ListItemText, Menu, MenuItem } from '@mui/material';
 import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded';
@@ -14,6 +14,7 @@ import DoneAllRoundedIcon from '@mui/icons-material/DoneAllRounded';
 import { motion } from 'framer-motion';
 import { currentUser, sharesSummary } from '../../data/mockData';
 import { getCurrentAgent, openAdminPanel, logoutAgent } from '../../auth/auth';
+import { notificationsApi, type Notification as ApiNotification } from '../../api/notifications';
 
 const formatNumber = (n: number) =>
   n >= 1000000 ? `${(n / 1000000).toFixed(1)} млн` : n >= 1000 ? `${(n / 1000).toFixed(0)} тыс` : n.toString();
@@ -29,28 +30,35 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   '/profile': { title: 'Профиль', subtitle: 'Личные данные и настройки' },
 };
 
-interface Notification {
+interface NotifUi {
   id: number;
-  type: 'deal' | 'shares' | 'news' | 'team';
+  type: ApiNotification['type'];
   title: string;
   desc: string;
   time: string;
   unread: boolean;
 }
 
-const notifications: Notification[] = [
-  { id: 1, type: 'deal', title: 'Сделка подтверждена', desc: 'Иванов А.С., 300 000 ₽ — комиссия 240 000 ₽', time: '5 мин назад', unread: true },
-  { id: 2, type: 'shares', title: '+200 акций начислено', desc: 'За выполнение плана за апрель', time: '2 часа назад', unread: true },
-  { id: 3, type: 'team', title: 'Новый агент в команде', desc: 'Бородина Елена присоединилась через ваше приглашение', time: '1 день назад', unread: true },
-  { id: 4, type: 'news', title: 'Новая статья в ленте', desc: '«Welcome 24 в ТОП-10 агентств Москвы»', time: '2 дня назад', unread: false },
-  { id: 5, type: 'deal', title: 'Сделка выплачена', desc: 'Сидорова М.В., перевод поступил на карту', time: '3 дня назад', unread: false },
-];
+function relativeTime(iso: string): string {
+  if (!iso) return '';
+  const t = new Date(iso.replace(' ', 'T') + 'Z').getTime();
+  if (!Number.isFinite(t)) return '';
+  const diff = Date.now() - t;
+  if (diff < 60_000)        return 'только что';
+  if (diff < 3_600_000)     return `${Math.floor(diff / 60_000)} мин назад`;
+  if (diff < 86_400_000)    return `${Math.floor(diff / 3_600_000)} ч назад`;
+  if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)} дн назад`;
+  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+}
 
-const typeConfig = {
-  deal: { icon: <HandshakeRoundedIcon sx={{ fontSize: 18 }} />, color: '#22C55E' },
+const typeConfig: Record<string, { icon: React.ReactNode; color: string }> = {
+  deal:   { icon: <HandshakeRoundedIcon sx={{ fontSize: 18 }} />, color: '#22C55E' },
   shares: { icon: <DiamondRoundedIcon sx={{ fontSize: 18 }} />, color: '#C9A84C' },
-  news: { icon: <ArticleRoundedIcon sx={{ fontSize: 18 }} />, color: '#3B82F6' },
-  team: { icon: <PersonRoundedIcon sx={{ fontSize: 18 }} />, color: '#8B5CF6' },
+  news:   { icon: <ArticleRoundedIcon sx={{ fontSize: 18 }} />, color: '#3B82F6' },
+  team:   { icon: <PersonRoundedIcon sx={{ fontSize: 18 }} />, color: '#8B5CF6' },
+  agent:  { icon: <PersonRoundedIcon sx={{ fontSize: 18 }} />, color: '#8B5CF6' },
+  alert:  { icon: <NotificationsRoundedIcon sx={{ fontSize: 18 }} />, color: '#EF4444' },
+  system: { icon: <SettingsRoundedIcon sx={{ fontSize: 18 }} />, color: '#64748B' },
 };
 
 interface HeaderProps {
@@ -66,11 +74,30 @@ export default function Header({ currentPath }: HeaderProps) {
 
   const [notifAnchor, setNotifAnchor] = useState<HTMLElement | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
-  const [notifs, setNotifs] = useState(notifications);
+  const [notifs, setNotifs] = useState<NotifUi[]>([]);
   const unreadCount = notifs.filter(n => n.unread).length;
+
+  useEffect(() => {
+    let cancelled = false;
+    notificationsApi.list()
+      .then(rows => {
+        if (cancelled) return;
+        setNotifs(rows.map(n => ({
+          id: n.id,
+          type: n.type,
+          title: n.title,
+          desc: n.description,
+          time: relativeTime(n.createdAt),
+          unread: !n.readAt,
+        })));
+      })
+      .catch(() => { /* tolerate */ });
+    return () => { cancelled = true; };
+  }, []);
 
   const handleMarkAllRead = () => {
     setNotifs(prev => prev.map(n => ({ ...n, unread: false })));
+    notificationsApi.markAllRead().catch(() => { /* tolerate */ });
   };
 
   const handleLogout = () => {

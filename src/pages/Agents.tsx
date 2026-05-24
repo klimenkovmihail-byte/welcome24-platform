@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, Avatar, Grid, TextField, InputAdornment,
   Select, MenuItem, alpha, IconButton, Tooltip, Dialog, DialogContent, Divider, Button, Rating,
+  CircularProgress, Alert,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
@@ -18,15 +19,40 @@ import WorkRoundedIcon from '@mui/icons-material/WorkRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import YouTubeIcon from '@mui/icons-material/YouTube';
-import { agentsBase, currentUser, type AgentBaseRecord, type AgentReview } from '../data/mockData';
+import { currentUser, type AgentBaseRecord, type AgentReview } from '../data/mockData';
+import { agentsApi } from '../api/agents';
+import { getCurrentAgent } from '../auth/auth';
+import type { Agent } from '../types/api';
 
 const dirColors: Record<string, string> = {
   'Жилая': '#4361EE',
   'Коммерческая': '#F59E0B',
   'Загородная': '#22C55E',
 };
-const cities = ['Все города', ...Array.from(new Set(agentsBase.map(a => a.city)))];
 const directions = ['Все направления', 'Жилая', 'Коммерческая', 'Загородная'];
+
+type BaseRecord = AgentBaseRecord & { reviewsCount: number };
+
+/** Адаптер: бэковый Agent → формат базы агентов на портале. */
+function toBaseRecord(a: Agent): BaseRecord {
+  const primary = a.specialization.length > 0 ? a.specialization : ['Жилая'];
+  return {
+    id: a.id,
+    name: a.name,
+    city: a.city,
+    primaryDir: primary,
+    secondaryDir: [],
+    deals: a.totalDeals,
+    experienceYears: a.experienceYears,
+    phone: a.phone,
+    photo: a.photo,
+    socials: a.socials,
+    bio: a.bio,
+    rating: a.rating,
+    reviews: [], // загружаются лениво при открытии карточки
+    reviewsCount: a.reviewsCount,
+  };
+}
 
 const selectSx = {
   '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(201,168,76,0.2)' },
@@ -96,17 +122,59 @@ function SocialsRow({ agent, size = 'small' }: SocialsRowProps) {
 }
 
 export default function Agents() {
+  const [agentsBase, setAgentsBase] = useState<BaseRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [search, setSearch] = useState('');
   const [city, setCity] = useState('Все города');
   const [direction, setDirection] = useState('Все направления');
   const [openId, setOpenId] = useState<number | null>(null);
 
-  // Local reviews state — additional reviews users leave
-  const [extraReviews, setExtraReviews] = useState<Record<number, AgentReview[]>>({});
-  // Composer state for the open dialog
+  // Отзывы открытого агента: грузятся при открытии карточки.
+  const [openReviews, setOpenReviews] = useState<AgentReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  // Composer
   const [composerRating, setComposerRating] = useState<number | null>(0);
   const [composerText, setComposerText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [justSent, setJustSent] = useState(false);
+
+  // На старте — список агентов с бэка.
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    agentsApi.list()
+      .then(list => {
+        if (cancelled) return;
+        // Скрываем самого пользователя из базы — он видит её как «база остальных агентов».
+        const me = getCurrentAgent();
+        const meId = typeof me?.id === 'number' ? me.id : null;
+        const visible = meId != null ? list.filter(a => a.id !== meId) : list;
+        setAgentsBase(visible.map(toBaseRecord));
+      })
+      .catch(err => { if (!cancelled) setError(err?.message || 'Ошибка загрузки агентов'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // При открытии карточки — подтянуть одобренные отзывы.
+  useEffect(() => {
+    if (openId == null) { setOpenReviews([]); return; }
+    let cancelled = false;
+    setReviewsLoading(true);
+    agentsApi.reviews(openId)
+      .then(rows => { if (!cancelled) setOpenReviews(rows); })
+      .catch(() => { if (!cancelled) setOpenReviews([]); })
+      .finally(() => { if (!cancelled) setReviewsLoading(false); });
+    return () => { cancelled = true; };
+  }, [openId]);
+
+  const cities = useMemo(
+    () => ['Все города', ...Array.from(new Set(agentsBase.map(a => a.city).filter(Boolean)))],
+    [agentsBase],
+  );
 
   const filtered = agentsBase.filter(a =>
     (a.name.toLowerCase().includes(search.toLowerCase()) || a.city.toLowerCase().includes(search.toLowerCase())) &&
@@ -114,8 +182,8 @@ export default function Agents() {
     (direction === 'Все направления' || [...a.primaryDir, ...a.secondaryDir].includes(direction))
   );
 
-  const openAgent = openId !== null ? agentsBase.find(a => a.id === openId) : null;
-  const openAgentReviews = openAgent ? [...openAgent.reviews, ...(extraReviews[openAgent.id] || [])] : [];
+  const openAgent = openId !== null ? agentsBase.find(a => a.id === openId) || null : null;
+  const openAgentReviews = openReviews;
   const avgRating = openAgent
     ? (openAgentReviews.length
         ? openAgentReviews.reduce((s, r) => s + r.rating, 0) / openAgentReviews.length
@@ -124,24 +192,33 @@ export default function Agents() {
 
   const MIN_REVIEW = 100;
   const composerLen = composerText.trim().length;
-  const canSendReview = !!composerRating && composerLen >= MIN_REVIEW;
+  const canSendReview = !!composerRating && composerLen >= MIN_REVIEW && !sending;
 
-  const handleSendReview = () => {
+  const handleSendReview = async () => {
     if (!openAgent || !canSendReview) return;
-    const initials = currentUser.name.split(' ').map(n => n[0]).slice(0, 2).join('');
-    const review: AgentReview = {
-      id: Date.now(),
-      author: currentUser.name.split(' ').slice(0, 2).join(' '),
-      initials,
-      rating: composerRating as 1 | 2 | 3 | 4 | 5,
-      date: new Date().toISOString().slice(0, 10),
-      text: composerText.trim(),
-    };
-    setExtraReviews(prev => ({ ...prev, [openAgent.id]: [...(prev[openAgent.id] || []), review] }));
-    setComposerRating(0);
-    setComposerText('');
-    setJustSent(true);
-    setTimeout(() => setJustSent(false), 2500);
+    setSending(true); setSendError(null);
+    try {
+      await agentsApi.createReview(openAgent.id, composerRating!, composerText.trim());
+      // Отзыв ушёл, но он pending — модерация. Локально показываем мгновенно.
+      const initials = currentUser.name.split(' ').map(n => n[0]).slice(0, 2).join('');
+      const optimistic: AgentReview = {
+        id: Date.now(),
+        author: currentUser.name.split(' ').slice(0, 2).join(' '),
+        initials,
+        rating: composerRating as 1 | 2 | 3 | 4 | 5,
+        date: new Date().toISOString().slice(0, 10),
+        text: composerText.trim(),
+      };
+      setOpenReviews(prev => [...prev, optimistic]);
+      setComposerRating(0);
+      setComposerText('');
+      setJustSent(true);
+      setTimeout(() => setJustSent(false), 2500);
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : 'Не удалось отправить отзыв');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -166,12 +243,25 @@ export default function Agents() {
         Найдено агентов: <b style={{ color: '#C9A84C' }}>{filtered.length}</b> из {agentsBase.length}
       </Typography>
 
+      {loading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress sx={{ color: '#C9A84C' }} />
+        </Box>
+      )}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+      )}
+      {!loading && !error && agentsBase.length === 0 && (
+        <Typography variant="body2" sx={{ color: '#64748B', textAlign: 'center', py: 4 }}>
+          Агентов пока нет
+        </Typography>
+      )}
+
       <Grid container spacing={3}>
         <AnimatePresence>
           {filtered.map((agent, i) => {
             const initials = agent.name.split(' ').map(n => n[0]).join('').slice(0, 2);
-            const extra = extraReviews[agent.id]?.length || 0;
-            const totalReviews = agent.reviews.length + extra;
+            const totalReviews = agent.reviewsCount;
             return (
               <Grid size={{ xs: 12, sm: 6, lg: 4, xl: 3 }} key={agent.id}>
                 <motion.div layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ delay: i * 0.05 }} whileHover={{ y: -4 }}>
@@ -367,7 +457,11 @@ export default function Agents() {
 
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
                   <AnimatePresence>
-                    {openAgentReviews.length === 0 ? (
+                    {reviewsLoading ? (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                        <CircularProgress size={24} sx={{ color: '#C9A84C' }} />
+                      </Box>
+                    ) : openAgentReviews.length === 0 ? (
                       <Typography variant="body2" sx={{ color: '#475569', textAlign: 'center', py: 3, fontStyle: 'italic' }}>
                         Отзывов пока нет
                       </Typography>
@@ -458,14 +552,17 @@ export default function Agents() {
                       disabled={!canSendReview}
                       onClick={handleSendReview}
                     >
-                      Отправить отзыв
+                      {sending ? 'Отправка…' : 'Отправить отзыв'}
                     </Button>
                   </Box>
+                  {sendError && (
+                    <Alert severity="error" sx={{ mt: 1.5 }}>{sendError}</Alert>
+                  )}
                   {justSent && (
                     <Box sx={{ mt: 1.5, p: 1, borderRadius: 1.5, background: 'rgba(34,197,94,0.1)', display: 'flex', alignItems: 'center', gap: 1 }}>
                       <CheckCircleRoundedIcon sx={{ color: '#22C55E', fontSize: 18 }} />
                       <Typography variant="caption" sx={{ color: '#22C55E', fontWeight: 600 }}>
-                        Спасибо! Ваш отзыв опубликован.
+                        Спасибо! Ваш отзыв отправлен на модерацию.
                       </Typography>
                     </Box>
                   )}

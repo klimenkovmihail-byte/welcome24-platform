@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, Grid, Avatar, alpha, TextField, InputAdornment,
-  Dialog, DialogContent, IconButton, Divider, Button,
+  Dialog, DialogContent, IconButton, Divider, Button, CircularProgress, Alert,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
@@ -11,7 +11,9 @@ import FavoriteBorderRoundedIcon from '@mui/icons-material/FavoriteBorderRounded
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
-import { newsArticles, currentUser, type NewsArticle } from '../data/mockData';
+import { currentUser } from '../data/mockData';
+import { newsApi, type NewsArticle, type NewsComment } from '../api/news';
+import { getCurrentAgent } from '../auth/auth';
 
 const categoryColors: Record<string, { bg: string; color: string }> = {
   'Рынок': { bg: 'rgba(67,97,238,0.15)', color: '#4361EE' },
@@ -33,6 +35,18 @@ interface Comment {
   isMe?: boolean;
 }
 
+function commentFromApi(c: NewsComment, meId: number | null): Comment {
+  const initials = (c.authorName || 'А').split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+  return {
+    id: c.id,
+    author: c.authorName,
+    initials,
+    text: c.text,
+    date: (c.createdAt || '').slice(0, 10).split('-').reverse().slice(0, 2).join('.'),
+    isMe: meId != null && c.authorId === meId,
+  };
+}
+
 const initialComments: Record<number, Comment[]> = {
   1: [
     { id: 1, author: 'Кулаков Степан', initials: 'КС', date: '22.05', text: 'Подтверждаю — у меня на этой неделе 4 показа, все ушли в задаток. Год назад такого темпа не было.' },
@@ -51,13 +65,45 @@ const initialComments: Record<number, Comment[]> = {
 };
 
 export default function News() {
+  const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('');
   const [openId, setOpenId] = useState<number | null>(null);
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
   const [likesOverride, setLikesOverride] = useState<Record<number, number>>({});
-  const [commentsByArticle, setCommentsByArticle] = useState<Record<number, Comment[]>>(initialComments);
+  const [commentsByArticle, setCommentsByArticle] = useState<Record<number, Comment[]>>({});
   const [newComment, setNewComment] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const me = getCurrentAgent();
+  const meId = typeof me?.id === 'number' ? me.id : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    newsApi.list()
+      .then(rows => { if (!cancelled) setNewsArticles(rows); })
+      .catch(err => { if (!cancelled) setError(err?.message || 'Ошибка загрузки новостей'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // При открытии статьи — подтянуть её комменты с бэка.
+  useEffect(() => {
+    if (openId == null) return;
+    if (commentsByArticle[openId]) return; // уже загружены
+    let cancelled = false;
+    newsApi.comments(openId)
+      .then(rows => {
+        if (cancelled) return;
+        setCommentsByArticle(prev => ({ ...prev, [openId]: rows.map(c => commentFromApi(c, meId)) }));
+      })
+      .catch(() => { /* tolerate */ });
+    return () => { cancelled = true; };
+  }, [openId, commentsByArticle, meId]);
 
   const categories = Array.from(new Set(newsArticles.map(a => a.category)));
   const filtered = newsArticles.filter(a =>
@@ -74,29 +120,40 @@ export default function News() {
 
   const toggleLike = (e: React.MouseEvent, a: NewsArticle) => {
     e.stopPropagation();
+    // Оптимистично — потом синхронизируем с ответом сервера.
     const liked = isLiked(a.id);
-    const next = new Set(likedIds);
-    if (liked) next.delete(a.id);
-    else next.add(a.id);
-    setLikedIds(next);
+    const nextSet = new Set(likedIds);
+    if (liked) nextSet.delete(a.id); else nextSet.add(a.id);
+    setLikedIds(nextSet);
     setLikesOverride(prev => ({ ...prev, [a.id]: getLikes(a) + (liked ? -1 : 1) }));
+    newsApi.toggleLike(a.id)
+      .then(res => {
+        setLikedIds(prev => {
+          const s = new Set(prev);
+          if (res.liked) s.add(a.id); else s.delete(a.id);
+          return s;
+        });
+        setLikesOverride(prev => ({ ...prev, [a.id]: res.likes }));
+      })
+      .catch(() => { /* откатывать не будем — пусть UI остаётся оптимистичным */ });
   };
 
-  const sendComment = () => {
+  const sendComment = async () => {
     if (!openArticle || !newComment.trim()) return;
     const text = newComment.trim();
-    const list = commentsByArticle[openArticle.id] || [];
-    const initials = currentUser.name.split(' ').map(n => n[0]).slice(0, 2).join('');
-    const next: Comment = {
-      id: Date.now(),
-      author: currentUser.name.split(' ').slice(0, 2).join(' '),
-      initials,
-      text,
-      date: new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
-      isMe: true,
-    };
-    setCommentsByArticle({ ...commentsByArticle, [openArticle.id]: [...list, next] });
-    setNewComment('');
+    setSending(true);
+    try {
+      const created = await newsApi.addComment(openArticle.id, text);
+      setCommentsByArticle(prev => ({
+        ...prev,
+        [openArticle.id]: [...(prev[openArticle.id] || []), commentFromApi(created, meId)],
+      }));
+      setNewComment('');
+    } catch {
+      // оставляем поле непустым для повтора
+    } finally {
+      setSending(false);
+    }
   };
 
   const ArticleMetaRow = ({ a, isCard }: { a: NewsArticle; isCard: boolean }) => {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, Grid, Avatar, LinearProgress, Tooltip, IconButton,
   Table, TableHead, TableRow, TableCell, TableBody, Divider, ToggleButtonGroup, ToggleButton,
@@ -12,9 +12,34 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
-import {
-  MARKETING_PLAN, teamAgents, teamDeals, computeTeamIncome, l1AgentsWithDeals,
-} from '../data/mockData';
+import { teamApi, type TeamMember, type TeamLevelStats, type MarketingPlanLevel } from '../api/team';
+import { CircularProgress, Alert, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
+
+const MONTHS = [
+  { value: '01', label: 'Январь' }, { value: '02', label: 'Февраль' }, { value: '03', label: 'Март' },
+  { value: '04', label: 'Апрель' }, { value: '05', label: 'Май' }, { value: '06', label: 'Июнь' },
+  { value: '07', label: 'Июль' }, { value: '08', label: 'Август' }, { value: '09', label: 'Сентябрь' },
+  { value: '10', label: 'Октябрь' }, { value: '11', label: 'Ноябрь' }, { value: '12', label: 'Декабрь' },
+];
+const CURRENT_YEAR = new Date().getFullYear();
+const YEARS = ['all', ...Array.from({ length: CURRENT_YEAR - 2022 + 1 }, (_, i) => String(2022 + i)).reverse()];
+
+/** Считает пассивный доход агента по уровням MLM-плана. */
+function computeIncome(
+  levels: TeamLevelStats[],
+  plan: MarketingPlanLevel[],
+  l1WithDeals: number,
+) {
+  return levels.map(stats => {
+    const p = plan.find(x => x.level === stats.level);
+    const growingUnlocked = p?.required == null ? true : l1WithDeals >= (p.required ?? 0);
+    const effectivePct = (p?.protected || 0) + (growingUnlocked && p?.growing ? p.growing : 0);
+    const rawIncome = Math.round(stats.totalVkd * effectivePct / 100);
+    const capPerAgent = p?.capPerAgent ?? 0;
+    const cappedIncome = Math.min(rawIncome, stats.withDealCount * capPerAgent);
+    return { ...stats, growingUnlocked, effectivePct, rawIncome, cappedIncome, capPerAgent, required: p?.required ?? null, protected: p?.protected ?? 0, growing: p?.growing ?? null };
+  });
+}
 
 const fmt = (n: number) => n.toLocaleString('ru-RU');
 const fmtCompact = (n: number) =>
@@ -32,32 +57,93 @@ const levelColors: Record<number, string> = {
 };
 
 export default function Team() {
-  const incomeBreakdown = useMemo(() => computeTeamIncome(), []);
+  const [teamAgents, setTeamAgents] = useState<TeamMember[]>([]);
+  const [levels, setLevels] = useState<TeamLevelStats[]>([]);
+  const [marketingPlan, setMarketingPlan] = useState<MarketingPlanLevel[]>([]);
+  const [totals, setTotals] = useState({ agents: 0, active: 0, deals: 0, vkd: 0, income: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Фильтр периода: «всё время» / конкретный год / год+месяц
+  const [filterYear, setFilterYear] = useState<string>(String(CURRENT_YEAR));
+  const [filterMonth, setFilterMonth] = useState<string>('all');
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    const opts: { year?: string; month?: string } = {};
+    if (filterYear !== 'all') opts.year = filterYear;
+    if (filterMonth !== 'all' && filterYear !== 'all') opts.month = filterMonth;
+    teamApi.get(opts)
+      .then(r => {
+        if (cancelled) return;
+        setTeamAgents(r.agents);
+        setLevels(r.levels);
+        setMarketingPlan(r.marketingPlan);
+        setTotals(r.totals);
+      })
+      .catch(err => { if (!cancelled) setError(err?.message || 'Ошибка загрузки команды'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [filterYear, filterMonth]);
+
+  const periodLabel = filterYear === 'all'
+    ? 'за всё время'
+    : filterMonth === 'all'
+      ? `за ${filterYear} год`
+      : `${MONTHS.find(m => m.value === filterMonth)?.label} ${filterYear}`;
+
+  const l1AgentsWithDeals = levels[0]?.withDealCount ?? 0;
+  const incomeBreakdown = useMemo(
+    () => computeIncome(levels, marketingPlan, l1AgentsWithDeals),
+    [levels, marketingPlan, l1AgentsWithDeals],
+  );
   const totalPassiveIncome = incomeBreakdown.reduce((s, l) => s + l.cappedIncome, 0);
-  const totalTeamVkd = incomeBreakdown.reduce((s, l) => s + l.totalVkd, 0);
-  const totalTeamAgents = teamAgents.length;
-  const totalTeamDeals = teamDeals.length;
+  const totalTeamVkd = totals.vkd;
+  const totalTeamAgents = totals.agents;
+  const totalTeamDeals = totals.deals;
 
   const [expandedLevel, setExpandedLevel] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'levels' | 'agents'>('levels');
 
-  // Aggregates per agent for the "agents" view
-  const agentStats = useMemo(() => {
-    const dealsByAgent = new Map<number, { vkd: number; deals: number }>();
-    teamDeals.forEach(d => {
-      const cur = dealsByAgent.get(d.agentId) || { vkd: 0, deals: 0 };
-      cur.vkd += d.vkd; cur.deals += 1;
-      dealsByAgent.set(d.agentId, cur);
-    });
-    return teamAgents.map(a => ({
-      ...a,
-      vkd: dealsByAgent.get(a.id)?.vkd || 0,
-      deals: dealsByAgent.get(a.id)?.deals || 0,
-    })).sort((a, b) => a.teamLevel - b.teamLevel || b.vkd - a.vkd);
-  }, []);
+  // Все агенты команды, отсортированные для табличного вида.
+  const agentStats = useMemo(
+    () => [...teamAgents].sort((a, b) => a.teamLevel - b.teamLevel || b.vkd - a.vkd),
+    [teamAgents],
+  );
 
   return (
     <Box>
+      {/* ===== Период (год / месяц) ===== */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+        <Typography variant="body2" sx={{ color: '#94A3B8', fontWeight: 600 }}>Период:</Typography>
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel>Год</InputLabel>
+          <Select label="Год" value={filterYear} onChange={e => { setFilterYear(e.target.value); if (e.target.value === 'all') setFilterMonth('all'); }}>
+            {YEARS.map(y => <MenuItem key={y} value={y}>{y === 'all' ? 'Все годы' : y}</MenuItem>)}
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 160 }} disabled={filterYear === 'all'}>
+          <InputLabel>Месяц</InputLabel>
+          <Select label="Месяц" value={filterMonth} onChange={e => setFilterMonth(e.target.value)}>
+            <MenuItem value="all">Весь год</MenuItem>
+            {MONTHS.map(m => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
+          </Select>
+        </FormControl>
+        <Typography variant="caption" sx={{ color: '#64748B', ml: 'auto' }}>
+          Доход и сделки — {periodLabel}. Состав команды (MLM) — актуальный.
+        </Typography>
+      </Box>
+
+      {loading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress sx={{ color: '#C9A84C' }} />
+        </Box>
+      )}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+      )}
+
       {/* ===== Hero — passive income summary ===== */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid size={{ xs: 12, md: 7 }}>
@@ -133,7 +219,7 @@ export default function Team() {
 
                 {/* Next unlock progress */}
                 {(() => {
-                  const nextLock = MARKETING_PLAN.find(p => p.required !== null && l1AgentsWithDeals < p.required);
+                  const nextLock = marketingPlan.find(p => p.required !== null && p.required !== undefined && l1AgentsWithDeals < p.required);
                   if (!nextLock) {
                     return (
                       <Box sx={{ p: 2, borderRadius: 2, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}>
@@ -317,10 +403,8 @@ export default function Team() {
             const agentsOnLevel = teamAgents.filter(a => a.teamLevel === l.level);
             const expanded = expandedLevel === l.level;
             const dealsByAgent = new Map<number, { vkd: number; deals: number }>();
-            teamDeals.forEach(d => {
-              const cur = dealsByAgent.get(d.agentId) || { vkd: 0, deals: 0 };
-              cur.vkd += d.vkd; cur.deals += 1;
-              dealsByAgent.set(d.agentId, cur);
+            agentsOnLevel.forEach(a => {
+              dealsByAgent.set(a.id, { vkd: a.vkd, deals: a.deals });
             });
 
             return (

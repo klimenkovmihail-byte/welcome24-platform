@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { theme } from './theme/theme';
-import { tryImpersonationFromUrl, trySsoFromUrl } from './auth/auth';
+import { tryImpersonationFromUrl, fetchMe } from './auth/auth';
 import Layout from './components/layout/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -16,8 +16,8 @@ import Shares from './pages/Shares';
 
 export default function App() {
   useEffect(() => {
-    // Auto-handle inbound SSO / impersonation params at app startup
-    trySsoFromUrl();
+    // На старте — валидируем токен через GET /api/auth/me (в фоне, без блокировки UI).
+    fetchMe();
     tryImpersonationFromUrl();
   }, []);
 

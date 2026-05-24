@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Box, Card, CardContent, Typography, LinearProgress, Chip, Grid, Divider, ToggleButtonGroup, ToggleButton, MenuItem, Select, FormControl, InputLabel, Tooltip } from '@mui/material';
 import { motion } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartTooltip, ResponsiveContainer } from 'recharts';
@@ -8,7 +8,10 @@ import DiamondRoundedIcon from '@mui/icons-material/DiamondRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import { useNavigate } from 'react-router-dom';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
-import { currentUser, monthlyStats, teamData, myDeals, achievements } from '../data/mockData';
+import { currentUser, monthlyStats, teamData, achievements } from '../data/mockData';
+import { dealsApi } from '../api/deals';
+import { getCurrentAgent } from '../auth/auth';
+import type { Deal } from '../types/api';
 
 function getGreeting(hour: number): { text: string; emoji: string } {
   if (hour >= 5 && hour < 12)  return { text: 'Доброе утро',  emoji: '☀️' };
@@ -93,6 +96,14 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 
 const MONTH_NAMES = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 
+const DEAL_TYPE_RU: Record<Deal['type'], string> = {
+  primary: 'новостройка',
+  secondary: 'вторичка',
+  commercial: 'коммерция',
+  suburban: 'загородная',
+  rent: 'аренда',
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const greeting = getGreeting(new Date().getHours());
@@ -103,9 +114,30 @@ export default function Dashboard() {
   const earnedCount = achievements.filter(a => a.earned).length;
   const progressToNext = Math.min(100, (currentUser.totalVkd / currentUser.nextLevelThreshold) * 100);
 
+  // Мои сделки с бэка. Бэк фильтрует агентам только свои; для admin (как mk@) —
+  // передаём agentId явно, чтобы на портале видеть свои сделки, а не всей компании.
+  const [myDeals, setMyDeals] = useState<Deal[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    const me = getCurrentAgent();
+    const meId = typeof me?.id === 'number' ? me.id : undefined;
+    dealsApi.list({ agentId: meId })
+      .then(rows => { if (!cancelled) setMyDeals(rows); })
+      .catch(() => { if (!cancelled) setMyDeals([]); });
+    return () => { cancelled = true; };
+  }, []);
+
   // Filter state: year + month ('all' = all months in year)
-  const availableYears = useMemo(() => Array.from(new Set(myDeals.map(d => d.date.slice(0, 4)))).sort(), []);
-  const [filterYear, setFilterYear] = useState<string>(availableYears[availableYears.length - 1] || '2026');
+  const availableYears = useMemo(
+    () => Array.from(new Set(myDeals.map(d => d.date.slice(0, 4)))).sort(),
+    [myDeals],
+  );
+  const [filterYear, setFilterYear] = useState<string>('2026');
+  useEffect(() => {
+    if (availableYears.length && !availableYears.includes(filterYear)) {
+      setFilterYear(availableYears[availableYears.length - 1]);
+    }
+  }, [availableYears, filterYear]);
   const [filterMonth, setFilterMonth] = useState<string>('all');
 
   const filteredDeals = useMemo(() => myDeals.filter(d => {
@@ -113,7 +145,7 @@ export default function Dashboard() {
     if (y !== filterYear) return false;
     if (filterMonth !== 'all' && m !== filterMonth) return false;
     return true;
-  }), [filterYear, filterMonth]);
+  }), [myDeals, filterYear, filterMonth]);
 
   const filteredVkd = filteredDeals.reduce((s, d) => s + d.vkd, 0);
   const filteredIncome = filteredDeals.reduce((s, d) => s + d.income, 0);
@@ -123,7 +155,7 @@ export default function Dashboard() {
     const set = new Set<string>();
     myDeals.forEach(d => { if (d.date.startsWith(filterYear)) set.add(d.date.slice(5, 7)); });
     return Array.from(set).sort();
-  }, [filterYear]);
+  }, [myDeals, filterYear]);
 
   const periodLabel = filterMonth === 'all'
     ? `${filterYear} год`
@@ -344,9 +376,9 @@ export default function Dashboard() {
                         <Typography variant="body2" sx={{ color: '#94A3B8' }}>{new Date(d.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })}</Typography>
                       </Box>
                       <Box sx={{ p: 1.6 }}>
-                        <Chip label={d.type} size="small" sx={{
-                          background: d.type === 'вторичка' ? 'rgba(67,97,238,0.12)' : d.type === 'новостройка' ? 'rgba(34,197,94,0.12)' : 'rgba(139,92,246,0.12)',
-                          color: d.type === 'вторичка' ? '#60A5FA' : d.type === 'новостройка' ? '#22C55E' : '#A78BFA',
+                        <Chip label={DEAL_TYPE_RU[d.type] || d.type} size="small" sx={{
+                          background: d.type === 'secondary' ? 'rgba(67,97,238,0.12)' : d.type === 'primary' ? 'rgba(34,197,94,0.12)' : 'rgba(139,92,246,0.12)',
+                          color: d.type === 'secondary' ? '#60A5FA' : d.type === 'primary' ? '#22C55E' : '#A78BFA',
                           fontWeight: 600, fontSize: 11, height: 20,
                         }} />
                       </Box>
