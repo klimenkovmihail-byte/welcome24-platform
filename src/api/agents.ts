@@ -94,7 +94,10 @@ export function normalizeReview(raw: RawReview): AgentReview {
 }
 
 export const agentsApi = {
-  list:    () => api.get<RawAgent[]>('/api/agents').then(rows => rows.map(normalizeAgent)),
+  list: (opts?: { status?: 'active' | 'inactive' | 'blocked' }) => {
+    const q = opts?.status ? `?status=${opts.status}` : '';
+    return api.get<RawAgent[]>(`/api/agents${q}`).then(rows => rows.map(normalizeAgent));
+  },
   get:     (id: number) => api.get<RawAgent>(`/api/agents/${id}`).then(normalizeAgent),
   reviews: (id: number) => api.get<RawReview[]>(`/api/agents/${id}/reviews`).then(rows => rows.map(normalizeReview)),
   createReview: (id: number, rating: number, text: string) =>
