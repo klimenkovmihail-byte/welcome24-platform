@@ -8,10 +8,26 @@ import DiamondRoundedIcon from '@mui/icons-material/DiamondRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import { useNavigate } from 'react-router-dom';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
-import { currentUser, monthlyStats, teamData, achievements } from '../data/mockData';
+import { achievements } from '../data/mockData';
 import { dealsApi } from '../api/deals';
+import { teamApi } from '../api/team';
+import { sharesApi } from '../api/shares';
 import { getCurrentAgent } from '../auth/auth';
-import type { Deal } from '../types/api';
+import type { Deal, ShareQuote, SharePacket } from '../types/api';
+
+// Пороги для уровней комиссии (по правилам Welcome 24)
+const LEVEL1_THRESHOLD = 2_000_000; // ВКД для перехода 80% → 90%
+const LEVEL2_THRESHOLD = 5_000_000; // ВКД для перехода 90% → 95%
+
+function commissionByVkd(totalVkd: number): { level: 1 | 2 | 3; commission: 80 | 90 | 95; nextThreshold: number; nextCommission: 80 | 90 | 95; toNext: number } {
+  if (totalVkd >= LEVEL2_THRESHOLD) {
+    return { level: 3, commission: 95, nextThreshold: LEVEL2_THRESHOLD, nextCommission: 95, toNext: 0 };
+  }
+  if (totalVkd >= LEVEL1_THRESHOLD) {
+    return { level: 2, commission: 90, nextThreshold: LEVEL2_THRESHOLD, nextCommission: 95, toNext: LEVEL2_THRESHOLD - totalVkd };
+  }
+  return { level: 1, commission: 80, nextThreshold: LEVEL1_THRESHOLD, nextCommission: 90, toNext: LEVEL1_THRESHOLD - totalVkd };
+}
 
 function getGreeting(hour: number): { text: string; emoji: string } {
   if (hour >= 5 && hour < 12)  return { text: 'Доброе утро',  emoji: '☀️' };
@@ -112,20 +128,64 @@ export default function Dashboard() {
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
     .slice(0, 3);
   const earnedCount = achievements.filter(a => a.earned).length;
-  const progressToNext = Math.min(100, (currentUser.totalVkd / currentUser.nextLevelThreshold) * 100);
 
-  // Мои сделки с бэка. Бэк фильтрует агентам только свои; для admin (как mk@) —
-  // передаём agentId явно, чтобы на портале видеть свои сделки, а не всей компании.
+  // === Мои данные с бэка ===
   const [myDeals, setMyDeals] = useState<Deal[]>([]);
+  const [teamTotals, setTeamTotals] = useState({ agents: 0, income: 0 });
+  const [myShares, setMyShares] = useState<SharePacket[]>([]);
+  const [shareQuotes, setShareQuotes] = useState<ShareQuote[]>([]);
+
   useEffect(() => {
     let cancelled = false;
     const me = getCurrentAgent();
     const meId = typeof me?.id === 'number' ? me.id : undefined;
-    dealsApi.list({ agentId: meId })
-      .then(rows => { if (!cancelled) setMyDeals(rows); })
-      .catch(() => { if (!cancelled) setMyDeals([]); });
+    Promise.all([
+      dealsApi.list({ agentId: meId }).catch(() => []),
+      teamApi.get().catch(() => ({ totals: { agents: 0, active: 0, deals: 0, vkd: 0, income: 0 } })),
+      sharesApi.myPackets().catch(() => []),
+      sharesApi.quotes().catch(() => []),
+    ]).then(([deals, team, packets, quotes]) => {
+      if (cancelled) return;
+      setMyDeals(deals);
+      setTeamTotals({ agents: team.totals?.agents || 0, income: team.totals?.income || 0 });
+      setMyShares(packets);
+      setShareQuotes(quotes);
+    });
     return () => { cancelled = true; };
   }, []);
+
+  // === Вычисления ===
+  const currentYear = String(new Date().getFullYear());
+  const dealsThisYear = useMemo(() => myDeals.filter(d => d.date?.startsWith(currentYear)), [myDeals, currentYear]);
+  const yearTotalVkd    = dealsThisYear.reduce((s, d) => s + d.vkd, 0);
+  const yearTotalIncome = dealsThisYear.reduce((s, d) => s + d.income, 0);
+  const yearTotalDeals  = dealsThisYear.length;
+
+  const commission = useMemo(() => commissionByVkd(yearTotalVkd), [yearTotalVkd]);
+  const progressToNext = commission.toNext > 0
+    ? Math.min(100, (yearTotalVkd / commission.nextThreshold) * 100)
+    : 100;
+
+  // Акции
+  const totalShares       = myShares.reduce((s, p) => s + p.quantity, 0);
+  const sharesCost        = myShares.reduce((s, p) => s + p.quantity * p.acquiredPrice, 0);
+  const currentSharePrice = shareQuotes.length ? shareQuotes[shareQuotes.length - 1].price : 0;
+  const sharesValue       = totalShares * currentSharePrice;
+  const sharesGrowthPct   = sharesCost > 0 ? Math.round((sharesValue - sharesCost) / sharesCost * 100) : 0;
+
+  // График по месяцам выбранного года.
+  const monthlyStats = useMemo(() => {
+    const RU = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
+    return RU.map((m, i) => {
+      const mm = String(i + 1).padStart(2, '0');
+      const inMonth = dealsThisYear.filter(d => d.date?.slice(5, 7) === mm);
+      return {
+        month: m,
+        vkd: inMonth.reduce((s, d) => s + d.vkd, 0),
+        income: inMonth.reduce((s, d) => s + d.income, 0),
+      };
+    });
+  }, [dealsThisYear]);
 
   // Filter state: year + month ('all' = all months in year)
   const availableYears = useMemo(
@@ -178,10 +238,10 @@ export default function Dashboard() {
               {greeting.text}, Михаил! {greeting.emoji}
             </Typography>
             <Typography sx={{ color: '#94A3B8', mt: 0.5 }}>
-              {currentUser.toNextLevel > 0 ? (
-                <>До уровня <b style={{ color: '#C9A84C' }}>{currentUser.nextLevelCommission}%</b> осталось <b style={{ color: '#C9A84C' }}>{fmt(currentUser.toNextLevel)} ₽</b> ВКД</>
+              {commission.toNext > 0 ? (
+                <>До уровня <b style={{ color: '#C9A84C' }}>{commission.nextCommission}%</b> осталось <b style={{ color: '#C9A84C' }}>{fmt(commission.toNext)} ₽</b> ВКД</>
               ) : (
-                <>Вы достигли максимального уровня комиссии <b style={{ color: '#C9A84C' }}>{currentUser.commission}%</b></>
+                <>Вы достигли максимального уровня комиссии <b style={{ color: '#C9A84C' }}>{commission.commission}%</b></>
               )}
             </Typography>
           </Box>
@@ -230,10 +290,10 @@ export default function Dashboard() {
       {/* Stats */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {[
-          { icon: <AccountBalanceWalletRoundedIcon />, label: 'Доход 2026', value: `${fmt(currentUser.totalIncome)} ₽`, sub: `ВКД: ${fmt(currentUser.totalVkd)} ₽`, color: '#22C55E', delay: 0.05 },
-          { icon: <HandshakeRoundedIcon />, label: 'Сделок 2026', value: currentUser.totalDeals, sub: 'Личные сделки', color: '#4361EE', delay: 0.1 },
-          { icon: <GroupsRoundedIcon />, label: 'Команда', value: `${teamData.totalAgents} агентов`, sub: `С команды: ${fmt(teamData.totalIncome)} ₽`, color: '#C9A84C', delay: 0.15 },
-          { icon: <DiamondRoundedIcon />, label: 'Акции', value: `${currentUser.shares} шт`, sub: `+${currentUser.sharesGrowth}% · ${fmt(currentUser.sharesValue)} ₽`, color: '#7B2FBE', delay: 0.2 },
+          { icon: <AccountBalanceWalletRoundedIcon />, label: `Доход ${currentYear}`, value: `${fmt(yearTotalIncome)} ₽`, sub: `ВКД: ${fmt(yearTotalVkd)} ₽`, color: '#22C55E', delay: 0.05 },
+          { icon: <HandshakeRoundedIcon />, label: `Сделок ${currentYear}`, value: yearTotalDeals, sub: 'Личные сделки', color: '#4361EE', delay: 0.1 },
+          { icon: <GroupsRoundedIcon />, label: 'Команда', value: `${teamTotals.agents} агентов`, sub: `С команды: ${fmt(teamTotals.income)} ₽`, color: '#C9A84C', delay: 0.15 },
+          { icon: <DiamondRoundedIcon />, label: 'Акции', value: `${totalShares} шт`, sub: totalShares > 0 ? `${sharesGrowthPct >= 0 ? '+' : ''}${sharesGrowthPct}% · ${fmt(sharesValue)} ₽` : '—', color: '#7B2FBE', delay: 0.2 },
         ].map((s) => (
           <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={s.label}>
             <StatCard {...s} />
@@ -287,31 +347,31 @@ export default function Dashboard() {
                 <Typography variant="h6" sx={{ fontWeight: 700, color: '#F1F5F9', mb: 0.5 }}>Уровень комиссии</Typography>
                 <Typography variant="caption" sx={{ color: '#64748B' }}>Личный объем ВКД</Typography>
                 <Box sx={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', my: 3, px: 1 }}>
-                  <CommissionLevel percent={80} range="до 2 млн" active={currentUser.level === 1} completed={currentUser.level > 1} />
-                  <CommissionLevel percent={90} range="2–5 млн" active={currentUser.level === 2} completed={currentUser.level > 2} />
-                  <CommissionLevel percent={95} range="от 5 млн" active={currentUser.level === 3} completed={false} />
+                  <CommissionLevel percent={80} range="до 2 млн" active={commission.level === 1} completed={commission.level > 1} />
+                  <CommissionLevel percent={90} range="2–5 млн" active={commission.level === 2} completed={commission.level > 2} />
+                  <CommissionLevel percent={95} range="от 5 млн" active={commission.level === 3} completed={false} />
                 </Box>
                 <Box sx={{ mb: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                     <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 600 }}>Текущий ВКД</Typography>
                     <Typography variant="caption" sx={{ color: '#C9A84C', fontWeight: 700 }}>
-                      {fmt(currentUser.totalVkd)} / {fmt(currentUser.nextLevelThreshold)} ₽
+                      {fmt(yearTotalVkd)} / {fmt(commission.nextThreshold)} ₽
                     </Typography>
                   </Box>
                   <LinearProgress variant="determinate" value={progressToNext} />
                   <Typography variant="caption" sx={{ color: '#64748B', mt: 0.5, display: 'block' }}>
-                    До {currentUser.nextLevelCommission}% осталось: <b style={{ color: '#F59E0B' }}>{fmt(currentUser.toNextLevel)} ₽</b>
+                    До {commission.nextCommission}% осталось: <b style={{ color: '#F59E0B' }}>{fmt(commission.toNext)} ₽</b>
                   </Typography>
                 </Box>
                 <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.08)' }} />
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Box>
                     <Typography variant="caption" sx={{ color: '#64748B' }}>Вознаграждение</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#C9A84C' }}>{currentUser.commission}%</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#C9A84C' }}>{commission.commission}%</Typography>
                   </Box>
                   <Box sx={{ textAlign: 'right' }}>
                     <Typography variant="caption" sx={{ color: '#64748B' }}>Уровень агента</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#F1F5F9' }}>{currentUser.level}</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#F1F5F9' }}>{commission.level}</Typography>
                   </Box>
                 </Box>
               </CardContent>

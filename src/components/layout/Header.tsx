@@ -12,9 +12,9 @@ import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import DoneAllRoundedIcon from '@mui/icons-material/DoneAllRounded';
 import { motion } from 'framer-motion';
-import { currentUser, sharesSummary } from '../../data/mockData';
 import { getCurrentAgent, openAdminPanel, logoutAgent } from '../../auth/auth';
 import { notificationsApi, type Notification as ApiNotification } from '../../api/notifications';
+import { sharesApi } from '../../api/shares';
 
 const formatNumber = (n: number) =>
   n >= 1000000 ? `${(n / 1000000).toFixed(1)} млн` : n >= 1000 ? `${(n / 1000).toFixed(0)} тыс` : n.toString();
@@ -75,7 +75,24 @@ export default function Header({ currentPath }: HeaderProps) {
   const [notifAnchor, setNotifAnchor] = useState<HTMLElement | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [notifs, setNotifs] = useState<NotifUi[]>([]);
+  const [shares, setShares] = useState({ qty: 0, value: 0, growthPct: 0 });
   const unreadCount = notifs.filter(n => n.unread).length;
+
+  // Загрузка акций (мои пакеты + последняя котировка).
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([sharesApi.myPackets().catch(() => []), sharesApi.quotes().catch(() => [])])
+      .then(([packets, quotes]) => {
+        if (cancelled) return;
+        const qty = packets.reduce((s, p) => s + p.quantity, 0);
+        const cost = packets.reduce((s, p) => s + p.quantity * p.acquiredPrice, 0);
+        const price = quotes.length ? quotes[quotes.length - 1].price : 0;
+        const value = qty * price;
+        const growthPct = cost > 0 ? ((value - cost) / cost) * 100 : 0;
+        setShares({ qty, value, growthPct });
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,10 +142,10 @@ export default function Header({ currentPath }: HeaderProps) {
       </motion.div>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Tooltip title={`Акции: ${currentUser.shares} шт · рост ${sharesSummary.growthPct.toFixed(1)}%`}>
+        <Tooltip title={`Акции: ${shares.qty} шт · рост ${shares.growthPct.toFixed(1)}%`}>
           <Chip
             icon={<TrendingUpRoundedIcon sx={{ fontSize: 16 }} />}
-            label={`${currentUser.shares} акц.`}
+            label={`${shares.qty} акц.`}
             size="small"
             sx={{
               background: 'rgba(201,168,76,0.12)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.2)',
@@ -138,7 +155,7 @@ export default function Header({ currentPath }: HeaderProps) {
         </Tooltip>
         <Tooltip title="Текущая стоимость портфеля акций">
           <Chip
-            label={`${(sharesSummary.value / 1_000_000).toFixed(2)} млн ₽`}
+            label={`${(shares.value / 1_000_000).toFixed(2)} млн ₽`}
             size="small"
             sx={{
               background: 'rgba(34,197,94,0.12)', color: '#22C55E', border: '1px solid rgba(34,197,94,0.2)',
@@ -250,10 +267,10 @@ export default function Header({ currentPath }: HeaderProps) {
         >
           <Box sx={{ textAlign: 'right' }}>
             <Typography variant="caption" sx={{ fontWeight: 700, color: '#F1F5F9', display: 'block' }}>
-              {currentUser.name.split(' ').slice(0, 2).join(' ')}
+              {(user?.name || '').split(' ').slice(0, 2).join(' ')}
             </Typography>
             <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
-              {currentUser.email}
+              {user?.email || ''}
             </Typography>
           </Box>
           <Avatar sx={{
