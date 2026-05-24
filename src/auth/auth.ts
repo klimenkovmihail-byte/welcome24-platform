@@ -112,7 +112,12 @@ export function getCurrentAgent(): AgentUser | null {
 
 /** Подтверждает токен на бэке и обновляет user в localStorage. Если 401 — стираем. */
 export async function fetchMe(): Promise<AgentUser | null> {
-  if (!getToken()) return null;
+  if (!getToken()) {
+    // Нет токена — но в LS мог остаться старый объект user. Чистим, чтобы UI
+    // не рисовал имя при фактически разлогиненном состоянии.
+    localStorage.removeItem(USER_KEY);
+    return null;
+  }
   try {
     const fresh = await api.get<Record<string, unknown> & { id: number; email: string; name: string; role: 'agent' | 'admin' }>('/api/auth/me');
     const user: AgentUser = { ...fresh, loginAt: new Date().toISOString() };

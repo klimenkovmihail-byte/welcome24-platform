@@ -1,8 +1,17 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { theme } from './theme/theme';
-import { tryImpersonationFromUrl, fetchMe } from './auth/auth';
+import { tryImpersonationFromUrl, fetchMe, getCurrentAgent } from './auth/auth';
+import { getToken } from './api/apiClient';
+
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  if (!getToken() || !getCurrentAgent()) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  return <>{children}</>;
+}
 import Layout from './components/layout/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -29,18 +38,20 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/*" element={
-            <Layout>
-              <Routes>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/rating" element={<Rating />} />
-                <Route path="/academy" element={<Academy />} />
-                <Route path="/news" element={<News />} />
-                <Route path="/team" element={<Team />} />
-                <Route path="/agents" element={<Agents />} />
-                <Route path="/shares" element={<Shares />} />
-                <Route path="/profile" element={<Profile />} />
-              </Routes>
-            </Layout>
+            <PrivateRoute>
+              <Layout>
+                <Routes>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/rating" element={<Rating />} />
+                  <Route path="/academy" element={<Academy />} />
+                  <Route path="/news" element={<News />} />
+                  <Route path="/team" element={<Team />} />
+                  <Route path="/agents" element={<Agents />} />
+                  <Route path="/shares" element={<Shares />} />
+                  <Route path="/profile" element={<Profile />} />
+                </Routes>
+              </Layout>
+            </PrivateRoute>
           } />
         </Routes>
       </BrowserRouter>
