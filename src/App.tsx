@@ -25,9 +25,16 @@ import Shares from './pages/Shares';
 
 export default function App() {
   useEffect(() => {
-    // На старте — валидируем токен через GET /api/auth/me (в фоне, без блокировки UI).
-    fetchMe();
+    // СНАЧАЛА — обработать impersonateToken из URL (подменить токен на агентский).
+    // ПОТОМ — валидация через /api/auth/me (вернёт уже агента, а не админа).
     tryImpersonationFromUrl();
+    fetchMe().then(() => {
+      // Триггерим reload только если impersonateToken только что был обработан,
+      // чтобы все страницы перерисовались под нового пользователя.
+      if (new URLSearchParams(window.location.search).has('impersonateToken')) {
+        // URL уже очищен, здесь ничего не делаем — это запасной guard.
+      }
+    });
   }, []);
 
   return (

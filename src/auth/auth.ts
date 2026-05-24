@@ -145,11 +145,37 @@ export function trySsoFromUrl(): { ssoEmail: string } | null {
   return { ssoEmail };
 }
 
-/** Read impersonation params from URL (set by admin panel) and persist them. */
+const TOKEN_BACKUP_KEY = 'w24_token_backup';
+const USER_BACKUP_KEY  = 'w24_agent_user_backup';
+
+/** Read impersonation params from URL (set by admin panel) and persist them.
+ *  Если пришёл impersonateToken — бэкапим текущие token/user и подменяем на агента. */
 export function tryImpersonationFromUrl(): ImpersonationState | null {
   const params = new URLSearchParams(window.location.search);
   const agentId = params.get('impersonate');
+  const impersonateToken = params.get('impersonateToken');
   if (!agentId) return null;
+
+  // Если есть токен от админки — бэкапим старые и подменяем.
+  if (impersonateToken) {
+    const oldToken = localStorage.getItem('w24_token');
+    const oldUser  = localStorage.getItem(USER_KEY);
+    if (oldToken) localStorage.setItem(TOKEN_BACKUP_KEY, oldToken);
+    if (oldUser)  localStorage.setItem(USER_BACKUP_KEY, oldUser);
+    setToken(impersonateToken);
+    // Заглушка-user, чтобы PrivateRoute не редиректнул на /login до того,
+    // как fetchMe подтянет реальные данные агента.
+    const stubName = decodeURIComponent(params.get('agentName') || 'Агент');
+    const stub: AgentUser = {
+      id: Number(agentId),
+      email: '',
+      name: stubName,
+      role: 'agent',
+      loginAt: new Date().toISOString(),
+    };
+    localStorage.setItem(USER_KEY, JSON.stringify(stub));
+  }
+
   const state: ImpersonationState = {
     agentId: Number(agentId),
     agentName: decodeURIComponent(params.get('agentName') || 'Агент'),
@@ -159,6 +185,7 @@ export function tryImpersonationFromUrl(): ImpersonationState | null {
   localStorage.setItem(IMPERSONATION_KEY, JSON.stringify(state));
   const url = new URL(window.location.href);
   url.searchParams.delete('impersonate');
+  url.searchParams.delete('impersonateToken');
   url.searchParams.delete('agentName');
   url.searchParams.delete('returnUrl');
   window.history.replaceState({}, '', url.pathname + url.search);
@@ -175,6 +202,21 @@ export function getImpersonation(): ImpersonationState | null {
 export function exitImpersonation() {
   const state = getImpersonation();
   localStorage.removeItem(IMPERSONATION_KEY);
+  // Восстанавливаем токен и user админа из бэкапа.
+  const backupToken = localStorage.getItem(TOKEN_BACKUP_KEY);
+  const backupUser  = localStorage.getItem(USER_BACKUP_KEY);
+  if (backupToken) {
+    setToken(backupToken);
+    localStorage.removeItem(TOKEN_BACKUP_KEY);
+  }
+  if (backupUser) {
+    localStorage.setItem(USER_KEY, backupUser);
+    localStorage.removeItem(USER_BACKUP_KEY);
+  } else {
+    // Нет бэкапа админа → стираем агентский токен/user, чтобы не зависнуть.
+    setToken(null);
+    localStorage.removeItem(USER_KEY);
+  }
   if (state) window.location.href = state.returnUrl;
 }
 
