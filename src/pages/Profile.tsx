@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Box, Card, CardContent, Typography, Avatar, Chip, Grid, Divider, Button,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, Stack, IconButton, Alert, Tooltip,
@@ -112,8 +112,26 @@ export default function Profile() {
   const [form, setForm] = useState({
     name: '', email: '', phone: '', city: '',
     specialization: '',
+    bio: '',
+    photo: '' as string | null,
     telegram: '', telegramChannel: '', instagram: '', vk: '', max: '',
   });
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Загрузка фото из файла → base64. Лимит 500KB.
+  // TODO: после подключения Yandex Object Storage заменить на multipart POST /api/upload.
+  const handlePhotoFile = async (file: File | null) => {
+    if (!file) return;
+    if (file.size > 500_000) { setSaveError('Файл слишком большой (макс 500 KB). Используй поле «URL фото».'); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || '');
+      setForm(f => ({ ...f, photo: dataUrl }));
+      setSaveError(null);
+    };
+    reader.onerror = () => setSaveError('Не удалось прочитать файл');
+    reader.readAsDataURL(file);
+  };
 
   // Когда user пришёл с бэка — синхронизируем форму.
   useEffect(() => {
@@ -124,6 +142,8 @@ export default function Profile() {
       phone: currentUser.phone || '',
       city: currentUser.city || '',
       specialization: (currentUser.specialization || []).join(', '),
+      bio: (currentUser as { bio?: string }).bio || '',
+      photo: (currentUser as { photo?: string | null }).photo || '',
       telegram: currentUser.socials?.telegram || '',
       telegramChannel: currentUser.socials?.telegramChannel || '',
       instagram: currentUser.socials?.instagram || '',
@@ -143,8 +163,11 @@ export default function Profile() {
     try {
       const updated = await api.patch<Record<string, unknown>>(`/api/agents/${user.id}`, {
         name: form.name,
+        email: form.email,
         phone: form.phone,
         city: form.city,
+        photo: form.photo || null,
+        bio: form.bio,
         specialization: form.specialization.split(',').map(s => s.trim()).filter(Boolean),
         socials: {
           telegram: form.telegram || undefined,
@@ -195,8 +218,8 @@ export default function Profile() {
               <Box sx={{ height: 80, background: 'linear-gradient(135deg, rgba(201,168,76,0.3) 0%, rgba(67,97,238,0.2) 100%)', borderRadius: '16px 16px 0 0', position: 'relative' }}>
                 <Box sx={{ position: 'absolute', bottom: -40, left: '50%', transform: 'translateX(-50%)' }}>
                   <Box sx={{ position: 'relative' }}>
-                    <Avatar sx={{ width: 80, height: 80, fontSize: 26, fontWeight: 900, background: 'linear-gradient(135deg, #C9A84C, #E2C97E)', color: '#0A0E1A', border: '4px solid #0F1629', boxShadow: '0 8px 32px rgba(201,168,76,0.4)' }}>
-                      КМ
+                    <Avatar src={currentUser.photo || undefined} sx={{ width: 80, height: 80, fontSize: 26, fontWeight: 900, background: currentUser.photo ? '#0F1629' : 'linear-gradient(135deg, #C9A84C, #E2C97E)', color: '#0A0E1A', border: '4px solid #0F1629', boxShadow: '0 8px 32px rgba(201,168,76,0.4)' }}>
+                      {!currentUser.photo && (currentUser.name || '').split(' ').map(n => n[0]).slice(0,2).join('')}
                     </Avatar>
                     <Tooltip title="Загрузить фото">
                       <IconButton
@@ -467,12 +490,45 @@ export default function Profile() {
         <DialogContent sx={{ pt: 3 }}>
           <Stack spacing={2.5}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-              <Avatar sx={{ width: 64, height: 64, background: 'linear-gradient(135deg, #C9A84C, #E2C97E)', color: '#0A0E1A', fontWeight: 900, fontSize: 22 }}>КМ</Avatar>
-              <Button variant="outlined" startIcon={<PhotoCameraRoundedIcon />} sx={{ borderColor: 'rgba(201,168,76,0.3)', color: '#C9A84C', fontSize: 12 }}>
-                Загрузить фото
-              </Button>
+              <Avatar src={form.photo || undefined} sx={{ width: 64, height: 64, background: form.photo ? '#0F1629' : 'linear-gradient(135deg, #C9A84C, #E2C97E)', color: '#0A0E1A', fontWeight: 900, fontSize: 22 }}>
+                {!form.photo && (form.name || '').split(' ').map(n => n[0]).slice(0,2).join('')}
+              </Avatar>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={e => handlePhotoFile(e.target.files?.[0] || null)}
+              />
+              <Stack spacing={0.8}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<PhotoCameraRoundedIcon />}
+                  onClick={() => photoInputRef.current?.click()}
+                  sx={{ borderColor: 'rgba(201,168,76,0.3)', color: '#C9A84C', fontSize: 12 }}
+                >
+                  Загрузить фото
+                </Button>
+                {form.photo && (
+                  <Button size="small" onClick={() => setForm(f => ({ ...f, photo: '' }))} sx={{ color: '#EF4444', fontSize: 11 }}>
+                    Убрать фото
+                  </Button>
+                )}
+              </Stack>
             </Box>
+            <TextField
+              fullWidth size="small" label="URL фото (или загрузи файл выше)"
+              value={form.photo || ''}
+              onChange={e => setForm(f => ({ ...f, photo: e.target.value }))}
+              placeholder="https://example.com/photo.jpg"
+            />
             <TextField fullWidth size="small" label="ФИО" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            <TextField
+              fullWidth size="small" label="О себе" multiline rows={3}
+              value={form.bio} onChange={e => setForm(f => ({ ...f, bio: e.target.value }))}
+              placeholder="Короткое описание для публичной карточки в базе агентов"
+            />
             <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField fullWidth size="small" label="Email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
               <TextField fullWidth size="small" label="Телефон" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
