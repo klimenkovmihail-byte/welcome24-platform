@@ -18,14 +18,36 @@ const USER_KEY = 'w24_agent_user';
 const IMPERSONATION_KEY = 'w24_impersonation';
 const ADMIN_EMAILS = ['admin@w24.agency'];
 
-// URL'ы автоматически переключаются между local dev и production
-const isProd = typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname);
-export const PORTAL_URL = isProd
-  ? (import.meta.env.VITE_PORTAL_URL || 'https://app.welcome24.ru')
-  : 'http://localhost:5173';
-export const ADMIN_URL = isProd
-  ? (import.meta.env.VITE_ADMIN_URL || 'https://admin.welcome24.ru')
-  : 'http://localhost:5174';
+// URL'ы автоматически выбираются:
+//  1) env-переменная (если задана на Vercel) — приоритет
+//  2) если домен с "-platform" — заменяем на "-admin" (для текущего Vercel-демо)
+//  3) localhost для dev
+//  4) дефолт welcome24.ru
+function detectAdminUrl(): string {
+  if (typeof window === 'undefined') return 'http://localhost:5174';
+  const fromEnv = import.meta.env.VITE_ADMIN_URL;
+  if (fromEnv) return fromEnv.replace(/\/$/, '');
+  const host = window.location.hostname;
+  if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:5174';
+  if (host.includes('welcome24-platform')) {
+    return `${window.location.protocol}//${host.replace('welcome24-platform', 'welcome24-admin')}`;
+  }
+  if (host.includes('app.welcome24')) {
+    return `${window.location.protocol}//${host.replace('app.welcome24', 'admin.welcome24')}`;
+  }
+  return 'https://welcome24-admin.vercel.app';
+}
+function detectPortalUrl(): string {
+  if (typeof window === 'undefined') return 'http://localhost:5173';
+  const fromEnv = import.meta.env.VITE_PORTAL_URL;
+  if (fromEnv) return fromEnv.replace(/\/$/, '');
+  const host = window.location.hostname;
+  if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:5173';
+  // Если мы УЖЕ на портале — отдадим текущий origin
+  return window.location.origin;
+}
+export const PORTAL_URL = detectPortalUrl();
+export const ADMIN_URL = detectAdminUrl();
 
 export function loginAgent(email: string): { ok: true; user: AgentUser } | { ok: false; error: string; redirectTo?: string } {
   const e = email.trim().toLowerCase();
