@@ -166,9 +166,9 @@ export default function Dashboard() {
     ? Math.min(100, (yearTotalVkd / commission.nextThreshold) * 100)
     : 100;
 
-  // Акции
-  const totalShares       = myShares.reduce((s, p) => s + p.quantity, 0);
-  const sharesCost        = myShares.reduce((s, p) => s + p.quantity * p.acquiredPrice, 0);
+  // Акции (sale-пакеты уменьшают баланс).
+  const totalShares       = myShares.reduce((s, p) => s + (p.type === 'sale' ? -1 : 1) * p.quantity, 0);
+  const sharesCost        = myShares.reduce((s, p) => s + (p.type === 'sale' ? -1 : 1) * p.quantity * p.acquiredPrice, 0);
   const currentSharePrice = shareQuotes.length ? shareQuotes[shareQuotes.length - 1].price : 0;
   const sharesValue       = totalShares * currentSharePrice;
   const sharesGrowthPct   = sharesCost > 0 ? Math.round((sharesValue - sharesCost) / sharesCost * 100) : 0;

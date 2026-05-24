@@ -54,8 +54,10 @@ export default function Shares() {
 
   // Сводка по пакетам.
   const sharesSummary = useMemo(() => {
-    const total  = myShares.reduce((s, p) => s + p.quantity, 0);
-    const cost   = myShares.reduce((s, p) => s + p.quantity * p.acquiredPrice, 0);
+    // sale-пакеты уменьшают баланс агента (передача / выкуп).
+    const sign = (p: SharePacket) => p.type === 'sale' ? -1 : 1;
+    const total = myShares.reduce((s, p) => s + sign(p) * p.quantity, 0);
+    const cost  = myShares.reduce((s, p) => s + sign(p) * p.quantity * p.acquiredPrice, 0);
     const value  = total * currentSharePrice;
     const growth = value - cost;
     const growthPct = cost > 0 ? (growth / cost) * 100 : 0;

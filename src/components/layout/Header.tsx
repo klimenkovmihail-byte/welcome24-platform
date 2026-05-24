@@ -84,8 +84,9 @@ export default function Header({ currentPath }: HeaderProps) {
     Promise.all([sharesApi.myPackets().catch(() => []), sharesApi.quotes().catch(() => [])])
       .then(([packets, quotes]) => {
         if (cancelled) return;
-        const qty = packets.reduce((s, p) => s + p.quantity, 0);
-        const cost = packets.reduce((s, p) => s + p.quantity * p.acquiredPrice, 0);
+        const sign = (p: typeof packets[number]) => p.type === 'sale' ? -1 : 1;
+        const qty = packets.reduce((s, p) => s + sign(p) * p.quantity, 0);
+        const cost = packets.reduce((s, p) => s + sign(p) * p.quantity * p.acquiredPrice, 0);
         const price = quotes.length ? quotes[quotes.length - 1].price : 0;
         const value = qty * price;
         const growthPct = cost > 0 ? ((value - cost) / cost) * 100 : 0;
