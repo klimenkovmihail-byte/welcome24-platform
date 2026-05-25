@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, Grid, Divider,
-  ToggleButtonGroup, ToggleButton, Avatar,
+  ToggleButtonGroup, ToggleButton, Avatar, Tooltip,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartTooltip, ResponsiveContainer } from 'recharts';
@@ -18,6 +18,16 @@ const fmt = (n: number) => n.toLocaleString('ru-RU');
 const fmtCompact = (n: number) =>
   Math.abs(n) >= 1_000_000 ? `${(n / 1_000_000).toFixed(2)} млн` :
   Math.abs(n) >= 1_000 ? `${(n / 1_000).toFixed(1)} тыс` : String(n);
+
+// reason из БД (en) → подпись в столбце «Примечание» (русский)
+const REASON_LABEL: Record<string, string> = {
+  founder: 'Основатель',
+  first_deal_bonus: 'Бонус за первую сделку',
+  recruit_bonus: 'Бонус за сделку приглашённого',
+  yearly_2m_vkd: 'Бонус за 2 млн ВКД в год',
+  discount_purchase: 'Покупка со скидкой',
+};
+const formatReason = (s?: string) => (s && REASON_LABEL[s]) || s || '';
 
 const RANGE_OPTIONS = [
   { value: '1m',  label: '1М' },
@@ -135,7 +145,11 @@ export default function Shares() {
                     <Typography variant="h6" sx={{ fontWeight: 800, color: '#F1F5F9' }}>{fmt(sharesSummary.total)}</Typography>
                   </Grid>
                   <Grid size={{ xs: 4 }}>
-                    <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>Средняя ст. покупки</Typography>
+                    <Tooltip title="Средняя цена акции в вашем портфеле = Сумма инвестиций ÷ Количество акций. Учитывает бонусные акции по 1 ₽ и покупки со скидкой.">
+                      <Typography variant="caption" sx={{ color: '#64748B', display: 'block', cursor: 'help', textDecoration: 'underline dotted', textDecorationColor: 'rgba(100,116,139,0.4)' }}>
+                        Средняя цена в портфеле
+                      </Typography>
+                    </Tooltip>
                     <Typography variant="h6" sx={{ fontWeight: 800, color: '#F1F5F9' }}>{sharesSummary.total > 0 ? fmt(Math.round(sharesSummary.cost / sharesSummary.total)) : 0} ₽</Typography>
                   </Grid>
                   <Grid size={{ xs: 4 }}>
@@ -259,7 +273,7 @@ export default function Shares() {
                   </Box>
                 ))}
               </Box>
-              {myShares.map((p) => {
+              {[...myShares].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((p) => {
                 const cfg = TYPE_CFG[p.type];
                 const packetCost = p.quantity * p.acquiredPrice;
                 const packetValue = p.quantity * currentSharePrice;
@@ -275,7 +289,7 @@ export default function Shares() {
                       <Chip label={cfg.label} icon={cfg.icon} size="small" sx={{ background: `${cfg.color}20`, color: cfg.color, fontWeight: 700, fontSize: 11, '& .MuiChip-icon': { color: cfg.color } }} />
                     </Box>
                     <Box sx={{ p: 1.6 }}>
-                      <Typography variant="body2" sx={{ color: '#F1F5F9' }}>{p.note}</Typography>
+                      <Typography variant="body2" sx={{ color: '#F1F5F9' }}>{formatReason(p.note)}</Typography>
                     </Box>
                     <Box sx={{ p: 1.6 }}>
                       <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 700 }}>{fmt(p.quantity)}</Typography>

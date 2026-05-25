@@ -259,12 +259,12 @@ export default function Agents() {
 
       <Grid container spacing={3}>
         <AnimatePresence>
-          {filtered.map((agent, i) => {
+          {filtered.map((agent) => {
             const initials = agent.name.split(' ').map(n => n[0]).join('').slice(0, 2);
             const totalReviews = agent.reviewsCount;
             return (
               <Grid size={{ xs: 12, sm: 6, lg: 4, xl: 3 }} key={agent.id}>
-                <motion.div layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ delay: i * 0.05 }} whileHover={{ y: -4 }}>
+                <motion.div layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} whileHover={{ y: -4 }}>
                   <Card
                     onClick={() => setOpenId(agent.id)}
                     sx={{
