@@ -14,6 +14,8 @@ import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import { currentUser } from '../data/mockData';
 import { newsApi, type NewsArticle, type NewsComment } from '../api/news';
 import { getCurrentAgent } from '../auth/auth';
+import CoverImage from '../components/CoverImage';
+import ArticleRoundedIcon from '@mui/icons-material/ArticleRounded';
 
 const categoryColors: Record<string, { bg: string; color: string }> = {
   'Рынок': { bg: 'rgba(67,97,238,0.15)', color: '#4361EE' },
@@ -243,8 +245,10 @@ export default function News() {
           >
             <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, minHeight: 280 }}>
               <Box sx={{ position: 'relative', width: { xs: '100%', md: '55%' }, minHeight: 240, overflow: 'hidden' }}>
-                <Box component="img" src={featured.image} alt={featured.title}
-                  sx={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s', '&:hover': { transform: 'scale(1.03)' } }}
+                <CoverImage
+                  src={featured.image}
+                  accentColor={categoryColors[featured.category]?.color || '#C9A84C'}
+                  placeholderIcon={<ArticleRoundedIcon fontSize="inherit" />}
                 />
                 <Box sx={{ position: 'absolute', top: 16, left: 16 }}>
                   <Chip label="Главное" sx={{ background: 'rgba(201,168,76,0.9)', color: '#0A0E1A', fontWeight: 800 }} />
@@ -292,8 +296,10 @@ export default function News() {
                   }}
                 >
                   <Box sx={{ position: 'relative', paddingTop: '56%', overflow: 'hidden', borderRadius: '16px 16px 0 0' }}>
-                    <Box component="img" src={article.image} alt={article.title}
-                      sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s', '&:hover': { transform: 'scale(1.06)' } }}
+                    <CoverImage
+                      src={article.image}
+                      accentColor={c.color}
+                      placeholderIcon={<ArticleRoundedIcon fontSize="inherit" />}
                     />
                     <Box sx={{ position: 'absolute', top: 12, left: 12 }}>
                       <Chip label={article.category} size="small" sx={{ background: alpha(c.color, 0.85), color: '#fff', fontWeight: 700, fontSize: 11 }} />
@@ -334,10 +340,12 @@ export default function News() {
             <>
               {/* Hero image */}
               <Box sx={{ position: 'relative', height: 280, overflow: 'hidden' }}>
-                <Box component="img" src={openArticle.image} alt={openArticle.title}
-                  sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                <CoverImage
+                  src={openArticle.image}
+                  accentColor={c.color}
+                  placeholderIcon={<ArticleRoundedIcon fontSize="inherit" />}
                 />
-                <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(15,22,41,0) 0%, rgba(15,22,41,0.6) 70%, rgba(15,22,41,1) 100%)' }} />
+                <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(15,22,41,0) 0%, rgba(15,22,41,0.6) 70%, rgba(15,22,41,1) 100%)', pointerEvents: 'none' }} />
                 <IconButton
                   onClick={() => setOpenId(null)}
                   sx={{

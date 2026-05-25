@@ -27,6 +27,8 @@ import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import { Rating, TextField } from '@mui/material';
 import { currentUser } from '../data/mockData';
 import { academyApi, type AcademyEvent, type AcademyCourse, type WebinarRecording } from '../api/academy';
+import CoverImage from '../components/CoverImage';
+import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
 
 const courseCategoryColors: Record<string, string> = {
   'Базовый':     '#22C55E',
@@ -109,17 +111,20 @@ function CourseCard({ c, delay, onOpen }: { c: AcademyCourse; delay: number; onO
           transition: 'all 0.3s' }}
       >
         <Box sx={{ position: 'relative', paddingTop: '56.25%', overflow: 'hidden', borderRadius: '16px 16px 0 0' }}>
-          <Box component="img" src={c.thumbnail} alt={c.title}
-            sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-          <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(8,12,24,0.92))', display: 'flex', alignItems: 'flex-end', p: 2 }}>
-            <Chip label={c.category} size="small" sx={{ background: alpha(catColor, 0.9), color: '#fff', fontWeight: 700 }} />
+          <CoverImage
+            src={c.coverUrl}
+            accentColor={catColor}
+            placeholderIcon={<SchoolRoundedIcon fontSize="inherit" />}
+          />
+          <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(8,12,24,0.92))', display: 'flex', alignItems: 'flex-end', p: 2, pointerEvents: 'none' }}>
+            <Chip label={c.category} size="small" sx={{ background: alpha(catColor, 0.9), color: '#fff', fontWeight: 700, pointerEvents: 'auto' }} />
           </Box>
           {c.completed && (
             <Box sx={{ position: 'absolute', top: 12, right: 12, background: 'rgba(34,197,94,0.9)', borderRadius: '50%', p: 0.5 }}>
               <CheckCircleRoundedIcon sx={{ color: '#fff', fontSize: 20 }} />
             </Box>
           )}
-          <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, '&:hover': { opacity: 1 }, transition: 'opacity 0.3s' }}>
+          <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, '&:hover': { opacity: 1 }, transition: 'opacity 0.3s', pointerEvents: 'none' }}>
             <PlayCircleRoundedIcon sx={{ color: '#fff', fontSize: 56, filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))' }} />
           </Box>
         </Box>
@@ -140,11 +145,11 @@ function CourseCard({ c, delay, onOpen }: { c: AcademyCourse; delay: number; onO
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
               <MenuBookRoundedIcon sx={{ fontSize: 13 }} />
-              <Typography variant="caption" fontSize={11}>{c.lessons} уроков</Typography>
+              <Typography variant="caption" fontSize={11}>{c.totalLessons} уроков</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
               <PeopleRoundedIcon sx={{ fontSize: 13 }} />
-              <Typography variant="caption" fontSize={11}>{c.author.split(' ').slice(0, 2).join(' ')}</Typography>
+              <Typography variant="caption" fontSize={11}>{c.authorName.split(' ').slice(0, 2).join(' ')}</Typography>
             </Box>
           </Box>
           {c.progress > 0 ? (
@@ -178,9 +183,13 @@ function WebinarCard({ w, delay, onOpen }: { w: WebinarRecording; delay: number;
           transition: 'all 0.3s' }}
       >
         <Box sx={{ position: 'relative', paddingTop: '56.25%', overflow: 'hidden', borderRadius: '16px 16px 0 0' }}>
-          <Box component="img" src={w.thumbnail} alt={w.title} sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-          <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(8,12,24,0.92))', display: 'flex', alignItems: 'flex-end', p: 2 }}>
-            <Chip label={w.topic} size="small" sx={{ background: alpha(c, 0.9), color: '#fff', fontWeight: 700 }} />
+          <CoverImage
+            src={w.coverUrl}
+            accentColor={c}
+            placeholderIcon={<OndemandVideoRoundedIcon fontSize="inherit" />}
+          />
+          <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(8,12,24,0.92))', display: 'flex', alignItems: 'flex-end', p: 2, pointerEvents: 'none' }}>
+            <Chip label={w.topic} size="small" sx={{ background: alpha(c, 0.9), color: '#fff', fontWeight: 700, pointerEvents: 'auto' }} />
           </Box>
           {w.isNew && (
             <Box sx={{ position: 'absolute', top: 12, right: 12 }}>
@@ -201,7 +210,7 @@ function WebinarCard({ w, delay, onOpen }: { w: WebinarRecording; delay: number;
           <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#F1F5F9', lineHeight: 1.35, mb: 1 }}>{w.title}</Typography>
           <Typography variant="caption" sx={{ color: '#64748B', display: 'block', lineHeight: 1.5, mb: 1.5, flex: 1 }}>{w.description}</Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 600 }}>{w.speaker}</Typography>
+            <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 600 }}>{w.speakerName}</Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, color: '#64748B' }}>
               <VisibilityRoundedIcon sx={{ fontSize: 13 }} />
               <Typography variant="caption" fontSize={11}>{w.views.toLocaleString('ru-RU')}</Typography>
@@ -646,10 +655,12 @@ export default function Academy() {
       >
         {openCourse && (() => {
           const catColor = courseCategoryColors[openCourse.category] || '#64748B';
-          // Effective lesson completion (combine initial + local state)
-          const lessonsWithState = openCourse.lessons_list.map(l => ({
+          // Effective lesson completion (combine initial + local state).
+          // На бэке у урока нет персонального флага completed — он берётся из course_progress отдельно.
+          // Пока что считаем все уроки не начатыми по умолчанию (initial=false).
+          const lessonsWithState = openCourse.lessons.map(l => ({
             ...l,
-            done: isLessonDone(openCourse.id, l.id, l.completed),
+            done: isLessonDone(openCourse.id, l.id, false),
           }));
           const doneCount = lessonsWithState.filter(l => l.done).length;
           const totalListed = lessonsWithState.length;
@@ -658,8 +669,12 @@ export default function Academy() {
           return (
             <>
               <Box sx={{ position: 'relative', height: 220, overflow: 'hidden' }}>
-                <Box component="img" src={openCourse.thumbnail} alt={openCourse.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(15,22,41,0.2) 0%, rgba(15,22,41,1) 100%)' }} />
+                <CoverImage
+                  src={openCourse.coverUrl}
+                  accentColor={catColor}
+                  placeholderIcon={<SchoolRoundedIcon fontSize="inherit" />}
+                />
+                <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(15,22,41,0.2) 0%, rgba(15,22,41,1) 100%)', pointerEvents: 'none' }} />
                 <IconButton onClick={() => setOpenCourse(null)} sx={{ position: 'absolute', top: 12, right: 12, color: '#fff', background: 'rgba(0,0,0,0.5)', '&:hover': { background: 'rgba(0,0,0,0.7)' } }}>
                   <CloseRoundedIcon />
                 </IconButton>
@@ -672,9 +687,9 @@ export default function Academy() {
                 <Typography variant="body2" sx={{ color: '#CBD5E1', mb: 2 }}>{openCourse.description}</Typography>
                 <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5, flexWrap: 'wrap' }}>
                   <Chip icon={<AccessTimeRoundedIcon />} label={openCourse.duration} sx={{ background: 'rgba(67,97,238,0.12)', color: '#60A5FA' }} />
-                  <Chip icon={<MenuBookRoundedIcon />} label={`${openCourse.lessons} уроков`} sx={{ background: 'rgba(34,197,94,0.12)', color: '#22C55E' }} />
+                  <Chip icon={<MenuBookRoundedIcon />} label={`${openCourse.totalLessons} уроков`} sx={{ background: 'rgba(34,197,94,0.12)', color: '#22C55E' }} />
                   <Chip label={openCourse.level} sx={{ background: alpha(levelColor[openCourse.level] || '#64748B', 0.15), color: levelColor[openCourse.level] || '#94A3B8', fontWeight: 700 }} />
-                  <Chip icon={<PeopleRoundedIcon />} label={`Автор: ${openCourse.author}`} sx={{ background: 'rgba(255,255,255,0.05)', color: '#94A3B8' }} />
+                  <Chip icon={<PeopleRoundedIcon />} label={`Автор: ${openCourse.authorName}`} sx={{ background: 'rgba(255,255,255,0.05)', color: '#94A3B8' }} />
                 </Box>
 
                 {/* Progress */}
@@ -756,7 +771,12 @@ export default function Academy() {
             <>
               {/* Video placeholder */}
               <Box sx={{ position: 'relative', paddingTop: '56.25%', overflow: 'hidden', background: '#000' }}>
-                <Box component="img" src={openWebinar.thumbnail} sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.7 }} />
+                <CoverImage
+                  src={openWebinar.coverUrl}
+                  accentColor={c}
+                  placeholderIcon={<OndemandVideoRoundedIcon fontSize="inherit" />}
+                  sx={{ opacity: 0.7 }}
+                />
                 <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Box sx={{
                     width: 88, height: 88, borderRadius: '50%',
@@ -786,7 +806,7 @@ export default function Academy() {
                     </Box>
                     <Typography variant="h5" sx={{ fontWeight: 900, color: '#F1F5F9', lineHeight: 1.3 }}>{openWebinar.title}</Typography>
                     <Typography variant="caption" sx={{ color: '#64748B', mt: 0.5, display: 'block' }}>
-                      {new Date(openWebinar.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })} · 🎤 {openWebinar.speaker} · 👁 {openWebinar.views.toLocaleString('ru-RU')}
+                      {new Date(openWebinar.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })} · 🎤 {openWebinar.speakerName} · 👁 {openWebinar.views.toLocaleString('ru-RU')}
                     </Typography>
                   </Box>
                   <Button
