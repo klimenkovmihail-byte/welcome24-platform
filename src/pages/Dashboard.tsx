@@ -146,9 +146,7 @@ export default function Dashboard() {
 
   // === Мои данные с бэка ===
   const [myDeals, setMyDeals] = useState<Deal[]>([]);
-  // Текущий год — для согласованности со страницей «Команда» (default-фильтр)
-  const [teamYear, setTeamYear] = useState({ agents: 0, vkd: 0, passiveIncome: 0 });
-  // За всё время — для «Итого людей» и «Итого доход за весь период»
+  // За всё время — итого людей в структуре и кумулятивный пассивный доход
   const [teamAllTime, setTeamAllTime] = useState({ agents: 0, vkd: 0, passiveIncome: 0 });
   const [myShares, setMyShares] = useState<SharePacket[]>([]);
   const [shareQuotes, setShareQuotes] = useState<ShareQuote[]>([]);
@@ -157,22 +155,15 @@ export default function Dashboard() {
     let cancelled = false;
     const me = getCurrentAgent();
     const meId = typeof me?.id === 'number' ? me.id : undefined;
-    const year = String(new Date().getFullYear());
     const emptyTeam = { totals: { agents: 0, active: 0, deals: 0, vkd: 0, income: 0 }, levels: [], marketingPlan: [] };
     Promise.all([
       dealsApi.list({ agentId: meId }).catch(() => []),
-      teamApi.get({ year }).catch(() => emptyTeam as unknown as Awaited<ReturnType<typeof teamApi.get>>),
       teamApi.get().catch(() => emptyTeam as unknown as Awaited<ReturnType<typeof teamApi.get>>),
       sharesApi.myPackets().catch(() => []),
       sharesApi.quotes().catch(() => []),
-    ]).then(([deals, teamYr, teamAll, packets, quotes]) => {
+    ]).then(([deals, teamAll, packets, quotes]) => {
       if (cancelled) return;
       setMyDeals(deals);
-      setTeamYear({
-        agents: teamYr.totals?.agents || 0,
-        vkd: teamYr.totals?.vkd || 0,
-        passiveIncome: computePassiveIncome(teamYr.levels || [], teamYr.marketingPlan || []),
-      });
       setTeamAllTime({
         agents: teamAll.totals?.agents || 0,
         vkd: teamAll.totals?.vkd || 0,
@@ -203,26 +194,29 @@ export default function Dashboard() {
   const sharesValue       = totalShares * currentSharePrice;
   const sharesGrowthPct   = sharesCost > 0 ? Math.round((sharesValue - sharesCost) / sharesCost * 100) : 0;
 
-  // График по месяцам выбранного года.
+  // Filter state: year + month ('all' = all months in year)
+  const availableYears = useMemo(
+    () => Array.from(new Set(myDeals.map(d => d.date.slice(0, 4)))).sort(),
+    [myDeals],
+  );
+  const [filterYear, setFilterYear] = useState<string>(String(new Date().getFullYear()));
+
+  // График по месяцам ВЫБРАННОГО ГОДА (а не текущего). Синхронизирован с
+  // фильтром «Отчёт по сделкам» — переключая 2024/2025/2026 в таблице,
+  // график тоже меняется.
   const monthlyStats = useMemo(() => {
     const RU = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
+    const dealsInYear = myDeals.filter(d => d.date?.slice(0, 4) === filterYear);
     return RU.map((m, i) => {
       const mm = String(i + 1).padStart(2, '0');
-      const inMonth = dealsThisYear.filter(d => d.date?.slice(5, 7) === mm);
+      const inMonth = dealsInYear.filter(d => d.date?.slice(5, 7) === mm);
       return {
         month: m,
         vkd: inMonth.reduce((s, d) => s + d.vkd, 0),
         income: inMonth.reduce((s, d) => s + d.income, 0),
       };
     });
-  }, [dealsThisYear]);
-
-  // Filter state: year + month ('all' = all months in year)
-  const availableYears = useMemo(
-    () => Array.from(new Set(myDeals.map(d => d.date.slice(0, 4)))).sort(),
-    [myDeals],
-  );
-  const [filterYear, setFilterYear] = useState<string>('2026');
+  }, [myDeals, filterYear]);
   useEffect(() => {
     if (availableYears.length && !availableYears.includes(filterYear)) {
       setFilterYear(availableYears[availableYears.length - 1]);
@@ -322,7 +316,7 @@ export default function Dashboard() {
         {[
           { icon: <AccountBalanceWalletRoundedIcon />, label: `Доход ${currentYear}`, value: `${fmt(yearTotalIncome)} ₽`, sub: `ВКД: ${fmt(yearTotalVkd)} ₽`, color: '#22C55E', delay: 0.05 },
           { icon: <HandshakeRoundedIcon />, label: `Сделок ${currentYear}`, value: yearTotalDeals, sub: 'Личные сделки', color: '#4361EE', delay: 0.1 },
-          { icon: <GroupsRoundedIcon />, label: 'Партнёрская сеть', value: `${teamAllTime.agents} на всех уровнях`, sub: `Заработано за всё время: ${fmt(teamAllTime.passiveIncome)} ₽ · за ${currentYear}: ${fmt(teamYear.passiveIncome)} ₽`, color: '#C9A84C', delay: 0.15 },
+          { icon: <GroupsRoundedIcon />, label: 'Партнёрская сеть', value: `${teamAllTime.agents} на всех уровнях`, sub: `Заработано с команды: ${fmt(teamAllTime.passiveIncome)} ₽`, color: '#C9A84C', delay: 0.15 },
           { icon: <DiamondRoundedIcon />, label: 'Акции', value: `${totalShares} шт`, sub: totalShares > 0 ? `${sharesGrowthPct >= 0 ? '+' : ''}${sharesGrowthPct}% · ${fmt(sharesValue)} ₽` : '—', color: '#7B2FBE', delay: 0.2 },
         ].map((s) => (
           <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={s.label}>
@@ -340,7 +334,7 @@ export default function Dashboard() {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                   <Box>
                     <Typography variant="h6" sx={{ fontWeight: 700, color: '#F1F5F9' }}>Динамика доходов</Typography>
-                    <Typography variant="caption" sx={{ color: '#64748B' }}>Все месяцы 2026 года</Typography>
+                    <Typography variant="caption" sx={{ color: '#64748B' }}>Все месяцы {filterYear} года</Typography>
                   </Box>
                   <Chip label="2026" size="small" sx={{ background: 'rgba(201,168,76,0.12)', color: '#C9A84C', fontWeight: 700 }} />
                 </Box>
