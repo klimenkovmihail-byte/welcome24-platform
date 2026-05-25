@@ -28,6 +28,7 @@ import { Rating, TextField } from '@mui/material';
 import { currentUser } from '../data/mockData';
 import { academyApi, type AcademyEvent, type AcademyCourse, type WebinarRecording } from '../api/academy';
 import CoverImage from '../components/CoverImage';
+import VideoPlayer from '../components/VideoPlayer';
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
 
 const courseCategoryColors: Record<string, string> = {
@@ -769,32 +770,18 @@ export default function Academy() {
           const comments = webinarComments[openWebinar.id] || [];
           return (
             <>
-              {/* Video placeholder */}
-              <Box sx={{ position: 'relative', paddingTop: '56.25%', overflow: 'hidden', background: '#000' }}>
-                <CoverImage
-                  src={openWebinar.coverUrl}
-                  accentColor={c}
-                  placeholderIcon={<OndemandVideoRoundedIcon fontSize="inherit" />}
-                  sx={{ opacity: 0.7 }}
-                />
-                <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Box sx={{
-                    width: 88, height: 88, borderRadius: '50%',
-                    background: 'rgba(0,0,0,0.7)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', transition: 'transform 0.2s',
-                    '&:hover': { transform: 'scale(1.1)' },
-                  }}>
-                    <PlayCircleRoundedIcon sx={{ color: '#fff', fontSize: 64 }} />
-                  </Box>
-                </Box>
+              {/* Video player (Kinescope / YouTube / mp4 / placeholder) */}
+              <Box sx={{ position: 'relative' }}>
+                <VideoPlayer src={openWebinar.videoUrl} poster={openWebinar.coverUrl} />
                 <IconButton onClick={() => setOpenWebinar(null)}
-                  sx={{ position: 'absolute', top: 12, right: 12, color: '#fff', background: 'rgba(0,0,0,0.5)', '&:hover': { background: 'rgba(0,0,0,0.7)' } }}>
+                  sx={{ position: 'absolute', top: 12, right: 12, color: '#fff', background: 'rgba(0,0,0,0.5)', zIndex: 2, '&:hover': { background: 'rgba(0,0,0,0.7)' } }}>
                   <CloseRoundedIcon />
                 </IconButton>
-                <Box sx={{ position: 'absolute', bottom: 12, right: 12, background: 'rgba(0,0,0,0.65)', borderRadius: 1, px: 1, py: 0.3 }}>
-                  <Typography variant="caption" sx={{ color: '#fff', fontWeight: 700 }}>{openWebinar.duration}</Typography>
-                </Box>
+                {openWebinar.duration && (
+                  <Box sx={{ position: 'absolute', bottom: 12, right: 12, background: 'rgba(0,0,0,0.65)', borderRadius: 1, px: 1, py: 0.3, zIndex: 2 }}>
+                    <Typography variant="caption" sx={{ color: '#fff', fontWeight: 700 }}>{openWebinar.duration}</Typography>
+                  </Box>
+                )}
               </Box>
 
               <DialogContent sx={{ p: 3 }}>
