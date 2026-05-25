@@ -128,6 +128,35 @@ function normalizeEvent(r: RawEvent): AcademyEvent {
   };
 }
 
+export interface WebinarComment {
+  id: number;
+  webinarId: number;
+  authorId: number | null;
+  authorName: string;
+  text: string;
+  createdAt: string;
+}
+
+type RawWebinarComment = {
+  id: number;
+  webinar_id: number;
+  author_id: number | null;
+  author_name: string;
+  text: string;
+  created_at: string;
+};
+
+function normalizeWebinarComment(r: RawWebinarComment): WebinarComment {
+  return {
+    id: r.id,
+    webinarId: r.webinar_id,
+    authorId: r.author_id,
+    authorName: r.author_name,
+    text: r.text,
+    createdAt: r.created_at,
+  };
+}
+
 export const academyApi = {
   courses:  () => api.get<RawCourse[]>('/api/academy/courses').then(rows => rows.map(normalizeCourse)),
   webinars: () => api.get<RawWebinar[]>('/api/academy/webinars').then(rows => rows.map(normalizeWebinar)),
@@ -136,6 +165,10 @@ export const academyApi = {
     api.post<{ ok: true }>(`/api/academy/courses/${courseId}/rate`, { rating }),
   likeWebinar: (id: number) =>
     api.post<{ liked: boolean; likes: number }>(`/api/academy/webinars/${id}/like`),
+  webinarComments: (id: number) =>
+    api.get<RawWebinarComment[]>(`/api/academy/webinars/${id}/comments`).then(rows => rows.map(normalizeWebinarComment)),
+  addWebinarComment: (id: number, text: string) =>
+    api.post<RawWebinarComment>(`/api/academy/webinars/${id}/comments`, { text }).then(normalizeWebinarComment),
   registerEvent: (id: number) =>
     api.post<{ ok: true }>(`/api/academy/events/${id}/register`),
 };

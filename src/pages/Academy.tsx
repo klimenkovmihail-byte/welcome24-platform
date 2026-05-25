@@ -406,9 +406,36 @@ export default function Academy() {
   // Local state for course ratings, lesson completion, webinar likes & comments
   const [myRatings, setMyRatings] = useState<Record<number, number>>({});
   const [lessonProgress, setLessonProgress] = useState<Record<string, boolean>>({}); // key: courseId-lessonId
-  const [webinarLikes, setWebinarLikes] = useState<Set<number>>(new Set());
-  const [webinarComments, setWebinarComments] = useState<Record<number, { id: number; author: string; initials: string; text: string; date: string }[]>>({});
+  const [webinarLikes, setWebinarLikes] = useState<Set<number>>(new Set());        // мои лайки (optimistic)
+  const [webinarLikeOverride, setWebinarLikeOverride] = useState<Record<number, number>>({}); // override likesCount после клика
+  const [webinarComments, setWebinarComments] = useState<Record<number, { id: number; author: string; initials: string; text: string; date: string; isMe?: boolean }[]>>({});
   const [webinarCommentDraft, setWebinarCommentDraft] = useState('');
+  const [webinarCommentSending, setWebinarCommentSending] = useState(false);
+
+  // Подгружаем комменты вебинара при открытии диалога.
+  useEffect(() => {
+    if (!openWebinar) return;
+    if (webinarComments[openWebinar.id]) return; // уже загружали
+    let cancelled = false;
+    academyApi.webinarComments(openWebinar.id)
+      .then(rows => {
+        if (cancelled || !openWebinar) return;
+        const mapped = rows.map(c => {
+          const initials = (c.authorName || 'А').split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+          return {
+            id: c.id,
+            author: c.authorName,
+            initials,
+            text: c.text,
+            date: (c.createdAt || '').slice(0, 10).split('-').reverse().slice(0, 2).join('.'),
+            isMe: false,
+          };
+        });
+        setWebinarComments(prev => ({ ...prev, [openWebinar.id]: mapped }));
+      })
+      .catch(() => { /* tolerate */ });
+    return () => { cancelled = true; };
+  }, [openWebinar, webinarComments]);
 
   const isLessonDone = (courseId: number, lessonId: number, initial: boolean) =>
     lessonProgress[`${courseId}-${lessonId}`] ?? initial;
@@ -418,29 +445,53 @@ export default function Academy() {
     setLessonProgress(prev => ({ ...prev, [key]: !(prev[key] ?? initial) }));
   };
 
-  const toggleWebinarLike = (id: number) => {
+  const getWebinarLikes = (w: WebinarRecording) => webinarLikeOverride[w.id] ?? w.likesCount;
+
+  const toggleWebinarLike = (w: WebinarRecording) => {
+    const liked = webinarLikes.has(w.id);
+    // optimistic
     setWebinarLikes(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (liked) next.delete(w.id); else next.add(w.id);
       return next;
     });
+    setWebinarLikeOverride(prev => ({ ...prev, [w.id]: getWebinarLikes(w) + (liked ? -1 : 1) }));
+    academyApi.likeWebinar(w.id)
+      .then(res => {
+        setWebinarLikes(prev => {
+          const s = new Set(prev);
+          if (res.liked) s.add(w.id); else s.delete(w.id);
+          return s;
+        });
+        setWebinarLikeOverride(prev => ({ ...prev, [w.id]: res.likes }));
+      })
+      .catch(() => { /* откат не делаем — UI остаётся оптимистичным */ });
   };
 
-  const sendWebinarComment = () => {
-    if (!openWebinar || !webinarCommentDraft.trim()) return;
-    const list = webinarComments[openWebinar.id] || [];
-    const initials = currentUser.name.split(' ').map(n => n[0]).slice(0, 2).join('');
-    setWebinarComments(prev => ({
-      ...prev,
-      [openWebinar.id]: [...list, {
-        id: Date.now(),
-        author: currentUser.name.split(' ').slice(0, 2).join(' '),
-        initials,
-        text: webinarCommentDraft.trim(),
-        date: new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
-      }],
-    }));
-    setWebinarCommentDraft('');
+  const sendWebinarComment = async () => {
+    if (!openWebinar || !webinarCommentDraft.trim() || webinarCommentSending) return;
+    const text = webinarCommentDraft.trim();
+    setWebinarCommentSending(true);
+    try {
+      const created = await academyApi.addWebinarComment(openWebinar.id, text);
+      const initials = (created.authorName || 'А').split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+      setWebinarComments(prev => ({
+        ...prev,
+        [openWebinar.id]: [...(prev[openWebinar.id] || []), {
+          id: created.id,
+          author: created.authorName,
+          initials,
+          text: created.text,
+          date: (created.createdAt || '').slice(0, 10).split('-').reverse().slice(0, 2).join('.'),
+          isMe: true,
+        }],
+      }));
+      setWebinarCommentDraft('');
+    } catch {
+      // поле не очищаем — пусть пользователь повторит
+    } finally {
+      setWebinarCommentSending(false);
+    }
   };
 
   // Courses filter
@@ -770,19 +821,20 @@ export default function Academy() {
           const comments = webinarComments[openWebinar.id] || [];
           return (
             <>
-              {/* Video player (Kinescope / YouTube / mp4 / placeholder) */}
-              <Box sx={{ position: 'relative' }}>
-                <VideoPlayer src={openWebinar.videoUrl} poster={openWebinar.coverUrl} />
-                <IconButton onClick={() => setOpenWebinar(null)}
-                  sx={{ position: 'absolute', top: 12, right: 12, color: '#fff', background: 'rgba(0,0,0,0.5)', zIndex: 2, '&:hover': { background: 'rgba(0,0,0,0.7)' } }}>
+              {/* Header диалога с кнопкой закрытия — над плеером, чтобы не мешать UI Kinescope */}
+              <Box sx={{
+                display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
+                px: 1.5, py: 1,
+                background: 'linear-gradient(135deg, #0F1629 0%, #0A0E1A 100%)',
+                borderBottom: '1px solid rgba(201,168,76,0.08)',
+              }}>
+                <IconButton onClick={() => setOpenWebinar(null)} size="small" sx={{ color: '#94A3B8', '&:hover': { color: '#fff' } }}>
                   <CloseRoundedIcon />
                 </IconButton>
-                {openWebinar.duration && (
-                  <Box sx={{ position: 'absolute', bottom: 12, right: 12, background: 'rgba(0,0,0,0.65)', borderRadius: 1, px: 1, py: 0.3, zIndex: 2 }}>
-                    <Typography variant="caption" sx={{ color: '#fff', fontWeight: 700 }}>{openWebinar.duration}</Typography>
-                  </Box>
-                )}
               </Box>
+
+              {/* Video player (Kinescope / YouTube / mp4 / placeholder) */}
+              <VideoPlayer src={openWebinar.videoUrl} poster={openWebinar.coverUrl} />
 
               <DialogContent sx={{ p: 3 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, flexWrap: 'wrap', gap: 1 }}>
@@ -793,13 +845,16 @@ export default function Academy() {
                     </Box>
                     <Typography variant="h5" sx={{ fontWeight: 900, color: '#F1F5F9', lineHeight: 1.3 }}>{openWebinar.title}</Typography>
                     <Typography variant="caption" sx={{ color: '#64748B', mt: 0.5, display: 'block' }}>
-                      {new Date(openWebinar.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })} · 🎤 {openWebinar.speakerName} · 👁 {openWebinar.views.toLocaleString('ru-RU')}
+                      {new Date(openWebinar.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      {openWebinar.duration && ` · ⏱ ${openWebinar.duration}`}
+                      {` · 🎤 ${openWebinar.speakerName}`}
+                      {` · 👁 ${openWebinar.views.toLocaleString('ru-RU')}`}
                     </Typography>
                   </Box>
                   <Button
                     size="small"
                     startIcon={isLiked ? <FavoriteRoundedIcon /> : <FavoriteBorderRoundedIcon />}
-                    onClick={() => toggleWebinarLike(openWebinar.id)}
+                    onClick={() => toggleWebinarLike(openWebinar)}
                     sx={{
                       borderRadius: 2, px: 1.5,
                       color: isLiked ? '#EF4444' : '#94A3B8',
@@ -807,7 +862,7 @@ export default function Academy() {
                       '&:hover': { background: isLiked ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.08)', color: '#EF4444' },
                     }}
                   >
-                    {isLiked ? 'Нравится' : 'В избранное'}
+                    {getWebinarLikes(openWebinar)}{isLiked ? ' · нравится' : ''}
                   </Button>
                 </Box>
 
@@ -826,13 +881,24 @@ export default function Academy() {
                       ? <Typography variant="caption" sx={{ color: '#475569', textAlign: 'center', py: 2 }}>Пока никто не комментировал. Будьте первым!</Typography>
                       : comments.map(comm => (
                         <motion.div key={comm.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} layout>
-                          <Box sx={{ p: 1.5, borderRadius: 2, background: 'rgba(201,168,76,0.05)', border: '1px solid rgba(201,168,76,0.15)', display: 'flex', gap: 1.5 }}>
-                            <Box sx={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #C9A84C, #E2C97E)', color: '#0A0E1A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
+                          <Box sx={{
+                            p: 1.5, borderRadius: 2, display: 'flex', gap: 1.5,
+                            background: comm.isMe ? 'rgba(201,168,76,0.08)' : 'rgba(255,255,255,0.025)',
+                            border: comm.isMe ? '1px solid rgba(201,168,76,0.25)' : '1px solid rgba(255,255,255,0.05)',
+                          }}>
+                            <Box sx={{
+                              width: 32, height: 32, borderRadius: '50%',
+                              background: comm.isMe ? 'linear-gradient(135deg, #C9A84C, #E2C97E)' : 'rgba(100,116,139,0.4)',
+                              color: comm.isMe ? '#0A0E1A' : '#F1F5F9',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 11, fontWeight: 800, flexShrink: 0,
+                            }}>
                               {comm.initials}
                             </Box>
                             <Box sx={{ flex: 1 }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.3 }}>
                                 <Typography variant="caption" sx={{ fontWeight: 700, color: '#F1F5F9' }}>{comm.author}</Typography>
+                                {comm.isMe && <Chip label="Вы" size="small" sx={{ height: 14, fontSize: 9, background: 'rgba(201,168,76,0.2)', color: '#C9A84C', fontWeight: 800 }} />}
                                 <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>{comm.date}</Typography>
                               </Box>
                               <Typography variant="body2" sx={{ color: '#CBD5E1', fontSize: 13, lineHeight: 1.5 }}>{comm.text}</Typography>
@@ -855,7 +921,7 @@ export default function Academy() {
                     onChange={e => setWebinarCommentDraft(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendWebinarComment(); } }}
                   />
-                  <Button onClick={sendWebinarComment} disabled={!webinarCommentDraft.trim()} variant="contained" sx={{ minWidth: 0, px: 1.5, py: 1, alignSelf: 'stretch' }}>
+                  <Button onClick={sendWebinarComment} disabled={!webinarCommentDraft.trim() || webinarCommentSending} variant="contained" sx={{ minWidth: 0, px: 1.5, py: 1, alignSelf: 'stretch' }}>
                     <SendRoundedIcon fontSize="small" />
                   </Button>
                 </Box>
