@@ -402,6 +402,7 @@ export default function Academy() {
   const [tab, setTab] = useState<'courses' | 'recordings' | 'schedule'>('courses');
   const [openCourse, setOpenCourse] = useState<AcademyCourse | null>(null);
   const [openWebinar, setOpenWebinar] = useState<WebinarRecording | null>(null);
+  const [expandedLessonId, setExpandedLessonId] = useState<number | null>(null);
 
   // Local state for course ratings, lesson completion, webinar likes & comments
   const [myRatings, setMyRatings] = useState<Record<number, number>>({});
@@ -780,30 +781,60 @@ export default function Academy() {
                 <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#F1F5F9', mb: 1.5 }}>Программа курса</Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {lessonsWithState.map(l => (
-                    <Box
-                      key={l.id}
-                      onClick={() => toggleLesson(openCourse.id, l.id, l.completed)}
-                      sx={{
-                        p: 1.5, borderRadius: 2,
+                  {lessonsWithState.map(l => {
+                    const expanded = expandedLessonId === l.id;
+                    return (
+                      <Box key={l.id} sx={{ borderRadius: 2, overflow: 'hidden',
                         background: l.done ? 'rgba(34,197,94,0.06)' : 'rgba(255,255,255,0.025)',
                         border: l.done ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(255,255,255,0.05)',
-                        display: 'flex', alignItems: 'center', gap: 1.5,
-                        cursor: 'pointer',
-                        '&:hover': { background: l.done ? 'rgba(34,197,94,0.1)' : 'rgba(201,168,76,0.06)' },
-                        transition: 'all 0.15s',
-                      }}
-                    >
-                      {l.done
-                        ? <CheckCircleRoundedIcon sx={{ color: '#22C55E', fontSize: 22 }} />
-                        : <PlayCircleRoundedIcon sx={{ color: '#94A3B8', fontSize: 22 }} />}
-                      <Typography variant="body2" sx={{ color: '#F1F5F9', flex: 1, textDecoration: l.done ? 'line-through' : 'none', opacity: l.done ? 0.7 : 1 }}>{l.title}</Typography>
-                      <Typography variant="caption" sx={{ color: '#64748B' }}>{l.duration}</Typography>
-                    </Box>
-                  ))}
+                      }}>
+                        <Box
+                          onClick={() => setExpandedLessonId(expanded ? null : l.id)}
+                          sx={{
+                            p: 1.5,
+                            display: 'flex', alignItems: 'center', gap: 1.5,
+                            cursor: 'pointer',
+                            '&:hover': { background: 'rgba(201,168,76,0.06)' },
+                            transition: 'background 0.15s',
+                          }}
+                        >
+                          <IconButton
+                            size="small"
+                            onClick={(e) => { e.stopPropagation(); toggleLesson(openCourse.id, l.id, false); }}
+                            sx={{ p: 0.3 }}
+                          >
+                            {l.done
+                              ? <CheckCircleRoundedIcon sx={{ color: '#22C55E', fontSize: 22 }} />
+                              : <PlayCircleRoundedIcon sx={{ color: '#94A3B8', fontSize: 22 }} />}
+                          </IconButton>
+                          <Typography variant="body2" sx={{ color: '#F1F5F9', flex: 1, textDecoration: l.done ? 'line-through' : 'none', opacity: l.done ? 0.7 : 1 }}>{l.title}</Typography>
+                          <Typography variant="caption" sx={{ color: '#64748B' }}>{l.duration}</Typography>
+                          <ChevronRightRoundedIcon sx={{ color: '#64748B', fontSize: 18, transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+                        </Box>
+                        {expanded && (
+                          <Box sx={{ background: '#000' }}>
+                            <VideoPlayer src={l.videoUrl} />
+                            <Box sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.4)' }}>
+                              <Typography variant="caption" sx={{ color: '#94A3B8' }}>
+                                {l.videoUrl ? 'Просмотр видео — Kinescope / YouTube' : 'Видео для этого урока ещё не загружено'}
+                              </Typography>
+                              <Button
+                                size="small"
+                                variant={l.done ? 'outlined' : 'contained'}
+                                onClick={() => toggleLesson(openCourse.id, l.id, false)}
+                                sx={{ fontSize: 11 }}
+                              >
+                                {l.done ? 'Снять отметку' : 'Отметить пройденным'}
+                              </Button>
+                            </Box>
+                          </Box>
+                        )}
+                      </Box>
+                    );
+                  })}
                 </Box>
                 <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mt: 1.5, fontStyle: 'italic' }}>
-                  Кликните по уроку, чтобы отметить его как пройденный
+                  Клик по строке — открыть видео, по иконке слева — отметить пройденным
                 </Typography>
               </DialogContent>
             </>

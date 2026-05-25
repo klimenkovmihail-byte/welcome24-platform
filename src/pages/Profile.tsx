@@ -22,7 +22,7 @@ import ChatRoundedIcon from '@mui/icons-material/ChatRounded';
 import InputAdornment from '@mui/material/InputAdornment';
 import { currentUser as mockUser, achievements as mockAchievements, type Achievement } from '../data/mockData';
 import { fetchMe, getCurrentAgent } from '../auth/auth';
-import { api } from '../api/apiClient';
+import { api, API_BASE_URL, getToken } from '../api/apiClient';
 import { dealsApi } from '../api/deals';
 import { teamApi } from '../api/team';
 
@@ -117,20 +117,36 @@ export default function Profile() {
     telegram: '', telegramChannel: '', instagram: '', vk: '', max: '',
   });
   const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
-  // Загрузка фото из файла → base64. Лимит 500KB.
-  // TODO: после подключения Yandex Object Storage заменить на multipart POST /api/upload.
+  // Загрузка фото в Yandex Object Storage через /api/upload?type=avatar.
+  // Возвращается публичный URL, который кладём в форму и при сохранении
+  // профиля летит в /api/agents/:id (поле photo).
   const handlePhotoFile = async (file: File | null) => {
     if (!file) return;
-    if (file.size > 500_000) { setSaveError('Файл слишком большой (макс 500 KB). Используй поле «URL фото».'); return; }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result || '');
-      setForm(f => ({ ...f, photo: dataUrl }));
-      setSaveError(null);
-    };
-    reader.onerror = () => setSaveError('Не удалось прочитать файл');
-    reader.readAsDataURL(file);
+    if (file.size > 5 * 1024 * 1024) { setSaveError('Файл слишком большой (макс 5 МБ).'); return; }
+    setSaveError(null);
+    setPhotoUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('type', 'avatar');
+      const token = getToken();
+      const res = await fetch(`${API_BASE_URL}/api/upload`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || `Ошибка загрузки (HTTP ${res.status})`);
+      }
+      setForm(f => ({ ...f, photo: data.url }));
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Не удалось загрузить фото');
+    } finally {
+      setPhotoUploading(false);
+    }
   };
 
   // Когда user пришёл с бэка — синхронизируем форму.
@@ -506,9 +522,10 @@ export default function Profile() {
                   size="small"
                   startIcon={<PhotoCameraRoundedIcon />}
                   onClick={() => photoInputRef.current?.click()}
+                  disabled={photoUploading}
                   sx={{ borderColor: 'rgba(201,168,76,0.3)', color: '#C9A84C', fontSize: 12 }}
                 >
-                  Загрузить фото
+                  {photoUploading ? 'Загрузка…' : (form.photo ? 'Заменить фото' : 'Загрузить фото')}
                 </Button>
                 {form.photo && (
                   <Button size="small" onClick={() => setForm(f => ({ ...f, photo: '' }))} sx={{ color: '#EF4444', fontSize: 11 }}>
