@@ -19,6 +19,7 @@ import Rating from './pages/Rating';
 import Academy from './pages/Academy';
 import News from './pages/News';
 import Team from './pages/Team';
+import Backoffice from './pages/Backoffice';
 import Agents from './pages/Agents';
 import Profile from './pages/Profile';
 import Shares from './pages/Shares';
@@ -53,6 +54,7 @@ export default function App() {
                   <Route path="/academy" element={<Academy />} />
                   <Route path="/news" element={<News />} />
                   <Route path="/team" element={<Team />} />
+                  <Route path="/backoffice" element={<Backoffice />} />
                   <Route path="/agents" element={<Agents />} />
                   <Route path="/shares" element={<Shares />} />
                   <Route path="/profile" element={<Profile />} />

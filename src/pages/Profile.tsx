@@ -24,6 +24,7 @@ import { currentUser as mockUser, achievements as mockAchievements, type Achieve
 import { fetchMe, getCurrentAgent } from '../auth/auth';
 import { api, API_BASE_URL, getToken } from '../api/apiClient';
 import ImageCropper from '../components/ImageCropper';
+import { supportApi, type SupportTicketSummary, type SupportTicketFull } from '../api/support';
 import { dealsApi } from '../api/deals';
 import { teamApi } from '../api/team';
 
@@ -221,11 +222,60 @@ export default function Profile() {
     }
   };
 
-  const handleSupportSend = () => {
-    setSupportOpen(false);
-    setSent(true);
-    setSupportForm({ topic: '', message: '' });
-    setTimeout(() => setSent(false), 2500);
+  // === Тикеты поддержки ===
+  const [tickets, setTickets] = useState<SupportTicketSummary[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [openTicket, setOpenTicket] = useState<SupportTicketFull | null>(null);
+  const [openTicketLoading, setOpenTicketLoading] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [submittingTicket, setSubmittingTicket] = useState(false);
+  const [supportError, setSupportError] = useState<string | null>(null);
+
+  const loadTickets = async () => {
+    setTicketsLoading(true);
+    try { setTickets(await supportApi.list()); }
+    catch { /* tolerate */ }
+    finally { setTicketsLoading(false); }
+  };
+  useEffect(() => { if (supportOpen) loadTickets(); }, [supportOpen]);
+
+  const handleSupportSend = async () => {
+    if (!supportForm.topic.trim() || !supportForm.message.trim()) return;
+    setSubmittingTicket(true);
+    setSupportError(null);
+    try {
+      await supportApi.create(supportForm.topic.trim(), supportForm.message.trim());
+      setSupportForm({ topic: '', message: '' });
+      setSent(true);
+      setTimeout(() => setSent(false), 2500);
+      await loadTickets();
+    } catch (e) {
+      setSupportError(e instanceof Error ? e.message : 'Не удалось отправить');
+    } finally {
+      setSubmittingTicket(false);
+    }
+  };
+
+  const openExistingTicket = async (id: number) => {
+    setOpenTicketLoading(true);
+    try { setOpenTicket(await supportApi.get(id)); }
+    catch (e) { setSupportError(e instanceof Error ? e.message : 'Ошибка'); }
+    finally { setOpenTicketLoading(false); }
+  };
+
+  const sendReply = async () => {
+    if (!openTicket || !replyText.trim()) return;
+    setSubmittingTicket(true);
+    try {
+      const updated = await supportApi.reply(openTicket.id, replyText.trim());
+      setOpenTicket(updated);
+      setReplyText('');
+      await loadTickets();
+    } catch (e) {
+      setSupportError(e instanceof Error ? e.message : 'Ошибка отправки');
+    } finally {
+      setSubmittingTicket(false);
+    }
   };
 
   const handleCopyRef = () => {
@@ -637,36 +687,141 @@ export default function Profile() {
         }}
       />
 
-      {/* Support dialog */}
-      <Dialog open={supportOpen} onClose={() => setSupportOpen(false)} maxWidth="sm" fullWidth>
+      {/* Support dialog: список тикетов + форма нового запроса */}
+      <Dialog open={supportOpen} onClose={() => { setSupportOpen(false); setOpenTicket(null); }} maxWidth="md" fullWidth>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
-          <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#F1F5F9' }}>Написать в техподдержку</Typography>
-          <IconButton size="small" onClick={() => setSupportOpen(false)} sx={{ color: '#64748B' }}><CloseRoundedIcon /></IconButton>
+          <Box>
+            <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#F1F5F9' }}>
+              {openTicket ? openTicket.subject : 'Техподдержка'}
+            </Typography>
+            {openTicket && (
+              <Button size="small" onClick={() => setOpenTicket(null)} sx={{ color: '#64748B', fontSize: 11, p: 0, minHeight: 0, mt: 0.3 }}>
+                ← к списку запросов
+              </Button>
+            )}
+          </Box>
+          <IconButton size="small" onClick={() => { setSupportOpen(false); setOpenTicket(null); }} sx={{ color: '#64748B' }}><CloseRoundedIcon /></IconButton>
         </DialogTitle>
         <Divider sx={{ borderColor: 'rgba(201,168,76,0.1)' }} />
-        <DialogContent sx={{ pt: 3 }}>
-          <Stack spacing={2.5}>
-            <Alert severity="info" sx={{ borderRadius: 2, py: 0.5 }}>
-              Ваше обращение будет привязано к аккаунту <b>{currentUser.email}</b>
-            </Alert>
-            <TextField fullWidth size="small" label="Тема" value={supportForm.topic} onChange={e => setSupportForm(f => ({ ...f, topic: e.target.value }))} placeholder="Например, не могу занести сделку" />
-            <TextField fullWidth label="Сообщение" multiline rows={5} value={supportForm.message} onChange={e => setSupportForm(f => ({ ...f, message: e.target.value }))} placeholder="Опишите подробно вашу проблему или вопрос" />
-            <Typography variant="caption" sx={{ color: '#64748B' }}>
-              Среднее время ответа: <b style={{ color: '#22C55E' }}>15 минут</b>. Можно прикрепить скриншот по почте <b style={{ color: '#C9A84C' }}>support@w24.agency</b>.
-            </Typography>
-          </Stack>
+        <DialogContent sx={{ pt: 2 }}>
+          {supportError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSupportError(null)}>{supportError}</Alert>}
+
+          {openTicket ? (
+            <Stack spacing={1.5}>
+              {openTicketLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={24} sx={{ color: '#C9A84C' }} /></Box>
+              ) : openTicket.messages.map(m => {
+                const isMe = m.author_role === 'agent';
+                return (
+                  <Box key={m.id} sx={{
+                    p: 1.8, borderRadius: 2,
+                    background: isMe ? 'rgba(201,168,76,0.05)' : 'rgba(67,97,238,0.06)',
+                    border: isMe ? '1px solid rgba(201,168,76,0.15)' : '1px solid rgba(67,97,238,0.18)',
+                  }}>
+                    <Box sx={{ display: 'flex', gap: 1, mb: 0.5, alignItems: 'center' }}>
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: '#F1F5F9' }}>
+                        {isMe ? 'Вы' : m.author_name}
+                      </Typography>
+                      {!isMe && <Typography variant="caption" sx={{ color: '#4361EE', fontSize: 10, fontWeight: 700 }}>· ПОДДЕРЖКА</Typography>}
+                      <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
+                        {new Date(m.created_at.replace(' ', 'T') + 'Z').toLocaleString('ru-RU')}
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" sx={{ color: '#CBD5E1', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{m.text}</Typography>
+                  </Box>
+                );
+              })}
+              {openTicket.status !== 'closed' && (
+                <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                  <TextField fullWidth size="small" multiline maxRows={5}
+                    placeholder="Ваше сообщение…"
+                    value={replyText} onChange={e => setReplyText(e.target.value)}
+                  />
+                  <Button variant="contained" onClick={sendReply} disabled={!replyText.trim() || submittingTicket}>
+                    Отправить
+                  </Button>
+                </Box>
+              )}
+              {openTicket.status === 'closed' && (
+                <Alert severity="info">Запрос закрыт. Создайте новый, если есть вопросы.</Alert>
+              )}
+            </Stack>
+          ) : (
+            <Stack spacing={2}>
+              <Box sx={{ p: 1.5, borderRadius: 2, background: 'rgba(67,97,238,0.06)', border: '1px solid rgba(67,97,238,0.18)' }}>
+                <Typography variant="caption" sx={{ color: '#94A3B8' }}>
+                  Создайте новый запрос или продолжите старый из списка ниже. Ответ получите в этом же окне и в уведомлениях.
+                </Typography>
+              </Box>
+
+              {/* Форма создания нового тикета */}
+              <Stack spacing={1.5}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#F1F5F9' }}>Новый запрос</Typography>
+                <TextField fullWidth size="small" label="Тема"
+                  value={supportForm.topic} onChange={e => setSupportForm(f => ({ ...f, topic: e.target.value }))}
+                  placeholder="Например, не получается занести сделку" />
+                <TextField fullWidth multiline rows={4} label="Сообщение"
+                  value={supportForm.message} onChange={e => setSupportForm(f => ({ ...f, message: e.target.value }))}
+                  placeholder="Опишите подробно ваш вопрос" />
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button variant="contained" onClick={handleSupportSend}
+                    disabled={!supportForm.topic.trim() || !supportForm.message.trim() || submittingTicket}
+                    sx={{ background: 'linear-gradient(135deg, #4361EE, #6B80F5)' }}
+                  >
+                    {submittingTicket ? 'Отправка…' : 'Отправить запрос'}
+                  </Button>
+                </Box>
+              </Stack>
+
+              {/* История тикетов */}
+              <Divider sx={{ borderColor: 'rgba(201,168,76,0.1)' }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#F1F5F9' }}>Мои запросы</Typography>
+              {ticketsLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}><CircularProgress size={20} /></Box>
+              ) : tickets.length === 0 ? (
+                <Typography variant="caption" sx={{ color: '#64748B', fontStyle: 'italic' }}>Запросов пока не было</Typography>
+              ) : (
+                <Stack spacing={1}>
+                  {tickets.map(t => {
+                    const statusCfg = {
+                      open:    { label: 'Ожидает ответа', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
+                      replied: { label: 'Есть ответ',     color: '#22C55E', bg: 'rgba(34,197,94,0.12)' },
+                      closed:  { label: 'Закрыт',         color: '#94A3B8', bg: 'rgba(100,116,139,0.12)' },
+                    }[t.status];
+                    return (
+                      <Box key={t.id}
+                        onClick={() => openExistingTicket(t.id)}
+                        sx={{ p: 1.5, borderRadius: 2, cursor: 'pointer',
+                          background: 'rgba(255,255,255,0.025)',
+                          border: '1px solid rgba(255,255,255,0.05)',
+                          '&:hover': { background: 'rgba(201,168,76,0.05)', border: '1px solid rgba(201,168,76,0.2)' },
+                        }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#F1F5F9' }}>{t.subject}</Typography>
+                            {t.last_message && (
+                              <Typography variant="caption" sx={{ color: '#64748B', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {t.last_message}
+                              </Typography>
+                            )}
+                          </Box>
+                          <Box sx={{ flexShrink: 0, textAlign: 'right' }}>
+                            <Box sx={{ display: 'inline-block', px: 1, py: 0.2, borderRadius: 1, background: statusCfg.bg, color: statusCfg.color, fontSize: 10, fontWeight: 700 }}>
+                              {statusCfg.label}
+                            </Box>
+                            <Typography variant="caption" sx={{ color: '#64748B', display: 'block', fontSize: 10, mt: 0.3 }}>
+                              {new Date(t.updated_at.replace(' ', 'T') + 'Z').toLocaleDateString('ru-RU')}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Stack>
+              )}
+            </Stack>
+          )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={() => setSupportOpen(false)} sx={{ color: '#64748B' }}>Отмена</Button>
-          <Button
-            variant="contained"
-            onClick={handleSupportSend}
-            disabled={!supportForm.topic.trim() || !supportForm.message.trim()}
-            sx={{ background: 'linear-gradient(135deg, #4361EE, #6B80F5)' }}
-          >
-            Отправить
-          </Button>
-        </DialogActions>
       </Dialog>
     </Box>
   );
