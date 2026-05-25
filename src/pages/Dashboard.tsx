@@ -10,10 +10,25 @@ import { useNavigate } from 'react-router-dom';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import { achievements } from '../data/mockData';
 import { dealsApi } from '../api/deals';
-import { teamApi } from '../api/team';
+import { teamApi, type TeamLevelStats, type MarketingPlanLevel } from '../api/team';
 import { sharesApi } from '../api/shares';
 import { getCurrentAgent } from '../auth/auth';
 import type { Deal, ShareQuote, SharePacket } from '../types/api';
+
+// Считает мой пассивный доход с команды по MLM-плану — идентично логике
+// на странице Team.tsx, чтобы цифры на дашборде и в Команде совпадали.
+function computePassiveIncome(levels: TeamLevelStats[], plan: MarketingPlanLevel[]): number {
+  const l1WithDeals = levels[0]?.withDealCount ?? 0;
+  return levels.reduce((sum, stats) => {
+    const p = plan.find(x => x.level === stats.level);
+    const growingUnlocked = p?.required == null ? true : l1WithDeals >= (p.required ?? 0);
+    const effectivePct = (p?.protected || 0) + (growingUnlocked && p?.growing ? p.growing : 0);
+    const rawIncome = Math.round(stats.totalVkd * effectivePct / 100);
+    const capPerAgent = p?.capPerAgent ?? 0;
+    const cappedIncome = Math.min(rawIncome, stats.withDealCount * capPerAgent);
+    return sum + cappedIncome;
+  }, 0);
+}
 
 // Пороги для уровней комиссии (по правилам Welcome 24)
 const LEVEL1_THRESHOLD = 2_000_000; // ВКД для перехода 80% → 90%
@@ -131,7 +146,7 @@ export default function Dashboard() {
 
   // === Мои данные с бэка ===
   const [myDeals, setMyDeals] = useState<Deal[]>([]);
-  const [teamTotals, setTeamTotals] = useState({ agents: 0, income: 0 });
+  const [teamTotals, setTeamTotals] = useState({ agents: 0, vkd: 0, passiveIncome: 0 });
   const [myShares, setMyShares] = useState<SharePacket[]>([]);
   const [shareQuotes, setShareQuotes] = useState<ShareQuote[]>([]);
 
@@ -139,15 +154,22 @@ export default function Dashboard() {
     let cancelled = false;
     const me = getCurrentAgent();
     const meId = typeof me?.id === 'number' ? me.id : undefined;
+    const year = String(new Date().getFullYear());
     Promise.all([
       dealsApi.list({ agentId: meId }).catch(() => []),
-      teamApi.get().catch(() => ({ totals: { agents: 0, active: 0, deals: 0, vkd: 0, income: 0 } })),
+      // Год — чтобы цифра совпадала с дефолтным фильтром на странице «Команда» (тоже текущий год)
+      teamApi.get({ year }).catch(() => ({ totals: { agents: 0, active: 0, deals: 0, vkd: 0, income: 0 }, levels: [], marketingPlan: [] } as unknown as Awaited<ReturnType<typeof teamApi.get>>)),
       sharesApi.myPackets().catch(() => []),
       sharesApi.quotes().catch(() => []),
     ]).then(([deals, team, packets, quotes]) => {
       if (cancelled) return;
       setMyDeals(deals);
-      setTeamTotals({ agents: team.totals?.agents || 0, income: team.totals?.income || 0 });
+      const passiveIncome = computePassiveIncome(team.levels || [], team.marketingPlan || []);
+      setTeamTotals({
+        agents: team.totals?.agents || 0,
+        vkd: team.totals?.vkd || 0,
+        passiveIncome,
+      });
       setMyShares(packets);
       setShareQuotes(quotes);
     });
@@ -292,7 +314,7 @@ export default function Dashboard() {
         {[
           { icon: <AccountBalanceWalletRoundedIcon />, label: `Доход ${currentYear}`, value: `${fmt(yearTotalIncome)} ₽`, sub: `ВКД: ${fmt(yearTotalVkd)} ₽`, color: '#22C55E', delay: 0.05 },
           { icon: <HandshakeRoundedIcon />, label: `Сделок ${currentYear}`, value: yearTotalDeals, sub: 'Личные сделки', color: '#4361EE', delay: 0.1 },
-          { icon: <GroupsRoundedIcon />, label: 'Команда', value: `${teamTotals.agents} агентов`, sub: `С команды: ${fmt(teamTotals.income)} ₽`, color: '#C9A84C', delay: 0.15 },
+          { icon: <GroupsRoundedIcon />, label: 'Команда', value: `${teamTotals.agents} агентов`, sub: `ВКД ${teamTotals.vkd >= 1e6 ? `${(teamTotals.vkd / 1e6).toFixed(2)} млн` : `${(teamTotals.vkd / 1000).toFixed(0)} тыс`} ₽ · ваш доход ${fmt(teamTotals.passiveIncome)} ₽`, color: '#C9A84C', delay: 0.15 },
           { icon: <DiamondRoundedIcon />, label: 'Акции', value: `${totalShares} шт`, sub: totalShares > 0 ? `${sharesGrowthPct >= 0 ? '+' : ''}${sharesGrowthPct}% · ${fmt(sharesValue)} ₽` : '—', color: '#7B2FBE', delay: 0.2 },
         ].map((s) => (
           <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={s.label}>
