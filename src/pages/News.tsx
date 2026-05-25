@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, Grid, Avatar, alpha, TextField, InputAdornment,
-  Dialog, DialogContent, IconButton, Divider, Button, CircularProgress, Alert,
+  Dialog, DialogContent, IconButton, Divider, Button, CircularProgress, Alert, Tooltip,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
-import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded';
+import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded';
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded';
 import FavoriteBorderRoundedIcon from '@mui/icons-material/FavoriteBorderRounded';
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
@@ -28,6 +28,48 @@ const categoryColors: Record<string, { bg: string; color: string }> = {
 
 const formatDate = (dateStr: string) =>
   new Date(dateStr).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+
+// SQLite отдаёт "2026-05-25 15:14:39" (UTC, без явной TZ). JS-конструктор
+// без 'Z' интерпретирует это как локальное время — выходят неверные часы.
+// Заворачиваем в ISO-формат с Z.
+function parseSqlDate(s: string): Date | null {
+  if (!s) return null;
+  // если уже ISO с Z или offset — браузер сам разберёт
+  if (s.includes('T') || s.includes('Z') || /[+-]\d{2}:?\d{2}$/.test(s)) {
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  // "2026-05-25 15:14:39" → "2026-05-25T15:14:39Z"
+  const d = new Date(s.replace(' ', 'T') + 'Z');
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// "5 минут назад" / "2 часа назад" / "вчера" / "3 дня назад" / "12 мая"
+function formatRelative(iso: string): string {
+  const d = parseSqlDate(iso);
+  if (!d) return '';
+  const diffMs = Date.now() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
+
+  if (diffMin < 1) return 'только что';
+  if (diffMin < 60) return `${diffMin} ${pluralRu(diffMin, 'минуту', 'минуты', 'минут')} назад`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `${diffH} ${pluralRu(diffH, 'час', 'часа', 'часов')} назад`;
+  const diffD = Math.floor(diffH / 24);
+  if (diffD === 1) return 'вчера';
+  if (diffD < 7) return `${diffD} ${pluralRu(diffD, 'день', 'дня', 'дней')} назад`;
+  if (diffD < 30) return `${Math.floor(diffD / 7)} ${pluralRu(Math.floor(diffD / 7), 'неделю', 'недели', 'недель')} назад`;
+  // > месяца — показываем абсолютную дату
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+}
+
+function pluralRu(n: number, one: string, few: string, many: string): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
+}
 
 interface Comment {
   id: number;
@@ -179,10 +221,12 @@ export default function News() {
     const liked = isLiked(a.id);
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: '#64748B', flexWrap: 'wrap' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <AccessTimeRoundedIcon sx={{ fontSize: isCard ? 13 : 14 }} />
-          <Typography variant="caption" sx={{ fontSize: isCard ? 11 : 12 }}>{a.readTime}</Typography>
-        </Box>
+        <Tooltip title="Время чтения">
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <MenuBookRoundedIcon sx={{ fontSize: isCard ? 13 : 14 }} />
+            <Typography variant="caption" sx={{ fontSize: isCard ? 11 : 12 }}>{a.readTime}</Typography>
+          </Box>
+        </Tooltip>
         <Box
           onClick={(e) => toggleLike(e, a)}
           sx={{
@@ -280,7 +324,11 @@ export default function News() {
                     const c = categoryColors[featured.category] || { bg: 'rgba(100,116,139,0.15)', color: '#94A3B8' };
                     return <Chip label={featured.category} size="small" sx={{ background: c.bg, color: c.color, fontWeight: 700 }} />;
                   })()}
-                  <Typography variant="caption" sx={{ color: '#64748B' }}>{formatDate(featured.date)}</Typography>
+                  <Tooltip title={featured.createdAt ? new Date(featured.createdAt.replace(' ', 'T') + 'Z').toLocaleString('ru-RU') : formatDate(featured.date)}>
+                    <Typography variant="caption" sx={{ color: '#64748B' }}>
+                      {featured.createdAt ? `опубликовано ${formatRelative(featured.createdAt)}` : formatDate(featured.date)}
+                    </Typography>
+                  </Tooltip>
                 </Box>
                 <Typography variant="h5" sx={{ fontWeight: 800, color: '#F1F5F9', mb: 2, lineHeight: 1.3 }}>{featured.title}</Typography>
                 <Typography sx={{ color: '#94A3B8', lineHeight: 1.7, mb: 3 }}>{featured.summary}</Typography>
@@ -326,7 +374,11 @@ export default function News() {
                     </Box>
                   </Box>
                   <CardContent sx={{ p: 2.5, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <Typography variant="caption" sx={{ color: '#64748B', mb: 0.5, display: 'block' }}>{formatDate(article.date)}</Typography>
+                    <Tooltip title={article.createdAt ? new Date(article.createdAt.replace(' ', 'T') + 'Z').toLocaleString('ru-RU') : formatDate(article.date)}>
+                      <Typography variant="caption" sx={{ color: '#64748B', mb: 0.5, display: 'block' }}>
+                        {article.createdAt ? formatRelative(article.createdAt) : formatDate(article.date)}
+                      </Typography>
+                    </Tooltip>
                     <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#F1F5F9', mb: 1, lineHeight: 1.4, flex: 1 }}>{article.title}</Typography>
                     <Typography variant="caption" sx={{ color: '#64748B', display: 'block', lineHeight: 1.5, mb: 2 }}>{article.summary}</Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -393,7 +445,9 @@ export default function News() {
                   <Box>
                     <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 700 }}>{openArticle.author}</Typography>
                     <Typography variant="caption" sx={{ color: '#64748B' }}>
-                      {new Date(openArticle.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })} · {openArticle.readTime} · 👁 {getViews(openArticle)}
+                      {openArticle.createdAt ? `опубликовано ${formatRelative(openArticle.createdAt)}` : new Date(openArticle.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      {' · 📖 '}{openArticle.readTime}
+                      {' · 👁 '}{getViews(openArticle)}
                     </Typography>
                   </Box>
                   <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>

@@ -11,6 +11,8 @@ export interface NewsArticle {
   content: string;
   category: string;
   date: string;
+  /** Точный timestamp создания записи в БД (ISO). Для «опубликовано N назад». */
+  createdAt: string;
   readTime: string;
   likes: number;
   views: number;
@@ -62,6 +64,7 @@ function normalizeArticle(r: RawArticle): NewsArticle {
     content: r.content || '',
     category: r.category || '',
     date: r.date,
+    createdAt: r.created_at || '',
     readTime: r.read_time || '',
     likes: r.likes_count || 0,
     views: r.views_count || 0,
