@@ -31,7 +31,10 @@ type RawAgent = {
   socials: AgentSocials;
   rating: number;
   reviews_count: number;
-  // Опциональные (вычисляются из deals в будущем — сейчас 0)
+  // Вычисляемые из deals на бэке (агрегаты)
+  year_deals?: number;
+  year_vkd?: number;
+  year_income?: number;
   total_deals?: number;
   total_vkd?: number;
   total_income?: number;
@@ -68,6 +71,9 @@ export function normalizeAgent(raw: RawAgent): Agent {
     totalDeals: raw.total_deals || 0,
     totalVkd: raw.total_vkd || 0,
     totalIncome: raw.total_income || 0,
+    yearDeals: raw.year_deals || 0,
+    yearVkd: raw.year_vkd || 0,
+    yearIncome: raw.year_income || 0,
     specialization: raw.specialization || [],
     socials: raw.socials || {},
     rating: raw.rating || 0,

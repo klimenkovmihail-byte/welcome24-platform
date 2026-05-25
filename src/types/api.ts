@@ -56,6 +56,9 @@ export interface Agent {
   totalDeals: number;
   totalVkd: number;
   totalIncome: number;
+  yearDeals: number;
+  yearVkd: number;
+  yearIncome: number;
 
   // Agency
   specialization: string[];

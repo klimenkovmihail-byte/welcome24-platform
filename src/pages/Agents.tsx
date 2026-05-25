@@ -31,6 +31,14 @@ const dirColors: Record<string, string> = {
 };
 const directions = ['Все направления', 'Жилая', 'Коммерческая', 'Загородная'];
 
+function pluralDeals(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'сделка';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'сделки';
+  return 'сделок';
+}
+
 type BaseRecord = AgentBaseRecord & { reviewsCount: number };
 
 /** Адаптер: бэковый Agent → формат базы агентов на портале. */
@@ -42,7 +50,7 @@ function toBaseRecord(a: Agent): BaseRecord {
     city: a.city,
     primaryDir: primary,
     secondaryDir: [],
-    deals: a.totalDeals,
+    deals: a.yearDeals,
     experienceYears: a.experienceYears,
     phone: a.phone,
     photo: a.photo,
@@ -323,7 +331,7 @@ export default function Agents() {
                             <HandshakeRoundedIcon sx={{ fontSize: 14 }} />
                             <Typography variant="caption" sx={{ fontWeight: 800, color: '#F1F5F9', fontSize: 14 }}>{agent.deals}</Typography>
                           </Box>
-                          <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>сделок</Typography>
+                          <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>{pluralDeals(agent.deals)} за год</Typography>
                         </Box>
                         <Box sx={{ textAlign: 'center' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'center', color: '#C9A84C' }}>
@@ -417,7 +425,7 @@ export default function Agents() {
                       {openAgent.primaryDir.map(d => (
                         <Chip key={d} label={d} size="small" sx={{ background: alpha(dirColors[d] || '#64748B', 0.18), color: dirColors[d] || '#94A3B8', fontWeight: 700 }} />
                       ))}
-                      <Chip icon={<HandshakeRoundedIcon sx={{ fontSize: 14 }} />} label={`${openAgent.deals} сделок`} size="small" sx={{ background: 'rgba(67,97,238,0.15)', color: '#4361EE', fontWeight: 700, '& .MuiChip-icon': { color: '#4361EE' } }} />
+                      <Chip icon={<HandshakeRoundedIcon sx={{ fontSize: 14 }} />} label={`${openAgent.deals} ${pluralDeals(openAgent.deals)} за год`} size="small" sx={{ background: 'rgba(67,97,238,0.15)', color: '#4361EE', fontWeight: 700, '& .MuiChip-icon': { color: '#4361EE' } }} />
                       <Chip icon={<WorkRoundedIcon sx={{ fontSize: 14 }} />} label={`${openAgent.experienceYears} ${openAgent.experienceYears === 1 ? 'год' : openAgent.experienceYears < 5 ? 'года' : 'лет'} опыта`} size="small" sx={{ background: 'rgba(201,168,76,0.15)', color: '#C9A84C', fontWeight: 700, '& .MuiChip-icon': { color: '#C9A84C' } }} />
                     </Box>
                   </Box>
