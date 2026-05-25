@@ -146,7 +146,10 @@ export default function Dashboard() {
 
   // === Мои данные с бэка ===
   const [myDeals, setMyDeals] = useState<Deal[]>([]);
-  const [teamTotals, setTeamTotals] = useState({ agents: 0, vkd: 0, passiveIncome: 0 });
+  // Текущий год — для согласованности со страницей «Команда» (default-фильтр)
+  const [teamYear, setTeamYear] = useState({ agents: 0, vkd: 0, passiveIncome: 0 });
+  // За всё время — для «Итого людей» и «Итого доход за весь период»
+  const [teamAllTime, setTeamAllTime] = useState({ agents: 0, vkd: 0, passiveIncome: 0 });
   const [myShares, setMyShares] = useState<SharePacket[]>([]);
   const [shareQuotes, setShareQuotes] = useState<ShareQuote[]>([]);
 
@@ -155,20 +158,25 @@ export default function Dashboard() {
     const me = getCurrentAgent();
     const meId = typeof me?.id === 'number' ? me.id : undefined;
     const year = String(new Date().getFullYear());
+    const emptyTeam = { totals: { agents: 0, active: 0, deals: 0, vkd: 0, income: 0 }, levels: [], marketingPlan: [] };
     Promise.all([
       dealsApi.list({ agentId: meId }).catch(() => []),
-      // Год — чтобы цифра совпадала с дефолтным фильтром на странице «Команда» (тоже текущий год)
-      teamApi.get({ year }).catch(() => ({ totals: { agents: 0, active: 0, deals: 0, vkd: 0, income: 0 }, levels: [], marketingPlan: [] } as unknown as Awaited<ReturnType<typeof teamApi.get>>)),
+      teamApi.get({ year }).catch(() => emptyTeam as unknown as Awaited<ReturnType<typeof teamApi.get>>),
+      teamApi.get().catch(() => emptyTeam as unknown as Awaited<ReturnType<typeof teamApi.get>>),
       sharesApi.myPackets().catch(() => []),
       sharesApi.quotes().catch(() => []),
-    ]).then(([deals, team, packets, quotes]) => {
+    ]).then(([deals, teamYr, teamAll, packets, quotes]) => {
       if (cancelled) return;
       setMyDeals(deals);
-      const passiveIncome = computePassiveIncome(team.levels || [], team.marketingPlan || []);
-      setTeamTotals({
-        agents: team.totals?.agents || 0,
-        vkd: team.totals?.vkd || 0,
-        passiveIncome,
+      setTeamYear({
+        agents: teamYr.totals?.agents || 0,
+        vkd: teamYr.totals?.vkd || 0,
+        passiveIncome: computePassiveIncome(teamYr.levels || [], teamYr.marketingPlan || []),
+      });
+      setTeamAllTime({
+        agents: teamAll.totals?.agents || 0,
+        vkd: teamAll.totals?.vkd || 0,
+        passiveIncome: computePassiveIncome(teamAll.levels || [], teamAll.marketingPlan || []),
       });
       setMyShares(packets);
       setShareQuotes(quotes);
@@ -314,7 +322,7 @@ export default function Dashboard() {
         {[
           { icon: <AccountBalanceWalletRoundedIcon />, label: `Доход ${currentYear}`, value: `${fmt(yearTotalIncome)} ₽`, sub: `ВКД: ${fmt(yearTotalVkd)} ₽`, color: '#22C55E', delay: 0.05 },
           { icon: <HandshakeRoundedIcon />, label: `Сделок ${currentYear}`, value: yearTotalDeals, sub: 'Личные сделки', color: '#4361EE', delay: 0.1 },
-          { icon: <GroupsRoundedIcon />, label: 'Команда', value: `${teamTotals.agents} агентов`, sub: `ВКД ${teamTotals.vkd >= 1e6 ? `${(teamTotals.vkd / 1e6).toFixed(2)} млн` : `${(teamTotals.vkd / 1000).toFixed(0)} тыс`} ₽ · ваш доход ${fmt(teamTotals.passiveIncome)} ₽`, color: '#C9A84C', delay: 0.15 },
+          { icon: <GroupsRoundedIcon />, label: 'Партнёрская сеть', value: `${teamAllTime.agents} на всех уровнях`, sub: `Заработано за всё время: ${fmt(teamAllTime.passiveIncome)} ₽ · за ${currentYear}: ${fmt(teamYear.passiveIncome)} ₽`, color: '#C9A84C', delay: 0.15 },
           { icon: <DiamondRoundedIcon />, label: 'Акции', value: `${totalShares} шт`, sub: totalShares > 0 ? `${sharesGrowthPct >= 0 ? '+' : ''}${sharesGrowthPct}% · ${fmt(sharesValue)} ₽` : '—', color: '#7B2FBE', delay: 0.2 },
         ].map((s) => (
           <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={s.label}>
