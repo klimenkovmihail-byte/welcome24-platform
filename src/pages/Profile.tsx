@@ -180,7 +180,11 @@ export default function Profile() {
 
   const [supportForm, setSupportForm] = useState({ topic: '', message: '' });
 
-  const referralLink = `https://app.welcome24.ru/r/${currentUser.id}-mk`;
+  // Берём реальную ссылку из БД (поле referral_link у агента). Если её ещё нет —
+  // показываем заглушку с просьбой обратиться к админу.
+  const referralLink = (user as { referral_link?: string; referralLink?: string } | null)?.referral_link
+    || (user as { referralLink?: string } | null)?.referralLink
+    || '';
 
   const handleSave = async () => {
     if (!user || typeof user.id !== 'number') { setSaveError('Профиль не загружен'); return; }
@@ -356,21 +360,33 @@ export default function Profile() {
                 <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 1.5 }}>
                   Приглашайте агентов и получайте бонусы с их сделок
                 </Typography>
-                <Box sx={{
-                  display: 'flex', alignItems: 'center', gap: 1,
-                  p: 1.2, borderRadius: 2,
-                  background: 'rgba(201,168,76,0.05)',
-                  border: '1px dashed rgba(201,168,76,0.25)',
-                }}>
-                  <Typography variant="caption" sx={{ flex: 1, color: '#C9A84C', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {referralLink}
-                  </Typography>
-                  <Tooltip title={refCopied ? 'Скопировано!' : 'Скопировать'}>
-                    <IconButton size="small" onClick={handleCopyRef} sx={{ color: refCopied ? '#22C55E' : '#64748B' }}>
-                      {refCopied ? <CheckCircleRoundedIcon sx={{ fontSize: 16 }} /> : <ContentCopyRoundedIcon sx={{ fontSize: 16 }} />}
-                    </IconButton>
-                  </Tooltip>
-                </Box>
+                {referralLink ? (
+                  <Box sx={{
+                    display: 'flex', alignItems: 'center', gap: 1,
+                    p: 1.2, borderRadius: 2,
+                    background: 'rgba(201,168,76,0.05)',
+                    border: '1px dashed rgba(201,168,76,0.25)',
+                  }}>
+                    <Typography variant="caption" sx={{ flex: 1, color: '#C9A84C', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {referralLink}
+                    </Typography>
+                    <Tooltip title={refCopied ? 'Скопировано!' : 'Скопировать'}>
+                      <IconButton size="small" onClick={handleCopyRef} sx={{ color: refCopied ? '#22C55E' : '#64748B' }}>
+                        {refCopied ? <CheckCircleRoundedIcon sx={{ fontSize: 16 }} /> : <ContentCopyRoundedIcon sx={{ fontSize: 16 }} />}
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                ) : (
+                  <Box sx={{
+                    p: 1.5, borderRadius: 2,
+                    background: 'rgba(245,158,11,0.06)',
+                    border: '1px dashed rgba(245,158,11,0.3)',
+                  }}>
+                    <Typography variant="caption" sx={{ color: '#F59E0B' }}>
+                      Реферальная ссылка ещё не привязана. Обратитесь к администратору.
+                    </Typography>
+                  </Box>
+                )}
               </CardContent>
             </Card>
 
