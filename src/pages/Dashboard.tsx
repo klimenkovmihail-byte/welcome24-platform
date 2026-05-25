@@ -316,7 +316,7 @@ export default function Dashboard() {
         {[
           { icon: <AccountBalanceWalletRoundedIcon />, label: `Доход ${currentYear}`, value: `${fmt(yearTotalIncome)} ₽`, sub: `ВКД: ${fmt(yearTotalVkd)} ₽`, color: '#22C55E', delay: 0.05 },
           { icon: <HandshakeRoundedIcon />, label: `Сделок ${currentYear}`, value: yearTotalDeals, sub: 'Личные сделки', color: '#4361EE', delay: 0.1 },
-          { icon: <GroupsRoundedIcon />, label: 'Партнёрская сеть', value: `${teamAllTime.agents} на всех уровнях`, sub: `Заработано с команды: ${fmt(teamAllTime.passiveIncome)} ₽`, color: '#C9A84C', delay: 0.15 },
+          { icon: <GroupsRoundedIcon />, label: 'Заработано с команды', value: `${fmt(teamAllTime.passiveIncome)} ₽`, sub: `${teamAllTime.agents} ${teamAllTime.agents % 10 === 1 && teamAllTime.agents % 100 !== 11 ? 'партнёр' : (teamAllTime.agents % 10 >= 2 && teamAllTime.agents % 10 <= 4 && (teamAllTime.agents % 100 < 12 || teamAllTime.agents % 100 > 14) ? 'партнёра' : 'партнёров')} на всех уровнях`, color: '#C9A84C', delay: 0.15 },
           { icon: <DiamondRoundedIcon />, label: 'Акции', value: `${totalShares} шт`, sub: totalShares > 0 ? `${sharesGrowthPct >= 0 ? '+' : ''}${sharesGrowthPct}% · ${fmt(sharesValue)} ₽` : '—', color: '#7B2FBE', delay: 0.2 },
         ].map((s) => (
           <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={s.label}>
@@ -336,7 +336,7 @@ export default function Dashboard() {
                     <Typography variant="h6" sx={{ fontWeight: 700, color: '#F1F5F9' }}>Динамика доходов</Typography>
                     <Typography variant="caption" sx={{ color: '#64748B' }}>Все месяцы {filterYear} года</Typography>
                   </Box>
-                  <Chip label="2026" size="small" sx={{ background: 'rgba(201,168,76,0.12)', color: '#C9A84C', fontWeight: 700 }} />
+                  <Chip label={filterYear} size="small" sx={{ background: 'rgba(201,168,76,0.12)', color: '#C9A84C', fontWeight: 700 }} />
                 </Box>
                 <ResponsiveContainer width="100%" height={240}>
                   <AreaChart data={monthlyStats}>
