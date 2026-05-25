@@ -409,34 +409,49 @@ export default function Academy() {
   const [lessonProgress, setLessonProgress] = useState<Record<string, boolean>>({}); // key: courseId-lessonId
   const [webinarLikes, setWebinarLikes] = useState<Set<number>>(new Set());        // мои лайки (optimistic)
   const [webinarLikeOverride, setWebinarLikeOverride] = useState<Record<number, number>>({}); // override likesCount после клика
+  const [webinarViewsOverride, setWebinarViewsOverride] = useState<Record<number, number>>({}); // override views после открытия
+  const [viewedWebinars, setViewedWebinars] = useState<Set<number>>(new Set());
   const [webinarComments, setWebinarComments] = useState<Record<number, { id: number; author: string; initials: string; text: string; date: string; isMe?: boolean }[]>>({});
   const [webinarCommentDraft, setWebinarCommentDraft] = useState('');
   const [webinarCommentSending, setWebinarCommentSending] = useState(false);
 
-  // Подгружаем комменты вебинара при открытии диалога.
+  // Подгружаем комменты вебинара при открытии диалога + засчитываем просмотр.
   useEffect(() => {
     if (!openWebinar) return;
-    if (webinarComments[openWebinar.id]) return; // уже загружали
+    const wid = openWebinar.id;
     let cancelled = false;
-    academyApi.webinarComments(openWebinar.id)
-      .then(rows => {
-        if (cancelled || !openWebinar) return;
-        const mapped = rows.map(c => {
-          const initials = (c.authorName || 'А').split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
-          return {
-            id: c.id,
-            author: c.authorName,
-            initials,
-            text: c.text,
-            date: (c.createdAt || '').slice(0, 10).split('-').reverse().slice(0, 2).join('.'),
-            isMe: false,
-          };
-        });
-        setWebinarComments(prev => ({ ...prev, [openWebinar.id]: mapped }));
-      })
-      .catch(() => { /* tolerate */ });
+    if (!webinarComments[wid]) {
+      academyApi.webinarComments(wid)
+        .then(rows => {
+          if (cancelled) return;
+          const mapped = rows.map(c => {
+            const initials = (c.authorName || 'А').split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+            return {
+              id: c.id,
+              author: c.authorName,
+              initials,
+              text: c.text,
+              date: (c.createdAt || '').slice(0, 10).split('-').reverse().slice(0, 2).join('.'),
+              isMe: false,
+            };
+          });
+          setWebinarComments(prev => ({ ...prev, [wid]: mapped }));
+        })
+        .catch(() => { /* tolerate */ });
+    }
+    if (!viewedWebinars.has(wid)) {
+      academyApi.trackWebinarView(wid)
+        .then(res => {
+          if (cancelled) return;
+          setWebinarViewsOverride(prev => ({ ...prev, [wid]: res.views }));
+          setViewedWebinars(prev => { const s = new Set(prev); s.add(wid); return s; });
+        })
+        .catch(() => { /* tolerate */ });
+    }
     return () => { cancelled = true; };
-  }, [openWebinar, webinarComments]);
+  }, [openWebinar, webinarComments, viewedWebinars]);
+
+  const getWebinarViews = (w: WebinarRecording) => webinarViewsOverride[w.id] ?? w.views;
 
   const isLessonDone = (courseId: number, lessonId: number, initial: boolean) =>
     lessonProgress[`${courseId}-${lessonId}`] ?? initial;
@@ -879,7 +894,7 @@ export default function Academy() {
                       {new Date(openWebinar.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
                       {openWebinar.duration && ` · ⏱ ${openWebinar.duration}`}
                       {` · 🎤 ${openWebinar.speakerName}`}
-                      {` · 👁 ${openWebinar.views.toLocaleString('ru-RU')}`}
+                      {` · 👁 ${getWebinarViews(openWebinar).toLocaleString('ru-RU')}`}
                     </Typography>
                   </Box>
                   <Button

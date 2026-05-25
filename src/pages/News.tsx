@@ -9,6 +9,7 @@ import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded';
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded';
 import FavoriteBorderRoundedIcon from '@mui/icons-material/FavoriteBorderRounded';
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
+import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import { currentUser } from '../data/mockData';
@@ -77,6 +78,8 @@ export default function News() {
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
   const [likesOverride, setLikesOverride] = useState<Record<number, number>>({});
   const [commentsByArticle, setCommentsByArticle] = useState<Record<number, Comment[]>>({});
+  const [viewsOverride, setViewsOverride] = useState<Record<number, number>>({});
+  const [viewedArticles, setViewedArticles] = useState<Set<number>>(new Set());
   const [newComment, setNewComment] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -93,19 +96,32 @@ export default function News() {
     return () => { cancelled = true; };
   }, []);
 
-  // При открытии статьи — подтянуть её комменты с бэка.
+  // При открытии статьи — подтянуть её комменты с бэка и +1 к просмотру.
   useEffect(() => {
     if (openId == null) return;
-    if (commentsByArticle[openId]) return; // уже загружены
     let cancelled = false;
-    newsApi.comments(openId)
-      .then(rows => {
-        if (cancelled) return;
-        setCommentsByArticle(prev => ({ ...prev, [openId]: rows.map(c => commentFromApi(c, meId)) }));
-      })
-      .catch(() => { /* tolerate */ });
+    if (!commentsByArticle[openId]) {
+      newsApi.comments(openId)
+        .then(rows => {
+          if (cancelled) return;
+          setCommentsByArticle(prev => ({ ...prev, [openId]: rows.map(c => commentFromApi(c, meId)) }));
+        })
+        .catch(() => { /* tolerate */ });
+    }
+    // Учёт просмотра — один раз за сессию на статью
+    if (!viewedArticles.has(openId)) {
+      newsApi.trackView(openId)
+        .then(res => {
+          if (cancelled) return;
+          setViewsOverride(prev => ({ ...prev, [openId]: res.views }));
+          setViewedArticles(prev => { const s = new Set(prev); s.add(openId); return s; });
+        })
+        .catch(() => { /* tolerate */ });
+    }
     return () => { cancelled = true; };
-  }, [openId, commentsByArticle, meId]);
+  }, [openId, commentsByArticle, viewedArticles, meId]);
+
+  const getViews = (a: NewsArticle) => viewsOverride[a.id] ?? a.views;
 
   const categories = Array.from(new Set(newsArticles.map(a => a.category)));
   const filtered = newsArticles.filter(a =>
@@ -186,6 +202,10 @@ export default function News() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <ChatBubbleOutlineRoundedIcon sx={{ fontSize: isCard ? 13 : 14 }} />
           <Typography variant="caption" sx={{ fontSize: isCard ? 11 : 12 }}>{comments}</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <VisibilityRoundedIcon sx={{ fontSize: isCard ? 13 : 14 }} />
+          <Typography variant="caption" sx={{ fontSize: isCard ? 11 : 12 }}>{getViews(a)}</Typography>
         </Box>
       </Box>
     );
@@ -373,7 +393,7 @@ export default function News() {
                   <Box>
                     <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 700 }}>{openArticle.author}</Typography>
                     <Typography variant="caption" sx={{ color: '#64748B' }}>
-                      {new Date(openArticle.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })} · {openArticle.readTime}
+                      {new Date(openArticle.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })} · {openArticle.readTime} · 👁 {getViews(openArticle)}
                     </Typography>
                   </Box>
                   <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>

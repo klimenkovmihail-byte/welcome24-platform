@@ -165,6 +165,8 @@ export const academyApi = {
     api.post<{ ok: true }>(`/api/academy/courses/${courseId}/rate`, { rating }),
   likeWebinar: (id: number) =>
     api.post<{ liked: boolean; likes: number }>(`/api/academy/webinars/${id}/like`),
+  trackWebinarView: (id: number) =>
+    api.post<{ views: number }>(`/api/academy/webinars/${id}/view`),
   webinarComments: (id: number) =>
     api.get<RawWebinarComment[]>(`/api/academy/webinars/${id}/comments`).then(rows => rows.map(normalizeWebinarComment)),
   addWebinarComment: (id: number, text: string) =>

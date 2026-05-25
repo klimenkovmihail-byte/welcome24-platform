@@ -13,6 +13,7 @@ export interface NewsArticle {
   date: string;
   readTime: string;
   likes: number;
+  views: number;
   featured: boolean;
   image: string;
   author: string;
@@ -38,6 +39,7 @@ type RawArticle = {
   date: string;
   read_time: string;
   likes_count: number;
+  views_count: number;
   is_featured: number | boolean;
   published: number | boolean;
   created_at: string;
@@ -62,6 +64,7 @@ function normalizeArticle(r: RawArticle): NewsArticle {
     date: r.date,
     readTime: r.read_time || '',
     likes: r.likes_count || 0,
+    views: r.views_count || 0,
     featured: !!r.is_featured,
     image: r.cover_url || '',
     author: r.author_name || '',
@@ -87,4 +90,6 @@ export const newsApi = {
     api.post<RawComment>(`/api/news/${articleId}/comments`, { text }).then(normalizeComment),
   toggleLike:  (articleId: number) =>
     api.post<{ liked: boolean; likes: number }>(`/api/news/${articleId}/like`),
+  trackView:   (articleId: number) =>
+    api.post<{ views: number }>(`/api/news/${articleId}/view`),
 };

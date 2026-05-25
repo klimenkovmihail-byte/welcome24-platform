@@ -23,6 +23,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import { currentUser as mockUser, achievements as mockAchievements, type Achievement } from '../data/mockData';
 import { fetchMe, getCurrentAgent } from '../auth/auth';
 import { api, API_BASE_URL, getToken } from '../api/apiClient';
+import ImageCropper from '../components/ImageCropper';
 import { dealsApi } from '../api/deals';
 import { teamApi } from '../api/team';
 
@@ -118,18 +119,15 @@ export default function Profile() {
   });
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoToCrop, setPhotoToCrop] = useState<File | null>(null);
 
-  // Загрузка фото в Yandex Object Storage через /api/upload?type=avatar.
-  // Возвращается публичный URL, который кладём в форму и при сохранении
-  // профиля летит в /api/agents/:id (поле photo).
-  const handlePhotoFile = async (file: File | null) => {
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { setSaveError('Файл слишком большой (макс 5 МБ).'); return; }
+  // Заливка обрезанного фото в Yandex Object Storage через /api/upload?type=avatar.
+  const uploadPhotoBlob = async (blob: Blob, name: string) => {
     setSaveError(null);
     setPhotoUploading(true);
     try {
       const fd = new FormData();
-      fd.append('file', file);
+      fd.append('file', blob, name);
       fd.append('type', 'avatar');
       const token = getToken();
       const res = await fetch(`${API_BASE_URL}/api/upload`, {
@@ -147,6 +145,17 @@ export default function Profile() {
     } finally {
       setPhotoUploading(false);
     }
+  };
+
+  // При выборе файла — открываем кропер вместо прямой загрузки.
+  const handlePhotoFile = (file: File | null) => {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setSaveError('Файл слишком большой (макс 10 МБ — оригинал до обрезки).');
+      return;
+    }
+    setSaveError(null);
+    setPhotoToCrop(file);
   };
 
   // Когда user пришёл с бэка — синхронизируем форму.
@@ -599,6 +608,18 @@ export default function Profile() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Image cropper for avatar */}
+      <ImageCropper
+        file={photoToCrop}
+        aspect={1}
+        open={!!photoToCrop}
+        onClose={() => { setPhotoToCrop(null); if (photoInputRef.current) photoInputRef.current.value = ''; }}
+        onApply={(blob, name) => {
+          setPhotoToCrop(null);
+          uploadPhotoBlob(blob, name);
+        }}
+      />
 
       {/* Support dialog */}
       <Dialog open={supportOpen} onClose={() => setSupportOpen(false)} maxWidth="sm" fullWidth>
