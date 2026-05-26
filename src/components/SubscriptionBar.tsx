@@ -76,8 +76,8 @@ export default function SubscriptionBar({ status, agentId, onUpdated }: Props) {
     );
   }
 
-  // Долги есть
-  if (status.totalDue > 0) {
+  // Долги ИЛИ блокировка ИЛИ ждём подтверждения по pending_review (даже когда totalDue=0).
+  if (status.totalDue > 0 || status.blocked || status.unpaidCount > 0) {
     const urgent = status.blocked || status.overdueCount >= 1;
     const color = urgent ? '#EF4444' : '#F59E0B';
     const colorBg = urgent ? 'rgba(239,68,68,0.10)' : 'rgba(245,158,11,0.10)';
@@ -110,10 +110,14 @@ export default function SubscriptionBar({ status, agentId, onUpdated }: Props) {
               <Typography variant="body2" sx={{ fontWeight: 800, color, lineHeight: 1.3 }}>
                 {status.blocked
                   ? 'Доступ к порталу ограничен — оплатите АП'
-                  : `Не оплачена абонентская плата за ${status.unpaidCount} ${status.unpaidCount === 1 ? 'месяц' : status.unpaidCount < 5 ? 'месяца' : 'месяцев'}`}
+                  : status.totalDue > 0
+                    ? `Не оплачена абонентская плата за ${status.unpaidCount} ${status.unpaidCount === 1 ? 'месяц' : status.unpaidCount < 5 ? 'месяца' : 'месяцев'}`
+                    : `Ждём подтверждения оплаты за ${status.unpaidCount} ${status.unpaidCount === 1 ? 'месяц' : status.unpaidCount < 5 ? 'месяца' : 'месяцев'}`}
               </Typography>
               <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                К оплате: <b style={{ color: '#F1F5F9' }}>{fmt(status.totalDue)} ₽</b> · 4990 ₽/мес · отмена при ВКД 200 000 ₽ за квартал
+                {status.totalDue > 0
+                  ? <>К оплате: <b style={{ color: '#F1F5F9' }}>{fmt(status.totalDue)} ₽</b> · 4990 ₽/мес · отмена при ВКД 200 000 ₽ за квартал</>
+                  : <>Платёж ожидает подтверждения админом или авто-сверки YooKassa</>}
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
@@ -123,11 +127,13 @@ export default function SubscriptionBar({ status, agentId, onUpdated }: Props) {
               >
                 Детали
               </Button>
-              <Button size="small" variant="contained" onClick={() => setOpen(true)}
-                sx={{ background: color, '&:hover': { background: color, filter: 'brightness(1.1)' } }}
-              >
-                Оплатить
-              </Button>
+              {status.totalDue > 0 && (
+                <Button size="small" variant="contained" onClick={() => setOpen(true)}
+                  sx={{ background: color, '&:hover': { background: color, filter: 'brightness(1.1)' } }}
+                >
+                  Оплатить
+                </Button>
+              )}
             </Box>
           </Box>
         </motion.div>
