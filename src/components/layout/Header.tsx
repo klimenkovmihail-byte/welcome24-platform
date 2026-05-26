@@ -25,6 +25,7 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   '/academy': { title: 'Академия', subtitle: 'Обучение и развитие' },
   '/news': { title: 'Новости', subtitle: 'Последние события компании' },
   '/docs': { title: 'База данных', subtitle: 'Документы, регламенты, шаблоны' },
+  '/ai':   { title: 'AI-помощник', subtitle: 'Инструменты ИИ для ускорения работы' },
   '/team': { title: 'Моя MLM-структура', subtitle: 'Уровни команды и пассивный доход' },
   '/backoffice': { title: 'Команда Welcome 24', subtitle: 'Бэк-офис: к кому обращаться' },
   '/agents': { title: 'База агентов', subtitle: 'Поиск и контакты' },
