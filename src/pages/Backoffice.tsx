@@ -9,6 +9,9 @@ import EmailRoundedIcon from '@mui/icons-material/EmailRounded';
 import TelegramIcon from '@mui/icons-material/Telegram';
 import SupportAgentRoundedIcon from '@mui/icons-material/SupportAgentRounded';
 import { backofficeApi, type BackOfficeMember } from '../api/backoffice';
+import { settingsApi } from '../api/settings';
+
+const DEFAULT_INTRO = 'К этим людям ты можешь обращаться по специальным вопросам — бухгалтерия, юристы, HR, маркетинг, IT.';
 
 // Цвета по должностям — для визуального разнообразия карточек.
 const roleColors: Record<string, string> = {
@@ -27,12 +30,19 @@ const defaultColor = '#94A3B8';
 
 export default function Backoffice() {
   const [team, setTeam] = useState<BackOfficeMember[]>([]);
+  const [intro, setIntro] = useState(DEFAULT_INTRO);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    backofficeApi.list()
-      .then(setTeam)
+    Promise.all([
+      backofficeApi.list(),
+      settingsApi.get().catch(() => ({} as Record<string, string>)),
+    ])
+      .then(([list, settings]) => {
+        setTeam(list);
+        if (settings.backoffice_intro?.trim()) setIntro(settings.backoffice_intro);
+      })
       .catch(err => setError(err?.message || 'Не удалось загрузить команду'))
       .finally(() => setLoading(false));
   }, []);
@@ -57,8 +67,8 @@ export default function Backoffice() {
 
   return (
     <Box>
-      <Typography variant="body2" sx={{ color: '#94A3B8', mb: 3 }}>
-        К этим людям ты можешь обращаться по специальным вопросам — бухгалтерия, юристы, HR, маркетинг, IT.
+      <Typography variant="body2" sx={{ color: '#94A3B8', mb: 3, whiteSpace: 'pre-wrap' }}>
+        {intro}
       </Typography>
 
       <Grid container spacing={3}>
@@ -75,24 +85,25 @@ export default function Backoffice() {
                   transition: 'all 0.3s',
                 }}>
                   <CardContent sx={{ p: 3 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, mb: 2 }}>
                       <Avatar
                         src={m.photo || undefined}
                         sx={{
-                          width: 64, height: 64, fontSize: 20, fontWeight: 800,
+                          width: 96, height: 96, fontSize: 30, fontWeight: 800,
                           background: m.photo ? '#1A2340' : `linear-gradient(135deg, ${alpha(color, 0.4)}, ${alpha(color, 0.15)})`,
                           color: '#F1F5F9',
-                          border: `2px solid ${alpha(color, 0.4)}`,
+                          border: `3px solid ${alpha(color, 0.45)}`,
+                          flexShrink: 0,
                         }}
                       >
                         {!m.photo && initials}
                       </Avatar>
                       <Box sx={{ minWidth: 0, flex: 1 }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#F1F5F9', lineHeight: 1.2 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#F1F5F9', lineHeight: 1.25 }}>
                           {m.name}
                         </Typography>
                         <Chip label={m.role} size="small" sx={{
-                          mt: 0.5, height: 22, fontSize: 11, fontWeight: 700,
+                          mt: 0.8, height: 24, fontSize: 12, fontWeight: 700,
                           background: alpha(color, 0.15), color, border: `1px solid ${alpha(color, 0.3)}`,
                         }} />
                       </Box>
