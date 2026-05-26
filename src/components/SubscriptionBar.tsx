@@ -62,7 +62,7 @@ export default function SubscriptionBar({ status, agentId, onUpdated }: Props) {
                   АБОНЕНТСКАЯ ПЛАТА ОТМЕНЕНА НАВСЕГДА
                 </Typography>
                 <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                  Lifetime ВКД {fmt(status.lifetimeVkd)} ₽ ≥ {fmt(status.lifetimeThreshold)} ₽ — поздравляем!
+                  Ваш общий ВКД {fmt(status.lifetimeVkd)} ₽ ≥ {fmt(status.lifetimeThreshold)} ₽ — поздравляем!
                 </Typography>
               </Box>
               <Chip label="VIP" size="small"
@@ -150,7 +150,7 @@ export default function SubscriptionBar({ status, agentId, onUpdated }: Props) {
       >
         <CheckCircleRoundedIcon sx={{ color: '#22C55E', fontSize: 18 }} />
         <Typography variant="caption" sx={{ color: '#94A3B8', flex: 1 }}>
-          Абонентская плата актуальна. Lifetime ВКД: <b style={{ color: '#F1F5F9' }}>{fmt(status.lifetimeVkd)} ₽</b> / {fmt(status.lifetimeThreshold)} ₽ до полной отмены
+          Абонентская плата актуальна. Ваш ВКД: <b style={{ color: '#F1F5F9' }}>{fmt(status.lifetimeVkd)} ₽</b> / {fmt(status.lifetimeThreshold)} ₽ до полной отмены
         </Typography>
         <Typography variant="caption" sx={{ color: '#64748B' }}>детали →</Typography>
       </Box>

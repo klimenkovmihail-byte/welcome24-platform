@@ -89,7 +89,7 @@ export default function SubscriptionDetailsDialog({ open, onClose, status, agent
         <Box>
           <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#F1F5F9' }}>Абонентская плата</Typography>
           <Typography variant="caption" sx={{ color: '#64748B' }}>
-            {status.fee} ₽/мес · отмена при ВКД ≥ 200 000 ₽ в квартал · полная отмена при lifetime ВКД ≥ 1 000 000 ₽
+            {status.fee} ₽/мес · отмена при ВКД ≥ 200 000 ₽ в квартал · полная отмена при ВКД ≥ 1 000 000 ₽
           </Typography>
         </Box>
         <IconButton size="small" onClick={onClose} sx={{ color: '#64748B' }}><CloseRoundedIcon /></IconButton>
@@ -120,7 +120,7 @@ export default function SubscriptionDetailsDialog({ open, onClose, status, agent
 
         {status.exempt === 'lifetime' && (
           <Alert severity="success" sx={{ mb: 2 }} icon={false}>
-            🏆 Lifetime ВКД ({fmt(status.lifetimeVkd)} ₽) пересёк порог 1 млн — абонентская плата отменена навсегда.
+            🏆 Ваш общий ВКД ({fmt(status.lifetimeVkd)} ₽) пересёк порог 1 млн — абонентская плата отменена навсегда.
           </Alert>
         )}
 
@@ -214,12 +214,12 @@ export default function SubscriptionDetailsDialog({ open, onClose, status, agent
 
         <Alert severity="info" sx={{ mt: 2 }} icon={false}>
           <b>Как это работает:</b><br />
-          1. Жми «Оплатить» — откроется YooKassa в новой вкладке. Сумма и метка уже подставлены.<br />
-          2. После оплаты вернись сюда и нажми «Я оплатил» — мы пометим месяц как ожидающий подтверждения.<br />
+          1. Жми «Оплатить» — откроется YooKassa в новой вкладке.<br />
+          2. После оплаты вернись сюда и нажми «Я оплатил» — месяц станет ожидающим подтверждения.<br />
           3. Бэк-офис подтвердит платёж — обычно в течение рабочего дня. После этого бар погаснет.<br />
           <br />
           <b>Освобождение:</b> сделай сделок на 200 000 ₽ ВКД в квартал → АП этого квартала отменяется (если уже оплатил — вернётся).
-          Lifetime 1 млн ₽ ВКД → АП отменяется навсегда.
+          При общем ВКД 1 млн ₽ — АП отменяется навсегда.
         </Alert>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 3 }}>
