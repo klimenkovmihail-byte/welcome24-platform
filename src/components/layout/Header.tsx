@@ -60,6 +60,7 @@ const typeConfig: Record<string, { icon: React.ReactNode; color: string }> = {
   agent:   { icon: <PersonRoundedIcon sx={{ fontSize: 18 }} />, color: '#8B5CF6' },
   alert:   { icon: <NotificationsRoundedIcon sx={{ fontSize: 18 }} />, color: '#EF4444' },
   support: { icon: <NotificationsRoundedIcon sx={{ fontSize: 18 }} />, color: '#4361EE' },
+  payment: { icon: <DiamondRoundedIcon sx={{ fontSize: 18 }} />, color: '#F59E0B' },
   system:  { icon: <SettingsRoundedIcon sx={{ fontSize: 18 }} />, color: '#64748B' },
 };
 const defaultTypeCfg = typeConfig.system;
