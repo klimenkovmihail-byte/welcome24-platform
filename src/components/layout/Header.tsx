@@ -53,14 +53,16 @@ function relativeTime(iso: string): string {
 }
 
 const typeConfig: Record<string, { icon: React.ReactNode; color: string }> = {
-  deal:   { icon: <HandshakeRoundedIcon sx={{ fontSize: 18 }} />, color: '#22C55E' },
-  shares: { icon: <DiamondRoundedIcon sx={{ fontSize: 18 }} />, color: '#C9A84C' },
-  news:   { icon: <ArticleRoundedIcon sx={{ fontSize: 18 }} />, color: '#3B82F6' },
-  team:   { icon: <PersonRoundedIcon sx={{ fontSize: 18 }} />, color: '#8B5CF6' },
-  agent:  { icon: <PersonRoundedIcon sx={{ fontSize: 18 }} />, color: '#8B5CF6' },
-  alert:  { icon: <NotificationsRoundedIcon sx={{ fontSize: 18 }} />, color: '#EF4444' },
-  system: { icon: <SettingsRoundedIcon sx={{ fontSize: 18 }} />, color: '#64748B' },
+  deal:    { icon: <HandshakeRoundedIcon sx={{ fontSize: 18 }} />, color: '#22C55E' },
+  shares:  { icon: <DiamondRoundedIcon sx={{ fontSize: 18 }} />, color: '#C9A84C' },
+  news:    { icon: <ArticleRoundedIcon sx={{ fontSize: 18 }} />, color: '#3B82F6' },
+  team:    { icon: <PersonRoundedIcon sx={{ fontSize: 18 }} />, color: '#8B5CF6' },
+  agent:   { icon: <PersonRoundedIcon sx={{ fontSize: 18 }} />, color: '#8B5CF6' },
+  alert:   { icon: <NotificationsRoundedIcon sx={{ fontSize: 18 }} />, color: '#EF4444' },
+  support: { icon: <NotificationsRoundedIcon sx={{ fontSize: 18 }} />, color: '#4361EE' },
+  system:  { icon: <SettingsRoundedIcon sx={{ fontSize: 18 }} />, color: '#64748B' },
 };
+const defaultTypeCfg = typeConfig.system;
 
 interface HeaderProps {
   currentPath: string;
@@ -225,7 +227,7 @@ export default function Header({ currentPath }: HeaderProps) {
           </Box>
           <List sx={{ p: 0, maxHeight: 420, overflow: 'auto' }}>
             {notifs.map((n) => {
-              const cfg = typeConfig[n.type];
+              const cfg = typeConfig[n.type] || defaultTypeCfg;
               return (
                 <ListItem key={n.id} sx={{
                   px: 2, py: 1.5,
