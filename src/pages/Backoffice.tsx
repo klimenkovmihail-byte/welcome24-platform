@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Box, Card, CardContent, Typography, Avatar, Grid, alpha,
-  CircularProgress, Alert,
+  IconButton, Tooltip, CircularProgress, Alert,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import PhoneRoundedIcon from '@mui/icons-material/PhoneRounded';
@@ -110,11 +110,11 @@ export default function Backoffice() {
 
                   <CardContent sx={{ p: 3, pl: 3.5, position: 'relative', zIndex: 1 }}>
                     {/* Аватар + имя + должность */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: m.description ? 2 : 2.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, mb: 2 }}>
                       <Avatar
                         src={m.photo || undefined}
                         sx={{
-                          width: 88, height: 88, fontSize: 28, fontWeight: 800,
+                          width: 108, height: 108, fontSize: 34, fontWeight: 800,
                           background: m.photo ? '#1A2340' : `linear-gradient(135deg, ${alpha(color, 0.55)}, ${alpha(color, 0.18)})`,
                           color: '#F1F5F9',
                           border: `3px solid ${alpha(color, 0.55)}`,
@@ -125,7 +125,7 @@ export default function Backoffice() {
                         {!m.photo && initials}
                       </Avatar>
                       <Box sx={{ minWidth: 0, flex: 1 }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#F1F5F9', lineHeight: 1.2, mb: 0.5 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#F1F5F9', lineHeight: 1.25, mb: 0.7 }}>
                           {m.name}
                         </Typography>
                         <Box sx={{
@@ -141,72 +141,40 @@ export default function Backoffice() {
                     </Box>
 
                     {m.description && (
-                      <Box sx={{
-                        p: 1.5, mb: 2, borderRadius: 2,
-                        background: 'rgba(15,22,41,0.55)',
-                        border: '1px solid rgba(255,255,255,0.05)',
+                      <Typography variant="body2" sx={{
+                        color: '#CBD5E1', display: 'block',
+                        lineHeight: 1.65, mb: 2,
+                        fontSize: 14,
                       }}>
-                        <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', lineHeight: 1.6, fontSize: 12.5 }}>
-                          {m.description}
-                        </Typography>
-                      </Box>
+                        {m.description}
+                      </Typography>
                     )}
 
-                    {/* Контакты — крупные кликабельные строки */}
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
+                    {/* Контакты — компактные кнопки-иконки с подсказками */}
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                       {m.phone && (
-                        <Box
-                          onClick={() => window.open(`tel:${m.phone}`)}
-                          sx={{
-                            display: 'flex', alignItems: 'center', gap: 1.2, p: 1, pl: 1.2,
-                            borderRadius: 1.5, cursor: 'pointer',
-                            background: 'rgba(34,197,94,0.06)',
-                            border: '1px solid rgba(34,197,94,0.12)',
-                            '&:hover': { background: 'rgba(34,197,94,0.12)', borderColor: 'rgba(34,197,94,0.3)' },
-                            transition: 'all 0.15s',
-                          }}
-                        >
-                          <PhoneRoundedIcon sx={{ color: '#22C55E', fontSize: 18 }} />
-                          <Typography variant="caption" sx={{ color: '#F1F5F9', fontWeight: 600, fontSize: 12.5 }}>{m.phone}</Typography>
-                        </Box>
+                        <Tooltip title={m.phone}>
+                          <IconButton size="small" onClick={() => window.open(`tel:${m.phone}`)}
+                            sx={{ color: '#22C55E', background: 'rgba(34,197,94,0.1)', '&:hover': { background: 'rgba(34,197,94,0.2)' } }}>
+                            <PhoneRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                       )}
                       {m.email && (
-                        <Box
-                          onClick={() => window.open(`mailto:${m.email}`)}
-                          sx={{
-                            display: 'flex', alignItems: 'center', gap: 1.2, p: 1, pl: 1.2,
-                            borderRadius: 1.5, cursor: 'pointer',
-                            background: 'rgba(245,158,11,0.06)',
-                            border: '1px solid rgba(245,158,11,0.12)',
-                            '&:hover': { background: 'rgba(245,158,11,0.12)', borderColor: 'rgba(245,158,11,0.3)' },
-                            transition: 'all 0.15s',
-                            minWidth: 0,
-                          }}
-                        >
-                          <EmailRoundedIcon sx={{ color: '#F59E0B', fontSize: 18, flexShrink: 0 }} />
-                          <Typography variant="caption" sx={{ color: '#F1F5F9', fontWeight: 600, fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.email}</Typography>
-                        </Box>
+                        <Tooltip title={m.email}>
+                          <IconButton size="small" onClick={() => window.open(`mailto:${m.email}`)}
+                            sx={{ color: '#F59E0B', background: 'rgba(245,158,11,0.1)', '&:hover': { background: 'rgba(245,158,11,0.2)' } }}>
+                            <EmailRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                       )}
                       {m.telegram && (
-                        <Box
-                          onClick={() => window.open(`https://t.me/${tgClean}`)}
-                          sx={{
-                            display: 'flex', alignItems: 'center', gap: 1.2, p: 1, pl: 1.2,
-                            borderRadius: 1.5, cursor: 'pointer',
-                            background: 'rgba(34,158,217,0.06)',
-                            border: '1px solid rgba(34,158,217,0.12)',
-                            '&:hover': { background: 'rgba(34,158,217,0.12)', borderColor: 'rgba(34,158,217,0.3)' },
-                            transition: 'all 0.15s',
-                          }}
-                        >
-                          <TelegramIcon sx={{ color: '#229ED9', fontSize: 18 }} />
-                          <Typography variant="caption" sx={{ color: '#F1F5F9', fontWeight: 600, fontSize: 12.5 }}>@{tgClean}</Typography>
-                        </Box>
-                      )}
-                      {!m.phone && !m.email && !m.telegram && (
-                        <Typography variant="caption" sx={{ color: '#475569', fontStyle: 'italic', textAlign: 'center', py: 1 }}>
-                          Контакты не указаны
-                        </Typography>
+                        <Tooltip title={`@${tgClean}`}>
+                          <IconButton size="small" onClick={() => window.open(`https://t.me/${tgClean}`)}
+                            sx={{ color: '#229ED9', background: 'rgba(34,158,217,0.1)', '&:hover': { background: 'rgba(34,158,217,0.2)' } }}>
+                            <TelegramIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                       )}
                     </Box>
                   </CardContent>
