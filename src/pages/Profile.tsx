@@ -123,9 +123,14 @@ export default function Profile() {
   }, []);
 
   // currentUser — единая точка для всех ссылок: реальный юзер если загружен, иначе mock.
+  // Бэк отдаёт join_date (snake_case) — нормализуем в joinDate чтобы перезаписать
+  // mock-значение (иначе UI показывал «март 2024» вместо реальной даты).
+  const rawUser = (user || {}) as Record<string, unknown>;
+  const normalizedJoinDate = rawUser.joinDate ?? rawUser.join_date;
   const currentUser = {
     ...(mockUser as Record<string, unknown>),
-    ...(user || {}),
+    ...rawUser,
+    ...(normalizedJoinDate ? { joinDate: normalizedJoinDate } : {}),
   } as typeof mockUser;
 
   const daysAt = (() => {

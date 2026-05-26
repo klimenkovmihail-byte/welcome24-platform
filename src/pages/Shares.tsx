@@ -1,8 +1,10 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, Grid, Divider,
-  ToggleButtonGroup, ToggleButton, Avatar, Tooltip,
+  ToggleButtonGroup, ToggleButton, Avatar, Tooltip, IconButton,
 } from '@mui/material';
+import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
+import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import { motion } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartTooltip, ResponsiveContainer } from 'recharts';
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
@@ -45,8 +47,11 @@ const TYPE_CFG = {
   gift:     { label: 'Подарок', icon: <RedeemRoundedIcon       sx={{ fontSize: 16 }} />, color: '#22C55E' },
 } as const;
 
+const PACKETS_PER_PAGE = 20;
+
 export default function Shares() {
   const [range, setRange] = useState<RangeKey>('all');
+  const [packetsPage, setPacketsPage] = useState(0);
 
   // С бэка: котировки и мои пакеты.
   const [shareHistory, setShareHistory] = useState<ShareQuote[]>([]);
@@ -264,7 +269,16 @@ export default function Shares() {
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, delay: 0.3 }}>
         <Card>
           <CardContent sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, color: '#F1F5F9', mb: 2.5 }}>Мои пакеты акций</Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 2.5, flexWrap: 'wrap', gap: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: '#F1F5F9' }}>Мои пакеты акций</Typography>
+              <Typography variant="caption" sx={{ color: '#64748B' }}>Всего транзакций: {myShares.length}</Typography>
+            </Box>
+            {(() => {
+              const sortedPackets = [...myShares].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+              const totalPages = Math.max(1, Math.ceil(sortedPackets.length / PACKETS_PER_PAGE));
+              const safePage = Math.min(packetsPage, totalPages - 1);
+              const pagePackets = sortedPackets.slice(safePage * PACKETS_PER_PAGE, (safePage + 1) * PACKETS_PER_PAGE);
+              return (
             <Box sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
               <Box sx={{ display: 'grid', gridTemplateColumns: '110px 130px 1fr 130px 130px 130px 110px', background: 'rgba(255,255,255,0.03)' }}>
                 {['Дата', 'Тип', 'Примечание', 'Кол-во', 'Цена входа', 'Тек. цена', '%'].map(h => (
@@ -273,7 +287,7 @@ export default function Shares() {
                   </Box>
                 ))}
               </Box>
-              {[...myShares].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((p) => {
+              {pagePackets.map((p) => {
                 const cfg = TYPE_CFG[p.type];
                 const packetCost = p.quantity * p.acquiredPrice;
                 const packetValue = p.quantity * currentSharePrice;
@@ -310,7 +324,7 @@ export default function Shares() {
                   </Box>
                 );
               })}
-              {/* Totals */}
+              {/* Totals — всегда по всем пакетам, не только текущей странице */}
               <Box sx={{ display: 'grid', gridTemplateColumns: '110px 130px 1fr 130px 130px 130px 110px', borderTop: '2px solid rgba(201,168,76,0.25)', background: 'rgba(201,168,76,0.04)' }}>
                 <Box sx={{ p: 1.6 }}><Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 800 }}>ИТОГО · {myShares.length}</Typography></Box>
                 <Box sx={{ p: 1.6 }} />
@@ -327,6 +341,38 @@ export default function Shares() {
                 </Box>
               </Box>
             </Box>
+              );
+            })()}
+
+            {/* Пагинация */}
+            {myShares.length > PACKETS_PER_PAGE && (() => {
+              const totalPages = Math.ceil(myShares.length / PACKETS_PER_PAGE);
+              const safePage = Math.min(packetsPage, totalPages - 1);
+              const from = safePage * PACKETS_PER_PAGE + 1;
+              const to = Math.min((safePage + 1) * PACKETS_PER_PAGE, myShares.length);
+              return (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1.5, mt: 2 }}>
+                  <Typography variant="caption" sx={{ color: '#64748B' }}>
+                    {from}–{to} из {myShares.length}
+                  </Typography>
+                  <IconButton size="small" disabled={safePage === 0}
+                    onClick={() => setPacketsPage(safePage - 1)}
+                    sx={{ color: '#94A3B8', '&:hover': { color: '#C9A84C' } }}
+                  >
+                    <ChevronLeftRoundedIcon />
+                  </IconButton>
+                  <Typography variant="caption" sx={{ color: '#94A3B8', minWidth: 40, textAlign: 'center' }}>
+                    {safePage + 1} / {totalPages}
+                  </Typography>
+                  <IconButton size="small" disabled={safePage >= totalPages - 1}
+                    onClick={() => setPacketsPage(safePage + 1)}
+                    sx={{ color: '#94A3B8', '&:hover': { color: '#C9A84C' } }}
+                  >
+                    <ChevronRightRoundedIcon />
+                  </IconButton>
+                </Box>
+              );
+            })()}
           </CardContent>
         </Card>
       </motion.div>
