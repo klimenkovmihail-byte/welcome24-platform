@@ -26,6 +26,28 @@ import { fetchMe, getCurrentAgent } from '../auth/auth';
 import { api, API_BASE_URL, getToken } from '../api/apiClient';
 import ImageCropper from '../components/ImageCropper';
 import { supportApi, type SupportTicketSummary, type SupportTicketFull } from '../api/support';
+import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+
+// Аплоад файла в Yandex Storage через /api/upload — для вложений в тикеты поддержки.
+async function uploadAttachment(file: File): Promise<string> {
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('type', 'doc');
+  const token = getToken();
+  const res = await fetch(`${API_BASE_URL}/api/upload`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: fd,
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || `Ошибка загрузки (HTTP ${res.status})`);
+  return data.url;
+}
+
+function isImageUrl(url: string): boolean {
+  return /\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(url);
+}
 import { dealsApi } from '../api/deals';
 import { teamApi } from '../api/team';
 
@@ -229,8 +251,30 @@ export default function Profile() {
   const [openTicket, setOpenTicket] = useState<SupportTicketFull | null>(null);
   const [openTicketLoading, setOpenTicketLoading] = useState(false);
   const [replyText, setReplyText] = useState('');
+  const [replyAtts, setReplyAtts] = useState<string[]>([]);
+  const [newAtts, setNewAtts] = useState<string[]>([]);
+  const [uploadingAtt, setUploadingAtt] = useState(false);
   const [submittingTicket, setSubmittingTicket] = useState(false);
   const [supportError, setSupportError] = useState<string | null>(null);
+  const attachInputRef = useRef<HTMLInputElement | null>(null);
+  const replyAttachInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleAttachPick = async (e: React.ChangeEvent<HTMLInputElement>, target: 'new' | 'reply') => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setSupportError(null);
+    setUploadingAtt(true);
+    try {
+      const url = await uploadAttachment(file);
+      if (target === 'new') setNewAtts(prev => [...prev, url]);
+      else setReplyAtts(prev => [...prev, url]);
+    } catch (err) {
+      setSupportError(err instanceof Error ? err.message : 'Не удалось загрузить файл');
+    } finally {
+      setUploadingAtt(false);
+    }
+  };
 
   const loadTickets = async () => {
     setTicketsLoading(true);
@@ -245,8 +289,9 @@ export default function Profile() {
     setSubmittingTicket(true);
     setSupportError(null);
     try {
-      await supportApi.create(supportForm.topic.trim(), supportForm.message.trim());
+      await supportApi.create(supportForm.topic.trim(), supportForm.message.trim(), newAtts);
       setSupportForm({ topic: '', message: '' });
+      setNewAtts([]);
       setSent(true);
       setTimeout(() => setSent(false), 2500);
       await loadTickets();
@@ -265,12 +310,14 @@ export default function Profile() {
   };
 
   const sendReply = async () => {
-    if (!openTicket || !replyText.trim()) return;
+    if (!openTicket) return;
+    if (!replyText.trim() && replyAtts.length === 0) return;
     setSubmittingTicket(true);
     try {
-      const updated = await supportApi.reply(openTicket.id, replyText.trim());
+      const updated = await supportApi.reply(openTicket.id, replyText.trim(), replyAtts);
       setOpenTicket(updated);
       setReplyText('');
+      setReplyAtts([]);
       await loadTickets();
     } catch (e) {
       setSupportError(e instanceof Error ? e.message : 'Ошибка отправки');
@@ -728,19 +775,64 @@ export default function Profile() {
                         {new Date(m.created_at.replace(' ', 'T') + 'Z').toLocaleString('ru-RU')}
                       </Typography>
                     </Box>
-                    <Typography variant="body2" sx={{ color: '#CBD5E1', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{m.text}</Typography>
+                    {m.text && <Typography variant="body2" sx={{ color: '#CBD5E1', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{m.text}</Typography>}
+                    {m.attachments && m.attachments.length > 0 && (
+                      <Box sx={{ mt: m.text ? 1 : 0, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        {m.attachments.map((url, i) => (
+                          isImageUrl(url) ? (
+                            <Box key={i} component="a" href={url} target="_blank" rel="noopener" sx={{ display: 'block' }}>
+                              <Box component="img" src={url}
+                                sx={{ maxWidth: 160, maxHeight: 120, borderRadius: 1.5, border: '1px solid rgba(201,168,76,0.2)', cursor: 'zoom-in', '&:hover': { border: '1px solid #C9A84C' } }}
+                              />
+                            </Box>
+                          ) : (
+                            <Box key={i} component="a" href={url} target="_blank" rel="noopener"
+                              sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.5, borderRadius: 1, background: 'rgba(67,97,238,0.12)', color: '#60A5FA', textDecoration: 'none', fontSize: 12 }}>
+                              <AttachFileRoundedIcon sx={{ fontSize: 14 }} />
+                              Файл {i + 1}
+                            </Box>
+                          )
+                        ))}
+                      </Box>
+                    )}
                   </Box>
                 );
               })}
               {openTicket.status !== 'closed' && (
-                <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-                  <TextField fullWidth size="small" multiline maxRows={5}
-                    placeholder="Ваше сообщение…"
-                    value={replyText} onChange={e => setReplyText(e.target.value)}
-                  />
-                  <Button variant="contained" onClick={sendReply} disabled={!replyText.trim() || submittingTicket}>
-                    Отправить
-                  </Button>
+                <Box sx={{ mt: 2 }}>
+                  {replyAtts.length > 0 && (
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+                      {replyAtts.map((url, i) => (
+                        <Box key={i} sx={{ position: 'relative', display: 'inline-block' }}>
+                          {isImageUrl(url)
+                            ? <Box component="img" src={url} sx={{ maxWidth: 80, maxHeight: 80, borderRadius: 1, border: '1px solid rgba(201,168,76,0.3)' }} />
+                            : <Box sx={{ px: 1.5, py: 0.5, borderRadius: 1, background: 'rgba(67,97,238,0.12)', color: '#60A5FA', fontSize: 11 }}>Файл {i + 1}</Box>
+                          }
+                          <IconButton size="small" onClick={() => setReplyAtts(prev => prev.filter((_, idx) => idx !== i))}
+                            sx={{ position: 'absolute', top: -8, right: -8, background: 'rgba(0,0,0,0.7)', color: '#fff', width: 18, height: 18, '&:hover': { background: '#EF4444' } }}>
+                            <DeleteOutlineRoundedIcon sx={{ fontSize: 12 }} />
+                          </IconButton>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <input ref={replyAttachInputRef} type="file" accept="image/*,.pdf"
+                      onChange={e => handleAttachPick(e, 'reply')} style={{ display: 'none' }} />
+                    <Tooltip title="Прикрепить файл (скрин/pdf)">
+                      <IconButton onClick={() => replyAttachInputRef.current?.click()} disabled={uploadingAtt}
+                        sx={{ color: '#94A3B8', '&:hover': { color: '#C9A84C' } }}>
+                        <AttachFileRoundedIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <TextField fullWidth size="small" multiline maxRows={5}
+                      placeholder="Ваше сообщение…"
+                      value={replyText} onChange={e => setReplyText(e.target.value)}
+                    />
+                    <Button variant="contained" onClick={sendReply} disabled={(!replyText.trim() && replyAtts.length === 0) || submittingTicket}>
+                      Отправить
+                    </Button>
+                  </Box>
                 </Box>
               )}
               {openTicket.status === 'closed' && (
@@ -764,7 +856,30 @@ export default function Profile() {
                 <TextField fullWidth multiline rows={4} label="Сообщение"
                   value={supportForm.message} onChange={e => setSupportForm(f => ({ ...f, message: e.target.value }))}
                   placeholder="Опишите подробно ваш вопрос" />
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                {newAtts.length > 0 && (
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    {newAtts.map((url, i) => (
+                      <Box key={i} sx={{ position: 'relative', display: 'inline-block' }}>
+                        {isImageUrl(url)
+                          ? <Box component="img" src={url} sx={{ maxWidth: 100, maxHeight: 100, borderRadius: 1, border: '1px solid rgba(201,168,76,0.3)' }} />
+                          : <Box sx={{ px: 1.5, py: 0.8, borderRadius: 1, background: 'rgba(67,97,238,0.12)', color: '#60A5FA', fontSize: 12 }}>Файл {i + 1}</Box>
+                        }
+                        <IconButton size="small" onClick={() => setNewAtts(prev => prev.filter((_, idx) => idx !== i))}
+                          sx={{ position: 'absolute', top: -8, right: -8, background: 'rgba(0,0,0,0.7)', color: '#fff', width: 20, height: 20, '&:hover': { background: '#EF4444' } }}>
+                          <DeleteOutlineRoundedIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <input ref={attachInputRef} type="file" accept="image/*,.pdf"
+                    onChange={e => handleAttachPick(e, 'new')} style={{ display: 'none' }} />
+                  <Button size="small" startIcon={<AttachFileRoundedIcon />}
+                    onClick={() => attachInputRef.current?.click()} disabled={uploadingAtt}
+                    sx={{ color: '#94A3B8' }}>
+                    {uploadingAtt ? 'Загрузка…' : 'Прикрепить файл'}
+                  </Button>
                   <Button variant="contained" onClick={handleSupportSend}
                     disabled={!supportForm.topic.trim() || !supportForm.message.trim() || submittingTicket}
                     sx={{ background: 'linear-gradient(135deg, #4361EE, #6B80F5)' }}
