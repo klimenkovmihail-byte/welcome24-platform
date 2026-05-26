@@ -31,6 +31,10 @@ export interface SubscriptionStatus {
   lifetimeThreshold: number;
   quarterThreshold: number;
   firstBillingMonth: string | null;
+  joinDate?: string | null;
+  currentQuarter?: number;
+  currentYear?: number;
+  currentQuarterVkd?: number;
   today: string;
   periods: PeriodEntry[];
   unpaidCount: number;

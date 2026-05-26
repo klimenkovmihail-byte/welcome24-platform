@@ -124,8 +124,28 @@ export default function SubscriptionDetailsDialog({ open, onClose, status, agent
           </Alert>
         )}
 
-        {status.periods.length === 0 && (
-          <Alert severity="info">Период оплаты ещё не начался. Первый платёж: {status.firstBillingMonth ? formatPeriod(status.firstBillingMonth) : '—'}.</Alert>
+        {status.periods.length === 0 && status.exempt !== 'lifetime' && (
+          <Alert severity="info">
+            <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5 }}>
+              Сейчас бесплатный период
+            </Typography>
+            <Typography variant="caption" sx={{ display: 'block', mb: 0.5 }}>
+              Дата подключения: <b>{status.joinDate || '—'}</b>. Первый полный месяц после вступления — бесплатно.
+              Первый платёж АП: <b>{status.firstBillingMonth ? formatPeriod(status.firstBillingMonth) : '—'}</b>.
+            </Typography>
+            {status.currentQuarter && (
+              (status.currentQuarterVkd || 0) >= status.quarterThreshold ? (
+                <Typography variant="caption" sx={{ display: 'block', color: '#22C55E' }}>
+                  ✓ Текущий квартал Q{status.currentQuarter} {status.currentYear}: ВКД <b>{fmt(status.currentQuarterVkd || 0)} ₽</b> ≥ 200 000 ₽ — квартал уже освобождён.
+                </Typography>
+              ) : (
+                <Typography variant="caption" sx={{ display: 'block', color: '#94A3B8' }}>
+                  В текущем квартале Q{status.currentQuarter} {status.currentYear}: ВКД <b>{fmt(status.currentQuarterVkd || 0)} ₽</b>.
+                  Чтобы освободить квартал — наберите ещё {fmt(status.quarterThreshold - (status.currentQuarterVkd || 0))} ₽ ВКД до конца квартала.
+                </Typography>
+              )
+            )}
+          </Alert>
         )}
 
         {/* Таблица по кварталам */}
