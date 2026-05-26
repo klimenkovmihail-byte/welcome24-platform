@@ -23,6 +23,7 @@ import Backoffice from './pages/Backoffice';
 import Agents from './pages/Agents';
 import Profile from './pages/Profile';
 import Shares from './pages/Shares';
+import Docs from './pages/Docs';
 
 export default function App() {
   useEffect(() => {
@@ -57,6 +58,7 @@ export default function App() {
                   <Route path="/backoffice" element={<Backoffice />} />
                   <Route path="/agents" element={<Agents />} />
                   <Route path="/shares" element={<Shares />} />
+                  <Route path="/docs" element={<Docs />} />
                   <Route path="/profile" element={<Profile />} />
                 </Routes>
               </Layout>

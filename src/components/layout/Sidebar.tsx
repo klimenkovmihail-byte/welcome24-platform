@@ -15,6 +15,7 @@ import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import SupportAgentRoundedIcon from '@mui/icons-material/SupportAgentRounded';
 import AccountTreeRoundedIcon from '@mui/icons-material/AccountTreeRounded';
+import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
 import { currentUser } from '../../data/mockData';
 import Logo, { LogoIcon } from '../Logo';
 import { logoutAgent } from '../../auth/auth';
@@ -24,6 +25,7 @@ const navItems = [
   { path: '/rating', label: 'Рейтинг', icon: <EmojiEventsRoundedIcon /> },
   { path: '/academy', label: 'Академия', icon: <SchoolRoundedIcon /> },
   { path: '/news', label: 'Новости', icon: <ArticleRoundedIcon /> },
+  { path: '/docs', label: 'База данных', icon: <FolderRoundedIcon /> },
   { path: '/team', label: 'MLM', icon: <AccountTreeRoundedIcon /> },
   { path: '/backoffice', label: 'Команда', icon: <SupportAgentRoundedIcon /> },
   { path: '/agents', label: 'База агентов', icon: <PeopleRoundedIcon /> },

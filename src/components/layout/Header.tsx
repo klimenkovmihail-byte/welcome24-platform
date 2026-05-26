@@ -24,6 +24,7 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   '/rating': { title: 'Рейтинг агентов', subtitle: 'Лучшие агенты Welcome 24' },
   '/academy': { title: 'Академия', subtitle: 'Обучение и развитие' },
   '/news': { title: 'Новости', subtitle: 'Последние события компании' },
+  '/docs': { title: 'База данных', subtitle: 'Документы, регламенты, шаблоны' },
   '/team': { title: 'Моя MLM-структура', subtitle: 'Уровни команды и пассивный доход' },
   '/backoffice': { title: 'Команда Welcome 24', subtitle: 'Бэк-офис: к кому обращаться' },
   '/agents': { title: 'База агентов', subtitle: 'Поиск и контакты' },
