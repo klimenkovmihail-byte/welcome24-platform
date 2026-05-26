@@ -11,9 +11,8 @@
  */
 
 import { useState } from 'react';
-import { Box, Typography, Button, Chip, Tooltip } from '@mui/material';
+import { Box, Typography, Button } from '@mui/material';
 import { motion } from 'framer-motion';
-import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import ErrorRoundedIcon from '@mui/icons-material/ErrorRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
@@ -32,45 +31,54 @@ export default function SubscriptionBar({ status, agentId, onUpdated }: Props) {
   const [open, setOpen] = useState(false);
 
   if (status.exempt === 'staff') return null;
+  if (status.exempt === 'inactive') return null;
 
-  // Lifetime — золотая «корона»
-  if (status.exempt === 'lifetime') {
+  // Отмена навсегда (lifetime ВКД ≥ 1 млн или ручной override от админа)
+  // Сдержанная зелёная плашка без VIP-чипов и без цифр.
+  if (status.exempt === 'lifetime' || status.exempt === 'manual_forever') {
     return (
       <>
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-          <Tooltip title="Вы достигли 1 млн ВКД — абонентская плата отменена. Поздравляем!">
-            <Box
-              onClick={() => setOpen(true)}
-              sx={{
-                mb: 3, p: 2, borderRadius: 3, cursor: 'pointer',
-                background: 'linear-gradient(135deg, rgba(201,168,76,0.18), rgba(201,168,76,0.08))',
-                border: '1px solid rgba(201,168,76,0.35)',
-                display: 'flex', alignItems: 'center', gap: 2,
-                transition: 'all 0.2s',
-                '&:hover': { background: 'linear-gradient(135deg, rgba(201,168,76,0.25), rgba(201,168,76,0.12))' },
-              }}
-            >
-              <Box sx={{
-                width: 44, height: 44, borderRadius: 2,
-                background: 'linear-gradient(135deg, #C9A84C, #E2C97E)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}>
-                <EmojiEventsRoundedIcon sx={{ color: '#0A0E1A', fontSize: 26 }} />
-              </Box>
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="body2" sx={{ fontWeight: 800, color: '#C9A84C', letterSpacing: '0.02em' }}>
-                  АБОНЕНТСКАЯ ПЛАТА ОТМЕНЕНА НАВСЕГДА
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                  Ваш общий ВКД {fmt(status.lifetimeVkd)} ₽ ≥ {fmt(status.lifetimeThreshold)} ₽ — поздравляем!
-                </Typography>
-              </Box>
-              <Chip label="VIP" size="small"
-                sx={{ background: '#C9A84C', color: '#0A0E1A', fontWeight: 900, fontSize: 11 }}
-              />
-            </Box>
-          </Tooltip>
-        </motion.div>
+        <Box
+          onClick={() => setOpen(true)}
+          sx={{
+            mb: 3, p: 1.5, borderRadius: 2.5, cursor: 'pointer',
+            background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)',
+            display: 'flex', alignItems: 'center', gap: 1.5,
+            '&:hover': { background: 'rgba(34,197,94,0.12)' },
+          }}
+        >
+          <CheckCircleRoundedIcon sx={{ color: '#22C55E', fontSize: 18 }} />
+          <Typography variant="caption" sx={{ color: '#94A3B8', flex: 1 }}>
+            Абонентская плата отменена навсегда
+          </Typography>
+          <Typography variant="caption" sx={{ color: '#64748B' }}>детали →</Typography>
+        </Box>
+        <SubscriptionDetailsDialog open={open} onClose={() => setOpen(false)} status={status} agentId={agentId} onUpdated={onUpdated} />
+      </>
+    );
+  }
+
+  // Пауза (поставленная админом)
+  if (status.exempt === 'paused' && status.override?.until) {
+    const until = new Date(status.override.until).toLocaleDateString('ru-RU');
+    return (
+      <>
+        <Box
+          onClick={() => setOpen(true)}
+          sx={{
+            mb: 3, p: 1.5, borderRadius: 2.5, cursor: 'pointer',
+            background: 'rgba(67,97,238,0.08)', border: '1px solid rgba(67,97,238,0.2)',
+            display: 'flex', alignItems: 'center', gap: 1.5,
+            '&:hover': { background: 'rgba(67,97,238,0.12)' },
+          }}
+        >
+          <CheckCircleRoundedIcon sx={{ color: '#4361EE', fontSize: 18 }} />
+          <Typography variant="caption" sx={{ color: '#94A3B8', flex: 1 }}>
+            АП на паузе до <b style={{ color: '#F1F5F9' }}>{until}</b>
+            {status.override.note ? ` · ${status.override.note}` : ''}
+          </Typography>
+          <Typography variant="caption" sx={{ color: '#64748B' }}>детали →</Typography>
+        </Box>
         <SubscriptionDetailsDialog open={open} onClose={() => setOpen(false)} status={status} agentId={agentId} onUpdated={onUpdated} />
       </>
     );

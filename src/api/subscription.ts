@@ -26,7 +26,7 @@ export interface PeriodEntry {
 
 export interface SubscriptionStatus {
   fee: number;
-  exempt: 'lifetime' | 'staff' | null;
+  exempt: 'lifetime' | 'staff' | 'inactive' | 'manual_forever' | 'paused' | null;
   lifetimeVkd: number;
   lifetimeThreshold: number;
   quarterThreshold: number;
@@ -41,6 +41,7 @@ export interface SubscriptionStatus {
   overdueCount: number;
   totalDue: number;
   blocked: boolean;
+  override?: { type: 'force_exempt' | 'pause'; until?: string; note?: string };
 }
 
 export const subscriptionApi = {
