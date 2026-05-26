@@ -11,6 +11,7 @@ export interface BackOfficeMember {
   phone: string;
   email: string;
   telegram: string;
+  color: string | null;
   orderIdx: number;
 }
 
@@ -23,6 +24,7 @@ type Raw = {
   phone: string;
   email: string;
   telegram: string;
+  color: string | null;
   order_idx: number;
 };
 
@@ -35,6 +37,7 @@ const norm = (r: Raw): BackOfficeMember => ({
   phone: r.phone || '',
   email: r.email || '',
   telegram: r.telegram || '',
+  color: r.color || null,
   orderIdx: r.order_idx || 0,
 });
 
