@@ -194,8 +194,11 @@ export default function Login() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 fullWidth
-                InputProps={{
-                  startAdornment: <InputAdornment position="start"><EmailRoundedIcon sx={{ color: '#64748B', fontSize: 20 }} /></InputAdornment>
+                slotProps={{
+                  inputLabel: { shrink: true },
+                  input: {
+                    startAdornment: <InputAdornment position="start"><EmailRoundedIcon sx={{ color: '#64748B', fontSize: 20 }} /></InputAdornment>,
+                  },
                 }}
               />
               <TextField
@@ -204,15 +207,18 @@ export default function Login() {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 fullWidth
-                InputProps={{
-                  startAdornment: <InputAdornment position="start"><LockRoundedIcon sx={{ color: '#64748B', fontSize: 20 }} /></InputAdornment>,
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton onClick={() => setShowPassword(!showPassword)} size="small" sx={{ color: '#64748B' }}>
-                        {showPassword ? <VisibilityOffRoundedIcon fontSize="small" /> : <VisibilityRoundedIcon fontSize="small" />}
-                      </IconButton>
-                    </InputAdornment>
-                  )
+                slotProps={{
+                  inputLabel: { shrink: true },
+                  input: {
+                    startAdornment: <InputAdornment position="start"><LockRoundedIcon sx={{ color: '#64748B', fontSize: 20 }} /></InputAdornment>,
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton onClick={() => setShowPassword(!showPassword)} size="small" sx={{ color: '#64748B' }}>
+                          {showPassword ? <VisibilityOffRoundedIcon fontSize="small" /> : <VisibilityRoundedIcon fontSize="small" />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
                 }}
               />
 
