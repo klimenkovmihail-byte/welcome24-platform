@@ -59,29 +59,31 @@ export default function Login() {
       position: 'relative',
       overflow: 'hidden',
     }}>
-      {/* Grid pattern — лёгкая сетка из золотистых линий */}
+      {/* Grid pattern — золотистая сетка, более заметная */}
       <Box sx={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
         backgroundImage: `
-          linear-gradient(rgba(201,168,76,0.04) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(201,168,76,0.04) 1px, transparent 1px)
+          linear-gradient(rgba(201,168,76,0.12) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(201,168,76,0.12) 1px, transparent 1px)
         `,
-        backgroundSize: '60px 60px',
-        maskImage: 'radial-gradient(ellipse at center, black 0%, transparent 80%)',
+        backgroundSize: '80px 80px',
+        maskImage: 'radial-gradient(ellipse at center, black 30%, transparent 90%)',
+        WebkitMaskImage: 'radial-gradient(ellipse at center, black 30%, transparent 90%)',
       }} />
 
       {/* Цифровая сеть — анимированные узлы и линии */}
       <NetworkMesh />
 
-      {/* Большие размытые свечения — глубина */}
+      {/* Большие размытые свечения — глубина и атмосфера */}
       {[
-        { x: '10%', y: '15%', color: 'rgba(201,168,76,0.15)', size: 400 },
-        { x: '85%', y: '20%', color: 'rgba(67,97,238,0.18)', size: 500 },
-        { x: '20%', y: '85%', color: 'rgba(123,47,190,0.12)', size: 450 },
-        { x: '90%', y: '90%', color: 'rgba(201,168,76,0.10)', size: 350 },
+        { x: '10%', y: '15%', color: 'rgba(201,168,76,0.45)', size: 550 },
+        { x: '85%', y: '20%', color: 'rgba(67,97,238,0.42)', size: 650 },
+        { x: '20%', y: '85%', color: 'rgba(123,47,190,0.40)', size: 600 },
+        { x: '90%', y: '90%', color: 'rgba(201,168,76,0.30)', size: 480 },
+        { x: '50%', y: '50%', color: 'rgba(67,97,238,0.20)', size: 800 },
       ].map((g, i) => (
         <motion.div key={i}
-          animate={{ scale: [1, 1.15, 1], opacity: [0.6, 1, 0.6] }}
+          animate={{ scale: [1, 1.15, 1], opacity: [0.7, 1, 0.7] }}
           transition={{ duration: 8 + i * 2, repeat: Infinity, delay: i * 1.2 }}
           style={{
             position: 'absolute',
@@ -90,7 +92,7 @@ export default function Login() {
             background: `radial-gradient(circle, ${g.color} 0%, transparent 70%)`,
             top: g.y, left: g.x,
             transform: 'translate(-50%, -50%)',
-            filter: 'blur(40px)',
+            filter: 'blur(60px)',
             pointerEvents: 'none',
           }}
         />
@@ -148,13 +150,21 @@ export default function Login() {
               <Logo variant="full" size={68} color="#F1F5F9" />
             </Box>
           </motion.div>
-          <Typography sx={{
-            color: '#E2C97E', mt: 1, fontSize: 16, fontWeight: 600,
-            letterSpacing: '0.02em', lineHeight: 1.4,
-            textShadow: '0 2px 12px rgba(201,168,76,0.3)',
-          }}>
-            Цифровая платформа для предпринимателей в недвижимости
-          </Typography>
+          <Box sx={{ mt: 1.5 }}>
+            <Typography sx={{
+              color: '#E2C97E', fontSize: 17, fontWeight: 700,
+              letterSpacing: '0.03em', lineHeight: 1.3,
+              textShadow: '0 2px 12px rgba(201,168,76,0.4)',
+            }}>
+              Цифровая платформа
+            </Typography>
+            <Typography sx={{
+              color: '#94A3B8', fontSize: 14, fontWeight: 500,
+              letterSpacing: '0.01em', lineHeight: 1.3, mt: 0.3,
+            }}>
+              для предпринимателей в недвижимости
+            </Typography>
+          </Box>
         </Box>
 
         <Card sx={{
@@ -306,18 +316,19 @@ function NetworkMesh() {
       canvas.height = window.innerHeight * dpr;
       canvas.style.width = window.innerWidth + 'px';
       canvas.style.height = window.innerHeight + 'px';
-      ctx.scale(dpr, dpr);
+      // setTransform вместо scale: иначе при ресайзе масштаб накапливается
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     resize();
 
-    // Инициализация узлов
-    const COUNT = window.innerWidth < 768 ? 18 : 35;
+    // Инициализация узлов — больше + крупнее
+    const COUNT = window.innerWidth < 768 ? 30 : 60;
     nodes = Array.from({ length: COUNT }, () => ({
       x: Math.random() * window.innerWidth,
       y: Math.random() * window.innerHeight,
-      vx: (Math.random() - 0.5) * 0.3,
-      vy: (Math.random() - 0.5) * 0.3,
-      r: 1 + Math.random() * 1.5,
+      vx: (Math.random() - 0.5) * 0.35,
+      vy: (Math.random() - 0.5) * 0.35,
+      r: 1.5 + Math.random() * 2,
     }));
 
     const tick = () => {
@@ -332,16 +343,16 @@ function NetworkMesh() {
         if (n.y < 0 || n.y > h) n.vy *= -1;
       }
 
-      // Рисуем линии (только если узлы близко)
-      ctx.lineWidth = 1;
+      // Рисуем линии (только если узлы близко) — заметно ярче
+      ctx.lineWidth = 1.2;
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
           const dx = nodes[i].x - nodes[j].x;
           const dy = nodes[i].y - nodes[j].y;
           const dist = Math.hypot(dx, dy);
-          const MAX_DIST = 160;
+          const MAX_DIST = 180;
           if (dist < MAX_DIST) {
-            const alpha = (1 - dist / MAX_DIST) * 0.25;
+            const alpha = (1 - dist / MAX_DIST) * 0.55;
             ctx.strokeStyle = `rgba(201, 168, 76, ${alpha})`;
             ctx.beginPath();
             ctx.moveTo(nodes[i].x, nodes[i].y);
@@ -351,11 +362,11 @@ function NetworkMesh() {
         }
       }
 
-      // Рисуем узлы
+      // Рисуем узлы — ярче и с свечением
       for (const n of nodes) {
-        ctx.fillStyle = 'rgba(201, 168, 76, 0.6)';
-        ctx.shadowColor = 'rgba(201, 168, 76, 0.8)';
-        ctx.shadowBlur = 8;
+        ctx.fillStyle = 'rgba(226, 201, 126, 0.95)';
+        ctx.shadowColor = 'rgba(201, 168, 76, 1)';
+        ctx.shadowBlur = 14;
         ctx.beginPath();
         ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
         ctx.fill();
@@ -379,7 +390,6 @@ function NetworkMesh() {
       style={{
         position: 'absolute', inset: 0,
         pointerEvents: 'none',
-        opacity: 0.7,
       }}
     />
   );
