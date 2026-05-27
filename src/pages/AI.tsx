@@ -5,7 +5,7 @@
  * Лимит для L1: счётчик "осталось N из 10" сверху.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Box, Typography, Button, TextField, Select, MenuItem, InputLabel,
   FormControl, Chip, Alert, CircularProgress, IconButton, Tooltip,
@@ -18,7 +18,9 @@ import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import HomeWorkRoundedIcon from '@mui/icons-material/HomeWorkRounded';
 import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
-import { aiApi, type AiUsage, type AiTool } from '../api/ai';
+import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
+import SendRoundedIcon from '@mui/icons-material/SendRounded';
+import { aiApi, type AiUsage, type AiTool, type ChatMessage } from '../api/ai';
 
 interface ToolMeta {
   key: AiTool;
@@ -42,6 +44,13 @@ const TOOLS: ToolMeta[] = [
     description: 'Пост про объект, акцию, отзыв или совет клиенту. Подгоняем тон под Instagram, Telegram или ВК.',
     icon: <CampaignRoundedIcon sx={{ fontSize: 32 }} />,
     color: '#4361EE',
+  },
+  {
+    key: 'legal_advisor',
+    label: 'AI-юрист',
+    description: 'Задай вопрос по сделкам, договорам, налогам, ДДУ, регистрации прав. Отвечает с опорой на законодательство РФ. Только юридические вопросы по недвижимости.',
+    icon: <GavelRoundedIcon sx={{ fontSize: 32 }} />,
+    color: '#22C55E',
   },
 ];
 
@@ -82,6 +91,8 @@ export default function AI() {
 
       {activeTool === null ? (
         <ToolsGrid onPick={setActiveTool} />
+      ) : activeTool === 'legal_advisor' ? (
+        <LegalChat onBack={() => { setActiveTool(null); reloadUsage(); }} onUsageChange={setUsage} />
       ) : (
         <ToolForm tool={activeTool} onBack={() => { setActiveTool(null); reloadUsage(); }} onUsageChange={setUsage} />
       )}
@@ -361,5 +372,164 @@ function SocialForm({ onSubmit, loading }: SubProps) {
         {loading ? 'Генерирую…' : 'Сгенерировать пост'}
       </Button>
     </Stack>
+  );
+}
+
+// ============================================================
+// AI-юрист — чат с историей сообщений.
+// История хранится локально в state (не персистится между сессиями).
+// ============================================================
+interface ChatProps {
+  onBack: () => void;
+  onUsageChange: (u: AiUsage) => void;
+}
+
+function LegalChat({ onBack, onUsageChange }: ChatProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Авто-скролл вниз при новых сообщениях.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+  }, [messages, loading]);
+
+  const send = async () => {
+    const text = input.trim();
+    if (!text || loading) return;
+    const next: ChatMessage[] = [...messages, { role: 'user', content: text }];
+    setMessages(next);
+    setInput('');
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await aiApi.chat('legal_advisor', next);
+      setMessages([...next, { role: 'assistant', content: r.text }]);
+      onUsageChange(r.usage);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ошибка');
+      // Откатываем последнее сообщение пользователя если запрос упал.
+      setMessages(messages);
+      setInput(text);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  };
+
+  return (
+    <Box>
+      <Button startIcon={<ArrowBackRoundedIcon />} onClick={onBack} sx={{ mb: 2, color: '#94A3B8' }}>
+        К списку инструментов
+      </Button>
+
+      <Card sx={{ mb: 2 }}>
+        <CardContent sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 0.5 }}>
+            <Box sx={{
+              width: 44, height: 44, borderRadius: 2,
+              background: alpha('#22C55E', 0.15), color: '#22C55E',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <GavelRoundedIcon sx={{ fontSize: 24 }} />
+            </Box>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#F1F5F9' }}>AI-юрист</Typography>
+              <Typography variant="caption" sx={{ color: '#64748B' }}>
+                Только юридические вопросы по недвижимости РФ. Это консультативная информация, не юр. заключение.
+              </Typography>
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
+
+      <Card sx={{ mb: 2 }}>
+        <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
+          <Box ref={scrollRef} sx={{
+            maxHeight: 520, minHeight: 280, overflowY: 'auto',
+            p: 2.5, display: 'flex', flexDirection: 'column', gap: 1.5,
+          }}>
+            {messages.length === 0 && !loading && (
+              <Box sx={{ textAlign: 'center', color: '#64748B', py: 6 }}>
+                <GavelRoundedIcon sx={{ fontSize: 40, color: 'rgba(34,197,94,0.3)', mb: 1 }} />
+                <Typography variant="body2">Задай вопрос — например:</Typography>
+                <Typography variant="caption" sx={{ display: 'block', mt: 1, fontStyle: 'italic' }}>
+                  «Какой минимальный срок владения чтобы продать квартиру без НДФЛ?»<br />
+                  «Что обязательно прописать в договоре переуступки ДДУ?»<br />
+                  «Как оформить сделку если один из собственников — несовершеннолетний?»
+                </Typography>
+              </Box>
+            )}
+            {messages.map((m, i) => (
+              <Box key={i} sx={{
+                alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+                maxWidth: '88%',
+                p: 1.8, borderRadius: 2.5,
+                background: m.role === 'user' ? alpha('#C9A84C', 0.12) : 'rgba(15,22,41,0.6)',
+                border: `1px solid ${m.role === 'user' ? 'rgba(201,168,76,0.2)' : 'rgba(34,197,94,0.15)'}`,
+              }}>
+                <Typography variant="caption" sx={{
+                  display: 'block', mb: 0.5,
+                  color: m.role === 'user' ? '#C9A84C' : '#22C55E',
+                  fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em',
+                }}>
+                  {m.role === 'user' ? 'Ты' : 'AI-юрист'}
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#F1F5F9', whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: 14 }}>
+                  {m.content}
+                </Typography>
+              </Box>
+            ))}
+            {loading && (
+              <Box sx={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 1.5, p: 1.8 }}>
+                <CircularProgress size={16} sx={{ color: '#22C55E' }} />
+                <Typography variant="caption" sx={{ color: '#94A3B8' }}>AI думает…</Typography>
+              </Box>
+            )}
+          </Box>
+        </CardContent>
+      </Card>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+
+      <Card>
+        <CardContent sx={{ p: 2 }}>
+          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
+            <TextField
+              fullWidth multiline minRows={1} maxRows={6}
+              placeholder="Задай вопрос по сделке, договору, налогам…"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={onKey}
+              disabled={loading}
+              size="small"
+            />
+            <IconButton
+              onClick={send} disabled={!input.trim() || loading}
+              sx={{
+                background: alpha('#22C55E', 0.15),
+                color: '#22C55E',
+                width: 44, height: 44,
+                '&:hover': { background: alpha('#22C55E', 0.25) },
+                '&.Mui-disabled': { background: 'rgba(255,255,255,0.04)', color: '#475569' },
+              }}
+            >
+              <SendRoundedIcon />
+            </IconButton>
+          </Box>
+          <Typography variant="caption" sx={{ color: '#475569', mt: 1, display: 'block', fontSize: 10 }}>
+            Enter — отправить, Shift+Enter — новая строка
+          </Typography>
+        </CardContent>
+      </Card>
+    </Box>
   );
 }
