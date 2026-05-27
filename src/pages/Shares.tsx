@@ -347,9 +347,20 @@ export default function Shares() {
                 <Box sx={{ p: 1.6 }}><Typography variant="body2" sx={{ color: '#C9A84C', fontWeight: 900 }}>{fmt(sharesSummary.value)} ₽</Typography></Box>
                 <Box sx={{ p: 1.6 }}>
                   <Chip
-                    label={`${sharesSummary.growthPct >= 0 ? '+' : ''}${sharesSummary.growthPct.toFixed(1)}%`}
+                    label={sharesSummary.isMostlyGifted
+                      ? 'бонус'
+                      : `${sharesSummary.growthPct >= 0 ? '+' : ''}${sharesSummary.growthPct.toFixed(1)}%`
+                    }
                     size="small"
-                    sx={{ background: sharesSummary.growth >= 0 ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)', color: sharesSummary.growth >= 0 ? '#22C55E' : '#EF4444', fontWeight: 800, fontSize: 11 }}
+                    sx={{
+                      background: sharesSummary.isMostlyGifted
+                        ? 'rgba(201,168,76,0.2)'
+                        : (sharesSummary.growth >= 0 ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'),
+                      color: sharesSummary.isMostlyGifted
+                        ? '#C9A84C'
+                        : (sharesSummary.growth >= 0 ? '#22C55E' : '#EF4444'),
+                      fontWeight: 800, fontSize: 11,
+                    }}
                   />
                 </Box>
               </Box>
