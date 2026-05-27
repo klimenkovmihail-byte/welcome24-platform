@@ -51,6 +51,23 @@ export interface TeamResponse {
   marketingPlan: MarketingPlanLevel[];
 }
 
+export interface TeamHistoryEntry {
+  id: number;
+  agentId: number;
+  agentName: string;
+  agentEmail: string;
+  agentPhoto: string | null;
+  agentCity: string;
+  agentStatus: string;
+  effectiveFrom: string;
+  effectiveUntil: string | null;
+  isCurrent: boolean;
+  days: number;
+  periodDeals: number;
+  periodVkd: number;
+  periodIncome: number;
+}
+
 export const teamApi = {
   get: (opts?: { year?: string; month?: string; agentId?: number }) => {
     const p = new URLSearchParams();
@@ -59,5 +76,11 @@ export const teamApi = {
     if (opts?.agentId) p.set('agentId', String(opts.agentId));
     const q = p.toString();
     return api.get<TeamResponse>(`/api/team${q ? `?${q}` : ''}`);
+  },
+  history: (opts?: { agentId?: number }) => {
+    const p = new URLSearchParams();
+    if (opts?.agentId) p.set('agentId', String(opts.agentId));
+    const q = p.toString();
+    return api.get<TeamHistoryEntry[]>(`/api/team/history${q ? `?${q}` : ''}`);
   },
 };
