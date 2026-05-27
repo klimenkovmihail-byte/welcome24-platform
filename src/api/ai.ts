@@ -4,12 +4,18 @@
 
 import { api } from './apiClient';
 
+export type AiTier = 'starter' | 'growth' | 'top' | 'unlimited';
+
 export interface AiUsage {
   unlimited: boolean;
+  tier: AiTier;
   limit: number | null;
   used: number;
   remaining: number | null;
   day: string;
+  ytdIncome: number | null;
+  ytdVkd: number | null;
+  thresholds: { incomeGrowth: number; vkdTop: number };
 }
 
 export interface AiResult {

@@ -77,15 +77,18 @@ export default function AI() {
           </Typography>
         </Box>
         {usage && !usage.unlimited && (
-          <Chip
-            icon={usage.remaining === 0 ? <LockRoundedIcon /> : undefined}
-            label={`Осталось ${usage.remaining} из ${usage.limit} сегодня`}
-            sx={{
-              background: usage.remaining === 0 ? 'rgba(239,68,68,0.12)' : 'rgba(201,168,76,0.10)',
-              color: usage.remaining === 0 ? '#EF4444' : '#C9A84C',
-              fontWeight: 700,
-            }}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            <Chip
+              icon={usage.remaining === 0 ? <LockRoundedIcon /> : undefined}
+              label={`Осталось ${usage.remaining} из ${usage.limit} сегодня`}
+              sx={{
+                background: usage.remaining === 0 ? 'rgba(239,68,68,0.12)' : 'rgba(201,168,76,0.10)',
+                color: usage.remaining === 0 ? '#EF4444' : '#C9A84C',
+                fontWeight: 700,
+              }}
+            />
+            <TierProgress usage={usage} />
+          </Box>
         )}
         {usage?.unlimited && (
           <Chip label="Без лимита" sx={{ background: 'rgba(34,197,94,0.12)', color: '#22C55E', fontWeight: 700 }} />
@@ -100,6 +103,58 @@ export default function AI() {
         <ToolForm tool={activeTool} onBack={() => { setActiveTool(null); reloadUsage(); }} onUsageChange={setUsage} />
       )}
     </Box>
+  );
+}
+
+// Прогресс-индикатор: сколько ещё нужно заработать до следующего тира лимита.
+function TierProgress({ usage }: { usage: AiUsage }) {
+  const fmt = (n: number) => n.toLocaleString('ru-RU');
+  if (usage.tier === 'top' || usage.tier === 'unlimited') return null;
+
+  // starter → growth: нужно income ≥ thresholds.incomeGrowth
+  // growth → top: нужно vkd ≥ thresholds.vkdTop
+  let label = '';
+  let progress = 0;          // 0..1
+  let goalText = '';
+
+  if (usage.tier === 'starter') {
+    const have = usage.ytdIncome || 0;
+    const need = usage.thresholds.incomeGrowth;
+    progress = Math.min(1, have / need);
+    const left = Math.max(0, need - have);
+    label = `До 10 запросов/день: ещё ${fmt(left)} ₽ комиссии`;
+    goalText = `${fmt(have)} / ${fmt(need)} ₽ комиссии в этом году`;
+  } else if (usage.tier === 'growth') {
+    const have = usage.ytdVkd || 0;
+    const need = usage.thresholds.vkdTop;
+    progress = Math.min(1, have / need);
+    const left = Math.max(0, need - have);
+    label = `До 20 запросов/день: ещё ${fmt(left)} ₽ ВКД`;
+    goalText = `${fmt(have)} / ${fmt(need)} ₽ ВКД в этом году (уровень L2)`;
+  }
+
+  return (
+    <Tooltip title={goalText} arrow>
+      <Box sx={{
+        display: 'flex', alignItems: 'center', gap: 1.2,
+        px: 1.5, py: 0.6, borderRadius: 2,
+        background: 'rgba(34,197,94,0.06)',
+        border: '1px solid rgba(34,197,94,0.18)',
+        cursor: 'default',
+      }}>
+        <Box sx={{ position: 'relative', width: 60, height: 4, borderRadius: 2, background: 'rgba(34,197,94,0.15)', overflow: 'hidden' }}>
+          <Box sx={{
+            position: 'absolute', top: 0, left: 0, height: '100%',
+            width: `${progress * 100}%`,
+            background: 'linear-gradient(90deg, #22C55E, #4ADE80)',
+            transition: 'width 0.4s',
+          }} />
+        </Box>
+        <Typography variant="caption" sx={{ color: '#22C55E', fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>
+          {label}
+        </Typography>
+      </Box>
+    </Tooltip>
   );
 }
 
