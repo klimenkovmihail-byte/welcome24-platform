@@ -20,7 +20,10 @@ import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
-import { aiApi, type AiUsage, type AiTool, type ChatMessage } from '../api/ai';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
+import { aiApi, type AiUsage, type AiTool, type ChatSummary, type StoredMessage } from '../api/ai';
 
 interface ToolMeta {
   key: AiTool;
@@ -376,8 +379,8 @@ function SocialForm({ onSubmit, loading }: SubProps) {
 }
 
 // ============================================================
-// AI-юрист — чат с историей сообщений.
-// История хранится локально в state (не персистится между сессиями).
+// AI юрист Welcome 24 — чат с персистентной историей (в БД).
+// Слева список прошлых диалогов, справа активный чат.
 // ============================================================
 interface ChatProps {
   onBack: () => void;
@@ -385,33 +388,109 @@ interface ChatProps {
 }
 
 function LegalChat({ onBack, onUsageChange }: ChatProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chats, setChats] = useState<ChatSummary[]>([]);
+  const [activeChatId, setActiveChatId] = useState<number | null>(null);
+  const [messages, setMessages] = useState<StoredMessage[]>([]);
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);     // AI отвечает
+  const [chatsLoading, setChatsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Загрузка списка чатов на старте.
+  useEffect(() => {
+    aiApi.listChats('legal_advisor')
+      .then(list => {
+        setChats(list);
+        if (list.length > 0) setActiveChatId(list[0].id);
+      })
+      .catch(() => { /* tolerate */ })
+      .finally(() => setChatsLoading(false));
+  }, []);
+
+  // При смене активного чата — подгрузить сообщения.
+  useEffect(() => {
+    if (activeChatId == null) { setMessages([]); return; }
+    aiApi.getChat(activeChatId)
+      .then(full => setMessages(full.messages))
+      .catch(() => setMessages([]));
+  }, [activeChatId]);
 
   // Авто-скролл вниз при новых сообщениях.
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, loading]);
 
+  const newChat = async () => {
+    try {
+      const c = await aiApi.createChat('legal_advisor');
+      setChats(prev => [{ ...c, message_count: 0 }, ...prev]);
+      setActiveChatId(c.id);
+      setMessages([]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось создать чат');
+    }
+  };
+
+  const deleteChat = async (id: number) => {
+    if (!confirm('Удалить этот диалог? Действие необратимо.')) return;
+    try {
+      await aiApi.deleteChat(id);
+      setChats(prev => prev.filter(c => c.id !== id));
+      if (activeChatId === id) {
+        const remaining = chats.filter(c => c.id !== id);
+        setActiveChatId(remaining[0]?.id ?? null);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось удалить');
+    }
+  };
+
   const send = async () => {
     const text = input.trim();
     if (!text || loading) return;
-    const next: ChatMessage[] = [...messages, { role: 'user', content: text }];
-    setMessages(next);
+
+    // Если активного чата нет — создаём.
+    let chatId = activeChatId;
+    if (chatId == null) {
+      try {
+        const c = await aiApi.createChat('legal_advisor');
+        chatId = c.id;
+        setChats(prev => [{ ...c, message_count: 0 }, ...prev]);
+        setActiveChatId(chatId);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Не удалось создать чат');
+        return;
+      }
+    }
+
     setInput('');
     setLoading(true);
     setError(null);
+    // Оптимистично добавляем сообщение пользователя.
+    const optimisticUser: StoredMessage = { id: -Date.now(), role: 'user', content: text, created_at: new Date().toISOString() };
+    setMessages(prev => [...prev, optimisticUser]);
     try {
-      const r = await aiApi.chat('legal_advisor', next);
-      setMessages([...next, { role: 'assistant', content: r.text }]);
+      const r = await aiApi.sendMessage(chatId, text);
+      // Обновляем сообщения и summary в списке чатов.
+      setMessages(r.chat.messages);
+      setChats(prev => {
+        const idx = prev.findIndex(c => c.id === r.chat.id);
+        const summary: ChatSummary = {
+          id: r.chat.id, tool: r.chat.tool, title: r.chat.title,
+          created_at: r.chat.created_at, updated_at: r.chat.updated_at,
+          message_count: r.chat.messages.length,
+        };
+        if (idx === -1) return [summary, ...prev];
+        const next = prev.slice();
+        next.splice(idx, 1);
+        return [summary, ...next];
+      });
       onUsageChange(r.usage);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ошибка');
-      // Откатываем последнее сообщение пользователя если запрос упал.
-      setMessages(messages);
+      // Откатываем оптимистичное сообщение и возвращаем ввод.
+      setMessages(prev => prev.filter(m => m.id !== optimisticUser.id));
       setInput(text);
     } finally {
       setLoading(false);
@@ -433,7 +512,7 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
 
       <Card sx={{ mb: 2 }}>
         <CardContent sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 0.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box sx={{
               width: 44, height: 44, borderRadius: 2,
               background: alpha('#22C55E', 0.15), color: '#22C55E',
@@ -441,7 +520,7 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
             }}>
               <GavelRoundedIcon sx={{ fontSize: 24 }} />
             </Box>
-            <Box>
+            <Box sx={{ flex: 1 }}>
               <Typography variant="h6" sx={{ fontWeight: 800, color: '#F1F5F9' }}>AI юрист Welcome 24</Typography>
               <Typography variant="caption" sx={{ color: '#64748B' }}>
                 Только юридические вопросы по недвижимости РФ. Это консультативная информация, не юр. заключение.
@@ -451,85 +530,156 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
         </CardContent>
       </Card>
 
-      <Card sx={{ mb: 2 }}>
-        <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-          <Box ref={scrollRef} sx={{
-            maxHeight: 520, minHeight: 280, overflowY: 'auto',
-            p: 2.5, display: 'flex', flexDirection: 'column', gap: 1.5,
-          }}>
-            {messages.length === 0 && !loading && (
-              <Box sx={{ textAlign: 'center', color: '#64748B', py: 6 }}>
-                <GavelRoundedIcon sx={{ fontSize: 40, color: 'rgba(34,197,94,0.3)', mb: 1 }} />
-                <Typography variant="body2">Задай вопрос — например:</Typography>
-                <Typography variant="caption" sx={{ display: 'block', mt: 1, fontStyle: 'italic' }}>
-                  «Какой минимальный срок владения чтобы продать квартиру без НДФЛ?»<br />
-                  «Что обязательно прописать в договоре переуступки ДДУ?»<br />
-                  «Как оформить сделку если один из собственников — несовершеннолетний?»
-                </Typography>
-              </Box>
-            )}
-            {messages.map((m, i) => (
-              <Box key={i} sx={{
-                alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                maxWidth: '88%',
-                p: 1.8, borderRadius: 2.5,
-                background: m.role === 'user' ? alpha('#C9A84C', 0.12) : 'rgba(15,22,41,0.6)',
-                border: `1px solid ${m.role === 'user' ? 'rgba(201,168,76,0.2)' : 'rgba(34,197,94,0.15)'}`,
-              }}>
-                <Typography variant="caption" sx={{
-                  display: 'block', mb: 0.5,
-                  color: m.role === 'user' ? '#C9A84C' : '#22C55E',
-                  fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em',
-                }}>
-                  {m.role === 'user' ? 'Ты' : 'AI юрист Welcome 24'}
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#F1F5F9', whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: 14 }}>
-                  {m.content}
-                </Typography>
-              </Box>
-            ))}
-            {loading && (
-              <Box sx={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 1.5, p: 1.8 }}>
-                <CircularProgress size={16} sx={{ color: '#22C55E' }} />
-                <Typography variant="caption" sx={{ color: '#94A3B8' }}>AI думает…</Typography>
-              </Box>
-            )}
-          </Box>
-        </CardContent>
-      </Card>
-
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-
-      <Card>
-        <CardContent sx={{ p: 2 }}>
-          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
-            <TextField
-              fullWidth multiline minRows={1} maxRows={6}
-              placeholder="Задай вопрос по сделке, договору, налогам…"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={onKey}
-              disabled={loading}
-              size="small"
-            />
-            <IconButton
-              onClick={send} disabled={!input.trim() || loading}
-              sx={{
-                background: alpha('#22C55E', 0.15),
-                color: '#22C55E',
-                width: 44, height: 44,
-                '&:hover': { background: alpha('#22C55E', 0.25) },
-                '&.Mui-disabled': { background: 'rgba(255,255,255,0.04)', color: '#475569' },
-              }}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '260px 1fr' }, gap: 2, alignItems: 'start' }}>
+        {/* Список диалогов */}
+        <Card sx={{ position: { md: 'sticky' }, top: { md: 16 } }}>
+          <CardContent sx={{ p: 2 }}>
+            <Button
+              variant="contained" fullWidth size="small" startIcon={<AddRoundedIcon />}
+              onClick={newChat}
+              sx={{ mb: 1.5, background: alpha('#22C55E', 0.18), color: '#22C55E', boxShadow: 'none',
+                '&:hover': { background: alpha('#22C55E', 0.28), boxShadow: 'none' } }}
             >
-              <SendRoundedIcon />
-            </IconButton>
-          </Box>
-          <Typography variant="caption" sx={{ color: '#475569', mt: 1, display: 'block', fontSize: 10 }}>
-            Enter — отправить, Shift+Enter — новая строка
-          </Typography>
-        </CardContent>
-      </Card>
+              Новый чат
+            </Button>
+            <Typography variant="caption" sx={{ color: '#475569', display: 'flex', alignItems: 'center', gap: 0.6, mb: 1, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+              <HistoryRoundedIcon sx={{ fontSize: 14 }} /> История
+            </Typography>
+            <Box sx={{ maxHeight: 480, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {chatsLoading && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress size={20} sx={{ color: '#22C55E' }} />
+                </Box>
+              )}
+              {!chatsLoading && chats.length === 0 && (
+                <Typography variant="caption" sx={{ color: '#64748B', textAlign: 'center', py: 3, display: 'block' }}>
+                  Пока нет диалогов. Задай первый вопрос — он сохранится автоматически.
+                </Typography>
+              )}
+              {chats.map(c => {
+                const active = c.id === activeChatId;
+                return (
+                  <Box
+                    key={c.id}
+                    onClick={() => setActiveChatId(c.id)}
+                    sx={{
+                      p: 1.2, borderRadius: 1.5, cursor: 'pointer',
+                      background: active ? alpha('#22C55E', 0.12) : 'transparent',
+                      border: `1px solid ${active ? 'rgba(34,197,94,0.3)' : 'transparent'}`,
+                      '&:hover': { background: active ? alpha('#22C55E', 0.16) : 'rgba(255,255,255,0.04)' },
+                      display: 'flex', alignItems: 'flex-start', gap: 1,
+                    }}
+                  >
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="caption" sx={{
+                        color: active ? '#22C55E' : '#94A3B8', fontWeight: 600, fontSize: 12,
+                        display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        {c.title || 'Новый диалог'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: '#475569', fontSize: 10 }}>
+                        {new Date(c.updated_at.replace(' ', 'T') + 'Z').toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                        {' · '}
+                        {c.message_count} сообщ.
+                      </Typography>
+                    </Box>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => { e.stopPropagation(); deleteChat(c.id); }}
+                      sx={{ color: '#475569', '&:hover': { color: '#EF4444' }, p: 0.4 }}
+                    >
+                      <DeleteOutlineRoundedIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Box>
+                );
+              })}
+            </Box>
+          </CardContent>
+        </Card>
+
+        {/* Активный чат */}
+        <Box>
+          <Card sx={{ mb: 2 }}>
+            <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
+              <Box ref={scrollRef} sx={{
+                maxHeight: 520, minHeight: 280, overflowY: 'auto',
+                p: 2.5, display: 'flex', flexDirection: 'column', gap: 1.5,
+              }}>
+                {messages.length === 0 && !loading && (
+                  <Box sx={{ textAlign: 'center', color: '#64748B', py: 6 }}>
+                    <GavelRoundedIcon sx={{ fontSize: 40, color: 'rgba(34,197,94,0.3)', mb: 1 }} />
+                    <Typography variant="body2">Задай вопрос — например:</Typography>
+                    <Typography variant="caption" sx={{ display: 'block', mt: 1, fontStyle: 'italic' }}>
+                      «Какой минимальный срок владения чтобы продать квартиру без НДФЛ?»<br />
+                      «Что обязательно прописать в договоре переуступки ДДУ?»<br />
+                      «Как оформить сделку если один из собственников — несовершеннолетний?»
+                    </Typography>
+                  </Box>
+                )}
+                {messages.map(m => (
+                  <Box key={m.id} sx={{
+                    alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+                    maxWidth: '88%',
+                    p: 1.8, borderRadius: 2.5,
+                    background: m.role === 'user' ? alpha('#C9A84C', 0.12) : 'rgba(15,22,41,0.6)',
+                    border: `1px solid ${m.role === 'user' ? 'rgba(201,168,76,0.2)' : 'rgba(34,197,94,0.15)'}`,
+                  }}>
+                    <Typography variant="caption" sx={{
+                      display: 'block', mb: 0.5,
+                      color: m.role === 'user' ? '#C9A84C' : '#22C55E',
+                      fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em',
+                    }}>
+                      {m.role === 'user' ? 'Ты' : 'AI юрист Welcome 24'}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#F1F5F9', whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: 14 }}>
+                      {m.content}
+                    </Typography>
+                  </Box>
+                ))}
+                {loading && (
+                  <Box sx={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 1.5, p: 1.8 }}>
+                    <CircularProgress size={16} sx={{ color: '#22C55E' }} />
+                    <Typography variant="caption" sx={{ color: '#94A3B8' }}>AI думает…</Typography>
+                  </Box>
+                )}
+              </Box>
+            </CardContent>
+          </Card>
+
+          {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+
+          <Card>
+            <CardContent sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
+                <TextField
+                  fullWidth multiline minRows={1} maxRows={6}
+                  placeholder="Задай вопрос по сделке, договору, налогам…"
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={onKey}
+                  disabled={loading}
+                  size="small"
+                />
+                <IconButton
+                  onClick={send} disabled={!input.trim() || loading}
+                  sx={{
+                    background: alpha('#22C55E', 0.15),
+                    color: '#22C55E',
+                    width: 44, height: 44,
+                    '&:hover': { background: alpha('#22C55E', 0.25) },
+                    '&.Mui-disabled': { background: 'rgba(255,255,255,0.04)', color: '#475569' },
+                  }}
+                >
+                  <SendRoundedIcon />
+                </IconButton>
+              </Box>
+              <Typography variant="caption" sx={{ color: '#475569', mt: 1, display: 'block', fontSize: 10 }}>
+                Enter — отправить, Shift+Enter — новая строка
+              </Typography>
+            </CardContent>
+          </Card>
+        </Box>
+      </Box>
     </Box>
   );
 }
