@@ -8,10 +8,13 @@ interface LogoProps {
   premium?: boolean;
 }
 
-const ICON_SRC = '/logo-icon.png';
-const FULL_SRC = '/logo-full.png';
+const FULL_SRC = '/logo.svg';            // новый SVG логотип «корона + WELCOME 24»
+const ICON_SRC = '/logo-icon.png';        // старая иконка (можно будет тоже на SVG позже)
 
-// Премиальный золотой градиент — для логотипов и акцентных элементов.
+// Реальное соотношение сторон SVG-логотипа (viewBox 3760×1280)
+const FULL_ASPECT = 3760 / 1280;          // ≈ 2.94
+
+// Премиальный золотой градиент.
 const PREMIUM_GOLD_GRADIENT =
   'linear-gradient(135deg, #F4DA8E 0%, #E2C97E 25%, #C9A84C 50%, #A88634 75%, #8B6F1F 100%)';
 
@@ -40,35 +43,23 @@ export function LogoIcon({ size = 40, color = '#C9A84C', premium = false }: { si
 }
 
 export default function Logo({ variant = 'full', size = 40, color = '#C9A84C', premium = false }: LogoProps) {
-  const src = variant === 'full' ? FULL_SRC : ICON_SRC;
-  const aspect = variant === 'full' ? 3.89 : 1;
-  const isWhite = !premium && (color === '#F1F5F9' || color === '#fff' || color === 'white');
-
-  // Белый — обычный <img>: природные пропорции PNG.
-  if (isWhite) {
-    return (
-      <Box
-        component="img"
-        src={src}
-        alt="Welcome 24"
-        sx={{
-          height: size,
-          width: 'auto',
-          display: 'block',
-          flexShrink: 0,
-        }}
-      />
-    );
+  if (variant === 'icon') {
+    return <LogoIcon size={size} color={color} premium={premium} />;
   }
 
+  // Full SVG логотип «корона + WELCOME 24».
+  // Aspect = 2.94 → width = size * 2.94.
+  const width = size * FULL_ASPECT;
+
+  // Чёрный SVG → перекрашиваем через mask-image + фоновый цвет/градиент.
   return (
     <Box
       sx={{
         height: size,
-        width: size * aspect,
+        width,
         background: premium ? PREMIUM_GOLD_GRADIENT : color,
-        WebkitMaskImage: `url(${src})`,
-        maskImage: `url(${src})`,
+        WebkitMaskImage: `url(${FULL_SRC})`,
+        maskImage: `url(${FULL_SRC})`,
         WebkitMaskSize: 'contain',
         maskSize: 'contain',
         WebkitMaskRepeat: 'no-repeat',
