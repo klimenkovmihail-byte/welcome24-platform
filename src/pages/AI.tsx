@@ -424,9 +424,11 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
   const newChat = async () => {
     try {
       const c = await aiApi.createChat('legal_advisor');
-      setChats(prev => [{ ...c, message_count: 0 }, ...prev]);
       setActiveChatId(c.id);
       setMessages([]);
+      // Синхронизируем список — бэк хранит только последние 5, старые могли быть удалены.
+      const list = await aiApi.listChats('legal_advisor');
+      setChats(list);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось создать чат');
     }
@@ -472,20 +474,10 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
     setMessages(prev => [...prev, optimisticUser]);
     try {
       const r = await aiApi.sendMessage(chatId, text);
-      // Обновляем сообщения и summary в списке чатов.
       setMessages(r.chat.messages);
-      setChats(prev => {
-        const idx = prev.findIndex(c => c.id === r.chat.id);
-        const summary: ChatSummary = {
-          id: r.chat.id, tool: r.chat.tool, title: r.chat.title,
-          created_at: r.chat.created_at, updated_at: r.chat.updated_at,
-          message_count: r.chat.messages.length,
-        };
-        if (idx === -1) return [summary, ...prev];
-        const next = prev.slice();
-        next.splice(idx, 1);
-        return [summary, ...next];
-      });
+      // Бэк хранит только 5 последних — перезагружаем список целиком для синхронизации.
+      const list = await aiApi.listChats('legal_advisor');
+      setChats(list);
       onUsageChange(r.usage);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ошибка');
