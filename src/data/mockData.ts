@@ -792,6 +792,8 @@ export interface Achievement {
   earned: boolean;
   date: string;
   tier: AchievementTier;
+  period?: string;       // 'YYYY' для повторяющихся за год, '' для разовых
+  isYearly?: boolean;
 }
 
 export const achievements: Achievement[] = [

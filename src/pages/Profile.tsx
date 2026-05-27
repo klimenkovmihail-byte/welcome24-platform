@@ -51,12 +51,16 @@ function isImageUrl(url: string): boolean {
 }
 // Достижения теперь считаются на бэке (helpers/achievements.js) с зафиксированной
 // датой события — endpoint /api/achievements/me. Фронт только отображает.
+// Yearly-триггеры (level_reached, deals_year, commission_year) приходят
+// несколько записей с разным period — UI показывает их отдельными карточками.
 type RawAchMe = {
   id: string;
   title: string;
   description: string;
   icon: string;
   tier: 'bronze' | 'silver' | 'gold' | 'platinum';
+  isYearly: boolean;
+  period: string;          // '' для lifetime, 'YYYY' для yearly
   earned: boolean;
   earnedAt: string | null;
 };
@@ -97,6 +101,8 @@ export default function Profile() {
           tier: r.tier,
           earned: r.earned,
           date: r.earnedAt || '',
+          period: r.period,
+          isYearly: r.isYearly,
         })));
       })
       .catch(() => { /* fallback пустой список */ });
@@ -514,8 +520,10 @@ export default function Profile() {
                 <Grid container spacing={2} sx={{ mb: 3 }}>
                   {earned.map((ach, i) => {
                     const c = tierColor[ach.tier];
+                    // Для yearly-ачивок добавляем год в заголовок карточки.
+                    const titleSuffix = ach.isYearly && ach.period ? ` · ${ach.period}` : '';
                     return (
-                      <Grid size={{ xs: 6, sm: 4, lg: 3 }} key={ach.id}>
+                      <Grid size={{ xs: 6, sm: 4, lg: 3 }} key={`${ach.id}-${ach.period || ''}`}>
                         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 + i * 0.05 }}>
                           <Tooltip title={ach.description} placement="top">
                             <Box sx={{
@@ -526,11 +534,11 @@ export default function Profile() {
                             }}>
                               <Box sx={{ fontSize: 36 }}>{ach.icon}</Box>
                               <Typography variant="caption" sx={{ fontWeight: 700, color: c.text, display: 'block', lineHeight: 1.3, mt: 0.5 }}>
-                                {ach.title}
+                                {ach.title}{titleSuffix}
                               </Typography>
                               {ach.date && (
                                 <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10, display: 'block' }}>
-                                  {new Date(ach.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                                  {new Date(ach.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}
                                 </Typography>
                               )}
                               <Chip label={ach.tier.toUpperCase()} size="small" sx={{
@@ -554,7 +562,7 @@ export default function Profile() {
                       {locked.map((ach, i) => {
                         const c = tierColor[ach.tier];
                         return (
-                          <Grid size={{ xs: 6, sm: 4, lg: 3 }} key={ach.id}>
+                          <Grid size={{ xs: 6, sm: 4, lg: 3 }} key={`${ach.id}-${ach.period || ''}-locked`}>
                             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 0.55, scale: 1 }} transition={{ delay: 0.2 + i * 0.04 }}>
                               <Tooltip title={ach.description} placement="top">
                                 <Box sx={{
