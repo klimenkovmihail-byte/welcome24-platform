@@ -28,6 +28,7 @@ import ImageCropper from '../components/ImageCropper';
 import { supportApi, type SupportTicketSummary, type SupportTicketFull } from '../api/support';
 import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import { buildReferralLink } from '../utils/referralLink';
 
 // Аплоад файла в Yandex Storage через /api/upload — для вложений в тикеты поддержки.
 async function uploadAttachment(file: File): Promise<string> {
@@ -209,11 +210,16 @@ export default function Profile() {
 
   const [supportForm, setSupportForm] = useState({ topic: '', message: '' });
 
-  // Берём реальную ссылку из БД (поле referral_link у агента). Если её ещё нет —
-  // показываем заглушку с просьбой обратиться к админу.
-  const referralLink = (user as { referral_link?: string; referralLink?: string } | null)?.referral_link
-    || (user as { referralLink?: string } | null)?.referralLink
-    || '';
+  // Реф-ссылка приходит из БД (бэк её авто-генерит). На случай если поле ещё
+  // не обновилось — собираем тот же URL на клиенте из id+name (зеркало бэка).
+  const referralLink = (() => {
+    const fromDb = (user as { referral_link?: string; referralLink?: string } | null)?.referral_link
+      || (user as { referralLink?: string } | null)?.referralLink
+      || '';
+    if (fromDb) return fromDb;
+    if (user?.id && user?.name) return buildReferralLink(user.id, user.name);
+    return '';
+  })();
 
   const handleSave = async () => {
     if (!user || typeof user.id !== 'number') { setSaveError('Профиль не загружен'); return; }
@@ -461,9 +467,9 @@ export default function Profile() {
               <CardContent sx={{ p: 3 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#F1F5F9', mb: 1.5 }}>Реферальная ссылка</Typography>
                 <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 1.5 }}>
-                  Приглашайте агентов и получайте бонусы с их сделок
+                  Делитесь в соцсетях — лиды с w24.agency автоматически зачтутся вам как ментору
                 </Typography>
-                {referralLink ? (
+                {referralLink && (
                   <Box sx={{
                     display: 'flex', alignItems: 'center', gap: 1,
                     p: 1.2, borderRadius: 2,
@@ -478,16 +484,6 @@ export default function Profile() {
                         {refCopied ? <CheckCircleRoundedIcon sx={{ fontSize: 16 }} /> : <ContentCopyRoundedIcon sx={{ fontSize: 16 }} />}
                       </IconButton>
                     </Tooltip>
-                  </Box>
-                ) : (
-                  <Box sx={{
-                    p: 1.5, borderRadius: 2,
-                    background: 'rgba(245,158,11,0.06)',
-                    border: '1px dashed rgba(245,158,11,0.3)',
-                  }}>
-                    <Typography variant="caption" sx={{ color: '#F59E0B' }}>
-                      Реферальная ссылка ещё не привязана. Обратитесь к администратору.
-                    </Typography>
                   </Box>
                 )}
               </CardContent>
