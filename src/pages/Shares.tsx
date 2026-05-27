@@ -299,6 +299,8 @@ export default function Shares() {
                 const packetCost = p.quantity * p.acquiredPrice;
                 const packetValue = p.quantity * currentSharePrice;
                 const growthPct = packetCost > 0 ? ((packetValue - packetCost) / packetCost) * 100 : 0;
+                // Подарочные пакеты (цена входа < 100 ₽) — % не показываем, ставим «бонус».
+                const isGift = p.acquiredPrice > 0 && p.acquiredPrice < 100;
                 return (
                   <Box key={p.id} sx={{ display: 'grid', gridTemplateColumns: '110px 130px 1fr 130px 130px 130px 110px', borderTop: '1px solid rgba(255,255,255,0.04)', '&:hover': { background: 'rgba(201,168,76,0.04)' } }}>
                     <Box sx={{ p: 1.6 }}>
@@ -323,9 +325,13 @@ export default function Shares() {
                     </Box>
                     <Box sx={{ p: 1.6 }}>
                       <Chip
-                        label={`${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(0)}%`}
+                        label={isGift ? 'бонус' : `${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(0)}%`}
                         size="small"
-                        sx={{ background: growthPct >= 0 ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: growthPct >= 0 ? '#22C55E' : '#EF4444', fontWeight: 700, fontSize: 11 }}
+                        sx={{
+                          background: isGift ? 'rgba(201,168,76,0.15)' : (growthPct >= 0 ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)'),
+                          color: isGift ? '#C9A84C' : (growthPct >= 0 ? '#22C55E' : '#EF4444'),
+                          fontWeight: 700, fontSize: 11,
+                        }}
                       />
                     </Box>
                   </Box>
