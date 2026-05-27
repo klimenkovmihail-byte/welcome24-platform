@@ -47,7 +47,7 @@ const TOOLS: ToolMeta[] = [
   },
   {
     key: 'legal_advisor',
-    label: 'AI-юрист',
+    label: 'AI юрист Welcome 24',
     description: 'Задай вопрос по сделкам, договорам, налогам, ДДУ, регистрации прав. Отвечает с опорой на законодательство РФ. Только юридические вопросы по недвижимости.',
     icon: <GavelRoundedIcon sx={{ fontSize: 32 }} />,
     color: '#22C55E',
@@ -442,7 +442,7 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
               <GavelRoundedIcon sx={{ fontSize: 24 }} />
             </Box>
             <Box>
-              <Typography variant="h6" sx={{ fontWeight: 800, color: '#F1F5F9' }}>AI-юрист</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#F1F5F9' }}>AI юрист Welcome 24</Typography>
               <Typography variant="caption" sx={{ color: '#64748B' }}>
                 Только юридические вопросы по недвижимости РФ. Это консультативная информация, не юр. заключение.
               </Typography>
@@ -481,7 +481,7 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
                   color: m.role === 'user' ? '#C9A84C' : '#22C55E',
                   fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em',
                 }}>
-                  {m.role === 'user' ? 'Ты' : 'AI-юрист'}
+                  {m.role === 'user' ? 'Ты' : 'AI юрист Welcome 24'}
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#F1F5F9', whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: 14 }}>
                   {m.content}
