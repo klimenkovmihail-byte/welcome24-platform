@@ -11,6 +11,27 @@ import SupportAgentRoundedIcon from '@mui/icons-material/SupportAgentRounded';
 import { loginAgent, trySsoFromUrl } from '../auth/auth';
 import Logo from '../components/Logo';
 
+// Кастомизация полей Email/Пароль: убираем уродливую сине-жёлтую подсветку
+// Chrome autofill и закругляем фон чтобы выглядело однородно с тёмной темой.
+const loginFieldSx = {
+  '& .MuiOutlinedInput-root': {
+    background: 'rgba(15,22,41,0.7)',
+    '& fieldset': { borderColor: 'rgba(201,168,76,0.18)' },
+    '&:hover fieldset': { borderColor: 'rgba(201,168,76,0.35)' },
+    '&.Mui-focused fieldset': { borderColor: '#C9A84C' },
+  },
+  '& input': {
+    color: '#F1F5F9',
+  },
+  // Chrome / Safari autofill — убираем сине-жёлтую заливку
+  '& input:-webkit-autofill, & input:-webkit-autofill:hover, & input:-webkit-autofill:focus, & input:-webkit-autofill:active': {
+    WebkitBoxShadow: '0 0 0 1000px rgba(15,22,41,0.7) inset !important',
+    WebkitTextFillColor: '#F1F5F9 !important',
+    caretColor: '#F1F5F9',
+    transition: 'background-color 5000s ease-in-out 0s',
+  },
+};
+
 export default function Login() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
@@ -194,6 +215,7 @@ export default function Login() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 fullWidth
+                sx={loginFieldSx}
                 slotProps={{
                   inputLabel: { shrink: true },
                   input: {
@@ -207,6 +229,7 @@ export default function Login() {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 fullWidth
+                sx={loginFieldSx}
                 slotProps={{
                   inputLabel: { shrink: true },
                   input: {
