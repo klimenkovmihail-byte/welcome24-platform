@@ -49,24 +49,79 @@ export default function Login() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'radial-gradient(ellipse at 20% 50%, rgba(201,168,76,0.08) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(67,97,238,0.1) 0%, transparent 50%), #080C18',
+      background: `
+        radial-gradient(ellipse at 15% 30%, rgba(201,168,76,0.12) 0%, transparent 45%),
+        radial-gradient(ellipse at 85% 70%, rgba(67,97,238,0.14) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 100%, rgba(123,47,190,0.08) 0%, transparent 60%),
+        #050811
+      `,
       p: 2,
       position: 'relative',
       overflow: 'hidden',
     }}>
-      {/* Background decoration */}
-      {[...Array(5)].map((_, i) => (
+      {/* Grid pattern — лёгкая сетка из золотистых линий */}
+      <Box sx={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        backgroundImage: `
+          linear-gradient(rgba(201,168,76,0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(201,168,76,0.04) 1px, transparent 1px)
+        `,
+        backgroundSize: '60px 60px',
+        maskImage: 'radial-gradient(ellipse at center, black 0%, transparent 80%)',
+      }} />
+
+      {/* Цифровая сеть — анимированные узлы и линии */}
+      <NetworkMesh />
+
+      {/* Большие размытые свечения — глубина */}
+      {[
+        { x: '10%', y: '15%', color: 'rgba(201,168,76,0.15)', size: 400 },
+        { x: '85%', y: '20%', color: 'rgba(67,97,238,0.18)', size: 500 },
+        { x: '20%', y: '85%', color: 'rgba(123,47,190,0.12)', size: 450 },
+        { x: '90%', y: '90%', color: 'rgba(201,168,76,0.10)', size: 350 },
+      ].map((g, i) => (
         <motion.div key={i}
-          animate={{ y: [0, -20, 0], opacity: [0.03, 0.06, 0.03] }}
-          transition={{ duration: 4 + i, repeat: Infinity, delay: i * 0.8 }}
+          animate={{ scale: [1, 1.15, 1], opacity: [0.6, 1, 0.6] }}
+          transition={{ duration: 8 + i * 2, repeat: Infinity, delay: i * 1.2 }}
           style={{
             position: 'absolute',
-            width: 200 + i * 80,
-            height: 200 + i * 80,
+            width: g.size, height: g.size,
             borderRadius: '50%',
-            border: '1px solid rgba(201,168,76,0.1)',
-            top: `${10 + i * 15}%`,
-            left: `${5 + i * 18}%`,
+            background: `radial-gradient(circle, ${g.color} 0%, transparent 70%)`,
+            top: g.y, left: g.x,
+            transform: 'translate(-50%, -50%)',
+            filter: 'blur(40px)',
+            pointerEvents: 'none',
+          }}
+        />
+      ))}
+
+      {/* Парящие золотые искры */}
+      {[...Array(18)].map((_, i) => (
+        <motion.div key={`spark-${i}`}
+          animate={{
+            y: [0, -30 - (i % 5) * 10, 0],
+            opacity: [0.2, 0.8, 0.2],
+          }}
+          transition={{
+            duration: 5 + (i % 4),
+            repeat: Infinity,
+            delay: i * 0.4,
+            ease: 'easeInOut',
+          }}
+          style={{
+            position: 'absolute',
+            width: 3 + (i % 3),
+            height: 3 + (i % 3),
+            borderRadius: '50%',
+            background: i % 3 === 0 ? '#C9A84C' : i % 3 === 1 ? '#4361EE' : '#7B2FBE',
+            top: `${(i * 53) % 95 + 2}%`,
+            left: `${(i * 37) % 95 + 2}%`,
+            boxShadow: i % 3 === 0
+              ? '0 0 12px rgba(201,168,76,0.8)'
+              : i % 3 === 1
+              ? '0 0 12px rgba(67,97,238,0.8)'
+              : '0 0 12px rgba(123,47,190,0.8)',
             pointerEvents: 'none',
           }}
         />
@@ -93,8 +148,12 @@ export default function Login() {
               <Logo variant="full" size={68} color="#F1F5F9" />
             </Box>
           </motion.div>
-          <Typography variant="body2" sx={{ color: '#64748B', mt: 0.5 }}>
-            Цифровая платформа для агентов
+          <Typography sx={{
+            color: '#E2C97E', mt: 1, fontSize: 16, fontWeight: 600,
+            letterSpacing: '0.02em', lineHeight: 1.4,
+            textShadow: '0 2px 12px rgba(201,168,76,0.3)',
+          }}>
+            Цифровая платформа для предпринимателей в недвижимости
           </Typography>
         </Box>
 
@@ -179,9 +238,9 @@ export default function Login() {
               <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', lineHeight: 1.6 }}>
                 Портал доступен только партнёрам компании <b style={{ color: '#C9A84C' }}>Welcome 24</b>.
                 Если ты хочешь стать агентом — свяжись с нами через сайт{' '}
-                <a href="https://welcome24.ru" target="_blank" rel="noopener noreferrer"
+                <a href="https://w24.agency" target="_blank" rel="noopener noreferrer"
                   style={{ color: '#C9A84C', textDecoration: 'none', fontWeight: 700 }}>
-                  welcome24.ru
+                  w24.agency
                 </a>.
               </Typography>
             </Box>
@@ -194,6 +253,7 @@ export default function Login() {
       </motion.div>
 
       {/* Подсказка «Забыли пароль» */}
+      {/* Forgot password dialog */}
       <Dialog open={forgotOpen} onClose={() => setForgotOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ pb: 1, display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Box sx={{
@@ -211,23 +271,9 @@ export default function Login() {
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            <Typography variant="body2" sx={{ color: '#94A3B8', lineHeight: 1.6 }}>
-              Обратитесь к администратору компании Welcome 24 — он сбросит пароль и пришлёт тебе новый.
+            <Typography variant="body2" sx={{ color: '#CBD5E1', lineHeight: 1.7 }}>
+              Свяжитесь с администратором компании <b style={{ color: '#C9A84C' }}>Welcome 24</b> — он сбросит пароль и пришлёт тебе новый.
             </Typography>
-            <Box sx={{ p: 2, borderRadius: 2, background: 'rgba(67,97,238,0.06)', border: '1px solid rgba(67,97,238,0.15)' }}>
-              <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', mb: 0.5 }}>
-                Контакт администратора:
-              </Typography>
-              <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 700 }}>
-                📞 +7 (916) 677-77-03
-              </Typography>
-              <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 700 }}>
-                ✉ mk@w24.agency
-              </Typography>
-              <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 700 }}>
-                ✈ <a href="https://t.me/klimenkov_mihail" target="_blank" rel="noopener noreferrer" style={{ color: '#229ED9', textDecoration: 'none' }}>@klimenkov_mihail</a>
-              </Typography>
-            </Box>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
@@ -237,5 +283,104 @@ export default function Login() {
         </DialogActions>
       </Dialog>
     </Box>
+  );
+}
+
+// ---------- Цифровая сеть (узлы + линии) ----------
+// Декоративный canvas на фоне логина: 35 узлов медленно перемещаются,
+// соединяются линиями если оказались близко. Символизирует MLM-сеть
+// и цифровую платформу. ~60 fps, не нагружает CPU.
+function NetworkMesh() {
+  const [el, setEl] = useState<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    if (!el) return;
+    const canvas = el;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    let raf = 0;
+    let nodes: { x: number; y: number; vx: number; vy: number; r: number }[] = [];
+
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      ctx.scale(dpr, dpr);
+    };
+    resize();
+
+    // Инициализация узлов
+    const COUNT = window.innerWidth < 768 ? 18 : 35;
+    nodes = Array.from({ length: COUNT }, () => ({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      r: 1 + Math.random() * 1.5,
+    }));
+
+    const tick = () => {
+      const w = window.innerWidth, h = window.innerHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      // Двигаем узлы
+      for (const n of nodes) {
+        n.x += n.vx;
+        n.y += n.vy;
+        if (n.x < 0 || n.x > w) n.vx *= -1;
+        if (n.y < 0 || n.y > h) n.vy *= -1;
+      }
+
+      // Рисуем линии (только если узлы близко)
+      ctx.lineWidth = 1;
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const dx = nodes[i].x - nodes[j].x;
+          const dy = nodes[i].y - nodes[j].y;
+          const dist = Math.hypot(dx, dy);
+          const MAX_DIST = 160;
+          if (dist < MAX_DIST) {
+            const alpha = (1 - dist / MAX_DIST) * 0.25;
+            ctx.strokeStyle = `rgba(201, 168, 76, ${alpha})`;
+            ctx.beginPath();
+            ctx.moveTo(nodes[i].x, nodes[i].y);
+            ctx.lineTo(nodes[j].x, nodes[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Рисуем узлы
+      for (const n of nodes) {
+        ctx.fillStyle = 'rgba(201, 168, 76, 0.6)';
+        ctx.shadowColor = 'rgba(201, 168, 76, 0.8)';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    window.addEventListener('resize', resize);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', resize);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [el]);
+
+  return (
+    <canvas
+      ref={setEl}
+      style={{
+        position: 'absolute', inset: 0,
+        pointerEvents: 'none',
+        opacity: 0.7,
+      }}
+    />
   );
 }
