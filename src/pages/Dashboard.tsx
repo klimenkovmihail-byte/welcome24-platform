@@ -192,6 +192,11 @@ export default function Dashboard() {
   const sharesCost        = myShares.reduce((s, p) => s + (p.type === 'sale' ? -1 : 1) * p.quantity * p.acquiredPrice, 0);
   const currentSharePrice = shareQuotes.length ? shareQuotes[shareQuotes.length - 1].price : 0;
   const sharesValue       = totalShares * currentSharePrice;
+  // Если средняя цена входа меньше 100 ₽ — это в основном подарочные акции
+  // (бонусные за первую сделку, рекрута и т.п. с номиналом 1 ₽). Процент роста
+  // для них бессмысленный (+704300% и т.п.), поэтому скрываем.
+  const sharesAvgPrice    = totalShares > 0 ? sharesCost / totalShares : 0;
+  const sharesIsMostlyGifted = sharesAvgPrice > 0 && sharesAvgPrice < 100;
   const sharesGrowthPct   = sharesCost > 0 ? Math.round((sharesValue - sharesCost) / sharesCost * 100) : 0;
 
   // Filter state: year + month ('all' = all months in year)
@@ -317,7 +322,13 @@ export default function Dashboard() {
           { icon: <AccountBalanceWalletRoundedIcon />, label: `Доход ${currentYear}`, value: `${fmt(yearTotalIncome)} ₽`, sub: `ВКД: ${fmt(yearTotalVkd)} ₽`, color: '#22C55E', delay: 0.05 },
           { icon: <HandshakeRoundedIcon />, label: `Сделок ${currentYear}`, value: yearTotalDeals, sub: 'Личные сделки', color: '#4361EE', delay: 0.1 },
           { icon: <GroupsRoundedIcon />, label: 'Заработано с команды', value: `${fmt(teamAllTime.passiveIncome)} ₽`, sub: `${teamAllTime.agents} ${teamAllTime.agents % 10 === 1 && teamAllTime.agents % 100 !== 11 ? 'партнёр' : (teamAllTime.agents % 10 >= 2 && teamAllTime.agents % 10 <= 4 && (teamAllTime.agents % 100 < 12 || teamAllTime.agents % 100 > 14) ? 'партнёра' : 'партнёров')} на всех уровнях`, color: '#C9A84C', delay: 0.15 },
-          { icon: <DiamondRoundedIcon />, label: 'Акции', value: `${totalShares} шт`, sub: totalShares > 0 ? `${sharesGrowthPct >= 0 ? '+' : ''}${sharesGrowthPct}% · ${fmt(sharesValue)} ₽` : '—', color: '#7B2FBE', delay: 0.2 },
+          { icon: <DiamondRoundedIcon />, label: 'Акции', value: `${totalShares} шт`,
+            sub: totalShares === 0
+              ? '—'
+              : sharesIsMostlyGifted
+                ? `${fmt(sharesValue)} ₽` // подарочные — % бессмысленный
+                : `${sharesGrowthPct >= 0 ? '+' : ''}${sharesGrowthPct}% · ${fmt(sharesValue)} ₽`,
+            color: '#7B2FBE', delay: 0.2 },
         ].map((s) => (
           <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={s.label}>
             <StatCard {...s} />

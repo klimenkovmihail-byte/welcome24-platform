@@ -15,9 +15,7 @@ import { motion } from 'framer-motion';
 import { getCurrentAgent, openAdminPanel, logoutAgent } from '../../auth/auth';
 import { notificationsApi, type Notification as ApiNotification } from '../../api/notifications';
 import { sharesApi } from '../../api/shares';
-
-const formatNumber = (n: number) =>
-  n >= 1000000 ? `${(n / 1000000).toFixed(1)} млн` : n >= 1000 ? `${(n / 1000).toFixed(0)} тыс` : n.toString();
+import { formatMoney } from '../../utils/format';
 
 const pageTitles: Record<string, { title: string; subtitle: string }> = {
   '/dashboard': { title: 'Дашборд', subtitle: 'Суббота, 23 мая 2026 г.' },
@@ -81,7 +79,7 @@ export default function Header({ currentPath }: HeaderProps) {
   const [notifAnchor, setNotifAnchor] = useState<HTMLElement | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [notifs, setNotifs] = useState<NotifUi[]>([]);
-  const [shares, setShares] = useState({ qty: 0, value: 0, growthPct: 0 });
+  const [shares, setShares] = useState({ qty: 0, value: 0, growthPct: 0, isMostlyGifted: false });
   const unreadCount = notifs.filter(n => n.unread).length;
 
   // Загрузка акций (мои пакеты + последняя котировка).
@@ -96,7 +94,9 @@ export default function Header({ currentPath }: HeaderProps) {
         const price = quotes.length ? quotes[quotes.length - 1].price : 0;
         const value = qty * price;
         const growthPct = cost > 0 ? ((value - cost) / cost) * 100 : 0;
-        setShares({ qty, value, growthPct });
+        const avgPrice = qty > 0 ? cost / qty : 0;
+        const isMostlyGifted = avgPrice > 0 && avgPrice < 100;
+        setShares({ qty, value, growthPct, isMostlyGifted });
       });
     return () => { cancelled = true; };
   }, []);
@@ -149,7 +149,10 @@ export default function Header({ currentPath }: HeaderProps) {
       </motion.div>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Tooltip title={`Акции: ${shares.qty} шт · рост ${shares.growthPct.toFixed(1)}%`}>
+        <Tooltip title={shares.isMostlyGifted
+          ? `Акции: ${shares.qty} шт · бонусные`
+          : `Акции: ${shares.qty} шт · рост ${shares.growthPct.toFixed(1)}%`
+        }>
           <Chip
             icon={<TrendingUpRoundedIcon sx={{ fontSize: 16 }} />}
             label={`${shares.qty} акц.`}
@@ -162,7 +165,7 @@ export default function Header({ currentPath }: HeaderProps) {
         </Tooltip>
         <Tooltip title="Текущая стоимость портфеля акций">
           <Chip
-            label={`${(shares.value / 1_000_000).toFixed(2)} млн ₽`}
+            label={formatMoney(shares.value)}
             size="small"
             sx={{
               background: 'rgba(34,197,94,0.12)', color: '#22C55E', border: '1px solid rgba(34,197,94,0.2)',

@@ -76,7 +76,10 @@ export default function Shares() {
     const value  = total * currentSharePrice;
     const growth = value - cost;
     const growthPct = cost > 0 ? (growth / cost) * 100 : 0;
-    return { total, cost, value, growth, growthPct, currentPrice: currentSharePrice };
+    // Подарочные акции (avg < 100 ₽) — % прироста бессмысленный, не показываем.
+    const avgPrice = total > 0 ? cost / total : 0;
+    const isMostlyGifted = avgPrice > 0 && avgPrice < 100;
+    return { total, cost, value, growth, growthPct, isMostlyGifted, currentPrice: currentSharePrice };
   }, [myShares, currentSharePrice]);
 
   // Smart period filter:
@@ -134,12 +137,16 @@ export default function Shares() {
                   <Typography variant="body1" sx={{ fontWeight: 800, color: sharesSummary.growth >= 0 ? '#22C55E' : '#EF4444' }}>
                     {sharesSummary.growth >= 0 ? '+' : ''}{fmt(Math.round(sharesSummary.growth))} ₽
                   </Typography>
-                  <Chip
-                    label={`${sharesSummary.growth >= 0 ? '+' : ''}${sharesSummary.growthPct.toFixed(1)}%`}
-                    size="small"
-                    sx={{ background: sharesSummary.growth >= 0 ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: sharesSummary.growth >= 0 ? '#22C55E' : '#EF4444', fontWeight: 700 }}
-                  />
-                  <Typography variant="caption" sx={{ color: '#64748B', ml: 1 }}>за всё время</Typography>
+                  {!sharesSummary.isMostlyGifted && (
+                    <Chip
+                      label={`${sharesSummary.growth >= 0 ? '+' : ''}${sharesSummary.growthPct.toFixed(1)}%`}
+                      size="small"
+                      sx={{ background: sharesSummary.growth >= 0 ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: sharesSummary.growth >= 0 ? '#22C55E' : '#EF4444', fontWeight: 700 }}
+                    />
+                  )}
+                  <Typography variant="caption" sx={{ color: '#64748B', ml: 1 }}>
+                    {sharesSummary.isMostlyGifted ? 'бонусные акции' : 'за всё время'}
+                  </Typography>
                 </Box>
 
                 <Divider sx={{ my: 2.5, borderColor: 'rgba(201,168,76,0.1)' }} />
