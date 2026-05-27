@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Card, CardContent, Typography, TextField, Button, InputAdornment, IconButton, Divider, Alert } from '@mui/material';
+import { Box, Card, CardContent, Typography, TextField, Button, InputAdornment, IconButton, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Stack } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import EmailRoundedIcon from '@mui/icons-material/EmailRounded';
@@ -7,17 +7,19 @@ import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
+import SupportAgentRoundedIcon from '@mui/icons-material/SupportAgentRounded';
 import { loginAgent, trySsoFromUrl } from '../auth/auth';
 import Logo from '../components/Logo';
 
 export default function Login() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState('mk@w24.agency');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   useEffect(() => {
     const sso = trySsoFromUrl();
@@ -146,7 +148,11 @@ export default function Login() {
               />
 
               <Box sx={{ textAlign: 'right', mt: -1 }}>
-                <Typography variant="caption" sx={{ color: '#C9A84C', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}>
+                <Typography
+                  variant="caption"
+                  onClick={() => setForgotOpen(true)}
+                  sx={{ color: '#C9A84C', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+                >
                   Забыли пароль?
                 </Typography>
               </Box>
@@ -164,16 +170,21 @@ export default function Login() {
               </Button>
             </Box>
 
-            <Divider sx={{ my: 3, borderColor: 'rgba(255,255,255,0.06)' }}>
-              <Typography variant="caption" sx={{ color: '#4B5563', px: 1 }}>или</Typography>
-            </Divider>
-
-            <Typography variant="body2" sx={{ textAlign: 'center', color: '#64748B' }}>
-              Нет аккаунта?{' '}
-              <span style={{ color: '#C9A84C', cursor: 'pointer', fontWeight: 700 }}>
-                Зарегистрироваться
-              </span>
-            </Typography>
+            <Box sx={{
+              mt: 3, p: 2, borderRadius: 2,
+              background: 'rgba(201,168,76,0.05)',
+              border: '1px solid rgba(201,168,76,0.12)',
+              textAlign: 'center',
+            }}>
+              <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', lineHeight: 1.6 }}>
+                Портал доступен только партнёрам компании <b style={{ color: '#C9A84C' }}>Welcome 24</b>.
+                Если ты хочешь стать агентом — свяжись с нами через сайт{' '}
+                <a href="https://welcome24.ru" target="_blank" rel="noopener noreferrer"
+                  style={{ color: '#C9A84C', textDecoration: 'none', fontWeight: 700 }}>
+                  welcome24.ru
+                </a>.
+              </Typography>
+            </Box>
           </CardContent>
         </Card>
 
@@ -181,6 +192,50 @@ export default function Login() {
           © 2026 Welcome 24. Все права защищены.
         </Typography>
       </motion.div>
+
+      {/* Подсказка «Забыли пароль» */}
+      <Dialog open={forgotOpen} onClose={() => setForgotOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ pb: 1, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{
+            width: 40, height: 40, borderRadius: 2,
+            background: 'rgba(201,168,76,0.15)',
+            border: '1px solid rgba(201,168,76,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#C9A84C', flexShrink: 0,
+          }}>
+            <SupportAgentRoundedIcon />
+          </Box>
+          <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#F1F5F9' }}>
+            Забыли пароль?
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Typography variant="body2" sx={{ color: '#94A3B8', lineHeight: 1.6 }}>
+              Обратитесь к администратору компании Welcome 24 — он сбросит пароль и пришлёт тебе новый.
+            </Typography>
+            <Box sx={{ p: 2, borderRadius: 2, background: 'rgba(67,97,238,0.06)', border: '1px solid rgba(67,97,238,0.15)' }}>
+              <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', mb: 0.5 }}>
+                Контакт администратора:
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 700 }}>
+                📞 +7 (916) 677-77-03
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 700 }}>
+                ✉ mk@w24.agency
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 700 }}>
+                ✈ <a href="https://t.me/klimenkov_mihail" target="_blank" rel="noopener noreferrer" style={{ color: '#229ED9', textDecoration: 'none' }}>@klimenkov_mihail</a>
+              </Typography>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={() => setForgotOpen(false)} variant="contained" fullWidth>
+            Понятно
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
