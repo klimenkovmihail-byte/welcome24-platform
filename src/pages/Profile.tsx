@@ -21,7 +21,7 @@ import InstagramIcon from '@mui/icons-material/Instagram';
 import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 import ChatRoundedIcon from '@mui/icons-material/ChatRounded';
 import InputAdornment from '@mui/material/InputAdornment';
-import { currentUser as mockUser, achievements as mockAchievements, type Achievement } from '../data/mockData';
+import { currentUser as mockUser, type Achievement } from '../data/mockData';
 import { fetchMe, getCurrentAgent } from '../auth/auth';
 import { api, API_BASE_URL, getToken } from '../api/apiClient';
 import ImageCropper from '../components/ImageCropper';
@@ -49,29 +49,17 @@ async function uploadAttachment(file: File): Promise<string> {
 function isImageUrl(url: string): boolean {
   return /\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(url);
 }
-import { dealsApi } from '../api/deals';
-import { teamApi } from '../api/team';
-
-type RawAch = { id: string; title: string; description: string; icon: string; tier: 'bronze'|'silver'|'gold'|'platinum'; trigger_type: string; threshold: number; active: number };
-
-// Вычисляет earned-флаг и (приблизительную) дату заработка на основе реальных данных.
-function computeEarned(
-  def: RawAch,
-  ctx: { totalDeals: number; yearDeals: number; lifetimeCommission: number; yearCommission: number; currentLevel: 1|2|3; l1Size: number; teamSize: number },
-): { earned: boolean; date: string } {
-  const today = new Date().toISOString().slice(0, 10);
-  let earned = false;
-  switch (def.trigger_type) {
-    case 'first_deal':           earned = ctx.totalDeals >= def.threshold; break;
-    case 'first_agent_invited':  earned = ctx.l1Size >= def.threshold; break;
-    case 'commission_year':      earned = ctx.yearCommission >= def.threshold; break;
-    case 'level_reached':        earned = ctx.currentLevel >= def.threshold; break;
-    case 'team_l1_size':         earned = ctx.l1Size >= def.threshold; break;
-    case 'deals_year':           earned = ctx.yearDeals >= def.threshold; break;
-    case 'commission_total':     earned = ctx.lifetimeCommission >= def.threshold; break;
-  }
-  return { earned, date: earned ? today : '' };
-}
+// Достижения теперь считаются на бэке (helpers/achievements.js) с зафиксированной
+// датой события — endpoint /api/achievements/me. Фронт только отображает.
+type RawAchMe = {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  tier: 'bronze' | 'silver' | 'gold' | 'platinum';
+  earned: boolean;
+  earnedAt: string | null;
+};
 
 const tierColor: Record<string, { bg: string; ring: string; text: string }> = {
   bronze:   { bg: 'rgba(180,83,9,0.15)',    ring: 'rgba(217,119,6,0.4)',  text: '#D97706' },
@@ -94,32 +82,24 @@ export default function Profile() {
     fetchMe().then(u => { if (u) setUser(u); });
   }, []);
 
-  // Данные для расчёта ачивок: сделки + размер L1 команды.
-  const [achievements, setAchievements] = useState<Achievement[]>(mockAchievements);
+  // Достижения с зафиксированными датами событий (на бэке).
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
   useEffect(() => {
     let cancelled = false;
-    const me = getCurrentAgent();
-    const meId = typeof me?.id === 'number' ? me.id : undefined;
-    Promise.all([
-      api.get<RawAch[]>('/api/achievements').catch(() => [] as RawAch[]),
-      dealsApi.list({ agentId: meId }).catch(() => []),
-      teamApi.get().catch(() => ({ levels: [] as Array<{ level: number; count: number }>, totals: { agents: 0 } })),
-    ]).then(([defs, deals, team]) => {
-      if (cancelled || !defs.length) return;
-      const currentYear = String(new Date().getFullYear());
-      const yearDeals  = deals.filter(d => d.date?.startsWith(currentYear));
-      const yearVkd    = yearDeals.reduce((s, d) => s + d.vkd, 0);
-      const yearComm   = yearDeals.reduce((s, d) => s + d.income, 0);
-      const lifetimeComm = deals.reduce((s, d) => s + d.income, 0);
-      const currentLevel: 1|2|3 = yearVkd >= 5_000_000 ? 3 : yearVkd >= 2_000_000 ? 2 : 1;
-      const l1 = team.levels?.find(l => l.level === 1)?.count || 0;
-      const ctx = { totalDeals: deals.length, yearDeals: yearDeals.length, lifetimeCommission: lifetimeComm, yearCommission: yearComm, currentLevel, l1Size: l1, teamSize: team.totals?.agents || 0 };
-      const computed: Achievement[] = defs.filter(d => d.active).map(d => {
-        const r = computeEarned(d, ctx);
-        return { id: d.id, title: d.title, description: d.description, icon: d.icon, tier: d.tier, earned: r.earned, date: r.date };
-      });
-      setAchievements(computed);
-    });
+    api.get<RawAchMe[]>('/api/achievements/me')
+      .then(rows => {
+        if (cancelled) return;
+        setAchievements(rows.map(r => ({
+          id: r.id,
+          title: r.title,
+          description: r.description,
+          icon: r.icon,
+          tier: r.tier,
+          earned: r.earned,
+          date: r.earnedAt || '',
+        })));
+      })
+      .catch(() => { /* fallback пустой список */ });
     return () => { cancelled = true; };
   }, []);
 
