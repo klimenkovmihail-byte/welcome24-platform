@@ -168,7 +168,7 @@ export default function Login() {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               filter: 'drop-shadow(0 8px 32px rgba(201,168,76,0.3))',
             }}>
-              <Logo variant="full" size={68} color="#F1F5F9" />
+              <Logo variant="full" size={68} premium />
             </Box>
           </motion.div>
           <Box sx={{ mt: 1.5 }}>

@@ -69,7 +69,7 @@ export default function Sidebar() {
           ) : (
             <AnimatePresence>
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} style={{ display: 'flex', alignItems: 'center' }}>
-                <Logo variant="full" size={32} color="#F1F5F9" />
+                <Logo variant="full" size={32} premium />
               </motion.div>
             </AnimatePresence>
           )}
