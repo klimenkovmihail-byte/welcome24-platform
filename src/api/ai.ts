@@ -24,7 +24,7 @@ export interface AiResult {
   usage: AiUsage;
 }
 
-export type AiTool = 'listing' | 'social_post' | 'legal_advisor';
+export type AiTool = 'listing' | 'social_post' | 'legal_advisor' | 'mlm_recruiter' | 'shares_advisor';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';

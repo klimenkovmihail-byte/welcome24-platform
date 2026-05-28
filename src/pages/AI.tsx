@@ -20,6 +20,8 @@ import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
+import PersonAddAlt1RoundedIcon from '@mui/icons-material/PersonAddAlt1Rounded';
+import DiamondRoundedIcon from '@mui/icons-material/DiamondRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
@@ -54,6 +56,20 @@ const TOOLS: ToolMeta[] = [
     description: 'Задай вопрос по сделкам, договорам, налогам, ДДУ, регистрации прав. Отвечает с опорой на законодательство РФ. Только юридические вопросы по недвижимости.',
     icon: <GavelRoundedIcon sx={{ fontSize: 32 }} />,
     color: '#22C55E',
+  },
+  {
+    key: 'shares_advisor',
+    label: 'AI эксперт по акциям',
+    description: 'Расскажет о твоих акциях, посчитает прогноз стоимости, объяснит как получить бонусные пакеты. Видит твои реальные данные: баланс, ВКД, доход.',
+    icon: <DiamondRoundedIcon sx={{ fontSize: 32 }} />,
+    color: '#7B2FBE',
+  },
+  {
+    key: 'mlm_recruiter',
+    label: 'AI-рекрутер MLM',
+    description: 'Сгенерирует персональное приглашение в Welcome 24 для конкретного человека — под его мотивацию и канал связи (TG, звонок, встреча).',
+    icon: <PersonAddAlt1RoundedIcon sx={{ fontSize: 32 }} />,
+    color: '#EC4899',
   },
 ];
 
@@ -97,8 +113,8 @@ export default function AI() {
 
       {activeTool === null ? (
         <ToolsGrid onPick={setActiveTool} />
-      ) : activeTool === 'legal_advisor' ? (
-        <LegalChat onBack={() => { setActiveTool(null); reloadUsage(); }} onUsageChange={setUsage} />
+      ) : (activeTool === 'legal_advisor' || activeTool === 'shares_advisor') ? (
+        <ChatTool tool={activeTool} onBack={() => { setActiveTool(null); reloadUsage(); }} onUsageChange={setUsage} />
       ) : (
         <ToolForm tool={activeTool} onBack={() => { setActiveTool(null); reloadUsage(); }} onUsageChange={setUsage} />
       )}
@@ -253,6 +269,7 @@ function ToolForm({ tool, onBack, onUsageChange }: FormProps) {
 
           {tool === 'listing' && <ListingForm onSubmit={handleSubmit} loading={loading} />}
           {tool === 'social_post' && <SocialForm onSubmit={handleSubmit} loading={loading} />}
+          {tool === 'mlm_recruiter' && <MlmRecruiterForm onSubmit={handleSubmit} loading={loading} />}
         </CardContent>
       </Card>
 
@@ -434,34 +451,154 @@ function SocialForm({ onSubmit, loading }: SubProps) {
 }
 
 // ============================================================
-// AI юрист Welcome 24 — чат с персистентной историей (в БД).
+// AI-рекрутер MLM — one-shot форма
+// ============================================================
+function MlmRecruiterForm({ onSubmit, loading }: SubProps) {
+  const [data, setData] = useState({
+    recipientName: '',
+    source: '',
+    situation: '',
+    motivation: 'money',
+    channel: 'telegram',
+    tone: 'friendly',
+    customNotes: '',
+  });
+  const set = (k: keyof typeof data, v: string) => setData(d => ({ ...d, [k]: v }));
+  const canSubmit = !!data.recipientName && !!data.channel;
+
+  return (
+    <Stack spacing={2}>
+      <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
+        <TextField size="small" label="Имя адресата *"
+          value={data.recipientName} onChange={e => set('recipientName', e.target.value)}
+          placeholder="Антон" />
+        <TextField size="small" label="Откуда знакомы"
+          value={data.source} onChange={e => set('source', e.target.value)}
+          placeholder="бывший коллега / встретились на сделке / порекомендовали" />
+      </Box>
+
+      <TextField size="small" label="Текущая ситуация адресата"
+        value={data.situation} onChange={e => set('situation', e.target.value)}
+        multiline rows={2}
+        placeholder="например: работает риелтором в небольшом агентстве 3 года, основной поток через Циан, чувствует что упёрся в потолок" />
+
+      <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' } }}>
+        <FormControl size="small">
+          <InputLabel>Мотивация</InputLabel>
+          <Select value={data.motivation} label="Мотивация" onChange={e => set('motivation', e.target.value)}>
+            <MenuItem value="money">Деньги / доход</MenuItem>
+            <MenuItem value="growth">Развитие / обучение</MenuItem>
+            <MenuItem value="independence">Независимость</MenuItem>
+            <MenuItem value="team">Команда / среда</MenuItem>
+            <MenuItem value="status">Статус / бренд</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl size="small">
+          <InputLabel>Канал *</InputLabel>
+          <Select value={data.channel} label="Канал *" onChange={e => set('channel', e.target.value)}>
+            <MenuItem value="telegram">Сообщение TG / WhatsApp</MenuItem>
+            <MenuItem value="voice">Голосовое сообщение</MenuItem>
+            <MenuItem value="call">Холодный звонок</MenuItem>
+            <MenuItem value="meeting">Встреча оффлайн</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl size="small">
+          <InputLabel>Тон</InputLabel>
+          <Select value={data.tone} label="Тон" onChange={e => set('tone', e.target.value)}>
+            <MenuItem value="friendly">Дружеский (на ты)</MenuItem>
+            <MenuItem value="professional">Профессиональный (на вы)</MenuItem>
+            <MenuItem value="confident">Уверенный</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+
+      <TextField size="small" label="Дополнительно (опционально)"
+        value={data.customNotes} onChange={e => set('customNotes', e.target.value)}
+        multiline rows={2}
+        placeholder="что-то ещё что важно учесть — общие знакомые, личные интересы, болевые точки" />
+
+      <Button variant="contained" size="large" onClick={() => onSubmit(data)} disabled={!canSubmit || loading}
+        startIcon={<AutoAwesomeRoundedIcon />}>
+        {loading ? 'Генерирую…' : 'Сгенерировать приглашение'}
+      </Button>
+    </Stack>
+  );
+}
+
+// ============================================================
+// Универсальный чат-инструмент (юрист, эксперт по акциям).
 // Слева список прошлых диалогов, справа активный чат.
 // ============================================================
 interface ChatProps {
+  tool: 'legal_advisor' | 'shares_advisor';
   onBack: () => void;
   onUsageChange: (u: AiUsage) => void;
 }
 
-function LegalChat({ onBack, onUsageChange }: ChatProps) {
+const CHAT_META: Record<ChatProps['tool'], {
+  title: string; color: string; icon: React.ReactNode;
+  subtitle: string; placeholder: string; emptyState: React.ReactNode;
+}> = {
+  legal_advisor: {
+    title: 'AI юрист Welcome 24',
+    color: '#22C55E',
+    icon: <GavelRoundedIcon sx={{ fontSize: 24 }} />,
+    subtitle: 'Только юридические вопросы по недвижимости РФ. Это консультативная информация, не юр. заключение.',
+    placeholder: 'Задай вопрос по сделке, договору, налогам…',
+    emptyState: (
+      <>
+        <Typography variant="body2">Задай вопрос — например:</Typography>
+        <Typography variant="caption" sx={{ display: 'block', mt: 1, fontStyle: 'italic' }}>
+          «Какой минимальный срок владения чтобы продать квартиру без НДФЛ?»<br />
+          «Что обязательно прописать в договоре переуступки ДДУ?»<br />
+          «Как оформить сделку если один из собственников — несовершеннолетний?»
+        </Typography>
+      </>
+    ),
+  },
+  shares_advisor: {
+    title: 'AI эксперт по акциям',
+    color: '#7B2FBE',
+    icon: <DiamondRoundedIcon sx={{ fontSize: 24 }} />,
+    subtitle: 'Видит твои реальные данные: баланс акций, текущую котировку, ВКД и комиссию за год.',
+    placeholder: 'Спроси про свои акции, прогнозы, бонусы…',
+    emptyState: (
+      <>
+        <Typography variant="body2">Задай вопрос — например:</Typography>
+        <Typography variant="caption" sx={{ display: 'block', mt: 1, fontStyle: 'italic' }}>
+          «Сколько сейчас стоит мой портфель?»<br />
+          «Что мне даст достижение 2 млн ВКД в году?»<br />
+          «Как я могу купить ещё акции со скидкой?»
+        </Typography>
+      </>
+    ),
+  },
+};
+
+function ChatTool({ tool, onBack, onUsageChange }: ChatProps) {
+  const meta = CHAT_META[tool];
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [activeChatId, setActiveChatId] = useState<number | null>(null);
   const [messages, setMessages] = useState<StoredMessage[]>([]);
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);     // AI отвечает
+  const [loading, setLoading] = useState(false);
   const [chatsLoading, setChatsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Загрузка списка чатов на старте.
+  // Загрузка списка чатов на старте — изолированно по инструменту.
   useEffect(() => {
-    aiApi.listChats('legal_advisor')
+    setChatsLoading(true);
+    setActiveChatId(null);
+    setMessages([]);
+    aiApi.listChats(tool)
       .then(list => {
         setChats(list);
         if (list.length > 0) setActiveChatId(list[0].id);
       })
       .catch(() => { /* tolerate */ })
       .finally(() => setChatsLoading(false));
-  }, []);
+  }, [tool]);
 
   // При смене активного чата — подгрузить сообщения.
   useEffect(() => {
@@ -478,11 +615,11 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
 
   const newChat = async () => {
     try {
-      const c = await aiApi.createChat('legal_advisor');
+      const c = await aiApi.createChat(tool);
       setActiveChatId(c.id);
       setMessages([]);
       // Синхронизируем список — бэк хранит только последние 5, старые могли быть удалены.
-      const list = await aiApi.listChats('legal_advisor');
+      const list = await aiApi.listChats(tool);
       setChats(list);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось создать чат');
@@ -511,7 +648,7 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
     let chatId = activeChatId;
     if (chatId == null) {
       try {
-        const c = await aiApi.createChat('legal_advisor');
+        const c = await aiApi.createChat(tool);
         chatId = c.id;
         setChats(prev => [{ ...c, message_count: 0 }, ...prev]);
         setActiveChatId(chatId);
@@ -531,7 +668,7 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
       const r = await aiApi.sendMessage(chatId, text);
       setMessages(r.chat.messages);
       // Бэк хранит только 5 последних — перезагружаем список целиком для синхронизации.
-      const list = await aiApi.listChats('legal_advisor');
+      const list = await aiApi.listChats(tool);
       setChats(list);
       onUsageChange(r.usage);
     } catch (e) {
@@ -562,16 +699,14 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box sx={{
               width: 44, height: 44, borderRadius: 2,
-              background: alpha('#22C55E', 0.15), color: '#22C55E',
+              background: alpha(meta.color, 0.15), color: meta.color,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <GavelRoundedIcon sx={{ fontSize: 24 }} />
+              {meta.icon}
             </Box>
             <Box sx={{ flex: 1 }}>
-              <Typography variant="h6" sx={{ fontWeight: 800, color: '#F1F5F9' }}>AI юрист Welcome 24</Typography>
-              <Typography variant="caption" sx={{ color: '#64748B' }}>
-                Только юридические вопросы по недвижимости РФ. Это консультативная информация, не юр. заключение.
-              </Typography>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#F1F5F9' }}>{meta.title}</Typography>
+              <Typography variant="caption" sx={{ color: '#64748B' }}>{meta.subtitle}</Typography>
             </Box>
           </Box>
         </CardContent>
@@ -584,8 +719,8 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
             <Button
               variant="contained" fullWidth size="small" startIcon={<AddRoundedIcon />}
               onClick={newChat}
-              sx={{ mb: 1.5, background: alpha('#22C55E', 0.18), color: '#22C55E', boxShadow: 'none',
-                '&:hover': { background: alpha('#22C55E', 0.28), boxShadow: 'none' } }}
+              sx={{ mb: 1.5, background: alpha(meta.color, 0.18), color: meta.color, boxShadow: 'none',
+                '&:hover': { background: alpha(meta.color, 0.28), boxShadow: 'none' } }}
             >
               Новый чат
             </Button>
@@ -595,7 +730,7 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
             <Box sx={{ maxHeight: 480, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               {chatsLoading && (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                  <CircularProgress size={20} sx={{ color: '#22C55E' }} />
+                  <CircularProgress size={20} sx={{ color: meta.color }} />
                 </Box>
               )}
               {!chatsLoading && chats.length === 0 && (
@@ -611,15 +746,15 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
                     onClick={() => setActiveChatId(c.id)}
                     sx={{
                       p: 1.2, borderRadius: 1.5, cursor: 'pointer',
-                      background: active ? alpha('#22C55E', 0.12) : 'transparent',
-                      border: `1px solid ${active ? 'rgba(34,197,94,0.3)' : 'transparent'}`,
-                      '&:hover': { background: active ? alpha('#22C55E', 0.16) : 'rgba(255,255,255,0.04)' },
+                      background: active ? alpha(meta.color, 0.12) : 'transparent',
+                      border: `1px solid ${active ? alpha(meta.color, 0.3) : 'transparent'}`,
+                      '&:hover': { background: active ? alpha(meta.color, 0.16) : 'rgba(255,255,255,0.04)' },
                       display: 'flex', alignItems: 'flex-start', gap: 1,
                     }}
                   >
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography variant="caption" sx={{
-                        color: active ? '#22C55E' : '#94A3B8', fontWeight: 600, fontSize: 12,
+                        color: active ? meta.color : '#94A3B8', fontWeight: 600, fontSize: 12,
                         display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                       }}>
                         {c.title || 'Новый диалог'}
@@ -654,13 +789,10 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
               }}>
                 {messages.length === 0 && !loading && (
                   <Box sx={{ textAlign: 'center', color: '#64748B', py: 6 }}>
-                    <GavelRoundedIcon sx={{ fontSize: 40, color: 'rgba(34,197,94,0.3)', mb: 1 }} />
-                    <Typography variant="body2">Задай вопрос — например:</Typography>
-                    <Typography variant="caption" sx={{ display: 'block', mt: 1, fontStyle: 'italic' }}>
-                      «Какой минимальный срок владения чтобы продать квартиру без НДФЛ?»<br />
-                      «Что обязательно прописать в договоре переуступки ДДУ?»<br />
-                      «Как оформить сделку если один из собственников — несовершеннолетний?»
-                    </Typography>
+                    <Box sx={{ fontSize: 40, color: alpha(meta.color, 0.3), mb: 1, display: 'flex', justifyContent: 'center' }}>
+                      {meta.icon}
+                    </Box>
+                    {meta.emptyState}
                   </Box>
                 )}
                 {messages.map(m => (
@@ -669,14 +801,14 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
                     maxWidth: '88%',
                     p: 1.8, borderRadius: 2.5,
                     background: m.role === 'user' ? alpha('#C9A84C', 0.12) : 'rgba(15,22,41,0.6)',
-                    border: `1px solid ${m.role === 'user' ? 'rgba(201,168,76,0.2)' : 'rgba(34,197,94,0.15)'}`,
+                    border: `1px solid ${m.role === 'user' ? 'rgba(201,168,76,0.2)' : alpha(meta.color, 0.15)}`,
                   }}>
                     <Typography variant="caption" sx={{
                       display: 'block', mb: 0.5,
-                      color: m.role === 'user' ? '#C9A84C' : '#22C55E',
+                      color: m.role === 'user' ? '#C9A84C' : meta.color,
                       fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em',
                     }}>
-                      {m.role === 'user' ? 'Ты' : 'AI юрист Welcome 24'}
+                      {m.role === 'user' ? 'Ты' : meta.title}
                     </Typography>
                     <Typography variant="body2" sx={{ color: '#F1F5F9', whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: 14 }}>
                       {m.content}
@@ -685,7 +817,7 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
                 ))}
                 {loading && (
                   <Box sx={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 1.5, p: 1.8 }}>
-                    <CircularProgress size={16} sx={{ color: '#22C55E' }} />
+                    <CircularProgress size={16} sx={{ color: meta.color }} />
                     <Typography variant="caption" sx={{ color: '#94A3B8' }}>AI думает…</Typography>
                   </Box>
                 )}
@@ -700,7 +832,7 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
               <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
                 <TextField
                   fullWidth multiline minRows={1} maxRows={6}
-                  placeholder="Задай вопрос по сделке, договору, налогам…"
+                  placeholder={meta.placeholder}
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={onKey}
@@ -710,10 +842,10 @@ function LegalChat({ onBack, onUsageChange }: ChatProps) {
                 <IconButton
                   onClick={send} disabled={!input.trim() || loading}
                   sx={{
-                    background: alpha('#22C55E', 0.15),
-                    color: '#22C55E',
+                    background: alpha(meta.color, 0.15),
+                    color: meta.color,
                     width: 44, height: 44,
-                    '&:hover': { background: alpha('#22C55E', 0.25) },
+                    '&:hover': { background: alpha(meta.color, 0.25) },
                     '&.Mui-disabled': { background: 'rgba(255,255,255,0.04)', color: '#475569' },
                   }}
                 >
