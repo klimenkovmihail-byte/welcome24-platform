@@ -558,19 +558,19 @@ const CHAT_META: Record<ChatProps['tool'], {
   },
   shares_advisor: {
     title: 'AI Финансовый навигатор',
-    color: '#7B2FBE',
-    icon: <DiamondRoundedIcon sx={{ fontSize: 24 }} />,
+    color: '#A855F7',           // более светлый фиолет для контраста на тёмном
+    icon: <DiamondRoundedIcon sx={{ fontSize: 28 }} />,
     subtitle: 'Поможет разобраться в акциях, пассивном доходе, структуре и росте капитала внутри Welcome 24.',
     placeholder: 'Спроси про акции, пассивный доход, структуру…',
     emptyState: (
       <>
-        <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 600, color: '#E2E8F0' }}>
-          Привет! Я Финансовый навигатор Welcome 24.
+        <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 800, color: '#F1F5F9', fontSize: 20 }}>
+          Привет! Я Финансовый навигатор Welcome 24
         </Typography>
-        <Typography variant="caption" sx={{ display: 'block', mt: 1, color: '#94A3B8', lineHeight: 1.6 }}>
-          Я помогу разобраться в акциях, пассивном доходе и росте капитала внутри компании.<br />
-          Могу посчитать сколько акций ты можешь купить, показать стоимость пакета,<br />
-          объяснить правила продажи, рассчитать пассивный доход, подсказать сколько<br />
+        <Typography variant="body1" sx={{ display: 'block', color: '#CBD5E1', lineHeight: 1.7, maxWidth: 640, mx: 'auto', fontSize: 15 }}>
+          Помогу разобраться в акциях, пассивном доходе и росте капитала внутри компании.
+          Посчитаю сколько акций ты можешь купить, покажу стоимость пакета,
+          объясню правила продажи, рассчитаю пассивный доход и подскажу сколько
           агентов не хватает до следующего уровня.
         </Typography>
       </>
@@ -806,26 +806,34 @@ function ChatTool({ tool, onBack, onUsageChange }: ChatProps) {
                 p: 2.5, display: 'flex', flexDirection: 'column', gap: 1.5,
               }}>
                 {messages.length === 0 && !loading && (
-                  <Box sx={{ textAlign: 'center', color: '#64748B', py: 6 }}>
-                    <Box sx={{ fontSize: 40, color: alpha(meta.color, 0.3), mb: 1, display: 'flex', justifyContent: 'center' }}>
+                  <Box sx={{ textAlign: 'center', color: '#64748B', py: 5, px: 1 }}>
+                    <Box sx={{
+                      fontSize: 56, color: meta.color, mb: 2,
+                      display: 'flex', justifyContent: 'center', alignItems: 'center',
+                      width: 72, height: 72, borderRadius: '50%',
+                      background: alpha(meta.color, 0.15),
+                      border: `2px solid ${alpha(meta.color, 0.35)}`,
+                      mx: 'auto',
+                    }}>
                       {meta.icon}
                     </Box>
                     {meta.emptyState}
                     {QUICK_QUESTIONS[tool] && QUICK_QUESTIONS[tool].length > 0 && (
-                      <Box sx={{ mt: 3, display: 'flex', flexWrap: 'wrap', gap: 0.8, justifyContent: 'center', maxWidth: 720, mx: 'auto' }}>
+                      <Box sx={{ mt: 3.5, display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'center', maxWidth: 780, mx: 'auto' }}>
                         {QUICK_QUESTIONS[tool].map(q => (
                           <Chip
                             key={q}
                             label={q}
                             onClick={() => setInput(q)}
                             sx={{
-                              background: alpha(meta.color, 0.08),
-                              color: meta.color,
-                              border: `1px solid ${alpha(meta.color, 0.25)}`,
-                              fontWeight: 500,
-                              fontSize: 12,
+                              background: alpha(meta.color, 0.14),
+                              color: '#F1F5F9',
+                              border: `1px solid ${alpha(meta.color, 0.45)}`,
+                              fontWeight: 600,
+                              fontSize: 13,
+                              height: 32,
                               cursor: 'pointer',
-                              '&:hover': { background: alpha(meta.color, 0.15) },
+                              '&:hover': { background: alpha(meta.color, 0.24), borderColor: meta.color },
                             }}
                           />
                         ))}
