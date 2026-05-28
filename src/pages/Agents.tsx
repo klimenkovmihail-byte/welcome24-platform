@@ -153,7 +153,7 @@ export default function Agents() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    agentsApi.list({ status: 'active' })
+    agentsApi.list({ status: 'active', role: 'agent' })
       .then(list => {
         if (cancelled) return;
         // Скрываем самого пользователя из базы — он видит её как «база остальных агентов».

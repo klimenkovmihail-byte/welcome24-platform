@@ -144,18 +144,10 @@ export default function Team() {
 
   return (
     <Box>
-      {/* ===== Главные вкладки ===== */}
-      <Tabs value={mainTab} onChange={(_, v) => setMainTab(v)} sx={{
-        mb: 3, borderBottom: '1px solid rgba(201,168,76,0.1)',
-        '& .MuiTab-root': { textTransform: 'none', fontSize: 14, fontWeight: 600, color: '#94A3B8', minHeight: 44 },
-        '& .Mui-selected': { color: '#C9A84C !important', fontWeight: 700 },
-        '& .MuiTabs-indicator': { background: '#C9A84C', height: 3 },
-      }}>
-        <Tab value="team" label="Текущая команда" icon={<GroupsRoundedIcon fontSize="small" />} iconPosition="start" />
-        <Tab value="history" label="История подопечных" icon={<HistoryRoundedIcon fontSize="small" />} iconPosition="start" />
-      </Tabs>
+      {/* Вкладка «История подопечных» убрана — это инфа для админа,
+          доступна в админке /agents через модалку «История менторов». */}
 
-      {mainTab === 'history' && (
+      {false && mainTab === 'history' && (
         <Box>
           <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
             <Box sx={{ flex: '1 1 200px', p: 2.5, borderRadius: 3, background: 'linear-gradient(135deg, rgba(15,22,41,0.95), rgba(12,18,35,0.98))', border: '1px solid rgba(201,168,76,0.1)' }}>
@@ -246,7 +238,7 @@ export default function Team() {
         </Box>
       )}
 
-      {mainTab === 'team' && <>
+      {<>
       {/* ===== Период (год / месяц) ===== */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
         <Typography variant="body2" sx={{ color: '#94A3B8', fontWeight: 600 }}>Период:</Typography>

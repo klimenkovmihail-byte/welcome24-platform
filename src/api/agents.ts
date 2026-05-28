@@ -100,8 +100,11 @@ export function normalizeReview(raw: RawReview): AgentReview {
 }
 
 export const agentsApi = {
-  list: (opts?: { status?: 'active' | 'inactive' | 'blocked' }) => {
-    const q = opts?.status ? `?status=${opts.status}` : '';
+  list: (opts?: { status?: 'active' | 'inactive' | 'blocked'; role?: 'agent' | 'manager' | 'admin' | 'super_admin' }) => {
+    const params = new URLSearchParams();
+    if (opts?.status) params.set('status', opts.status);
+    if (opts?.role)   params.set('role', opts.role);
+    const q = params.toString() ? `?${params.toString()}` : '';
     return api.get<RawAgent[]>(`/api/agents${q}`).then(rows => rows.map(normalizeAgent));
   },
   get:     (id: number) => api.get<RawAgent>(`/api/agents/${id}`).then(normalizeAgent),
