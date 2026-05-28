@@ -95,7 +95,8 @@ export default function Header({ currentPath }: HeaderProps) {
         const value = qty * price;
         const growthPct = cost > 0 ? ((value - cost) / cost) * 100 : 0;
         const avgPrice = qty > 0 ? cost / qty : 0;
-        const isMostlyGifted = avgPrice > 0 && avgPrice < 100;
+        // Бонусные акции — выданные по номиналу 1 ₽ (за первую сделку, рекрута, 2 млн ВКД и т.п.).
+        const isMostlyGifted = avgPrice > 0 && avgPrice <= 1;
         setShares({ qty, value, growthPct, isMostlyGifted });
       });
     return () => { cancelled = true; };

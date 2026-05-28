@@ -192,11 +192,10 @@ export default function Dashboard() {
   const sharesCost        = myShares.reduce((s, p) => s + (p.type === 'sale' ? -1 : 1) * p.quantity * p.acquiredPrice, 0);
   const currentSharePrice = shareQuotes.length ? shareQuotes[shareQuotes.length - 1].price : 0;
   const sharesValue       = totalShares * currentSharePrice;
-  // Если средняя цена входа меньше 100 ₽ — это в основном подарочные акции
-  // (бонусные за первую сделку, рекрута и т.п. с номиналом 1 ₽). Процент роста
-  // для них бессмысленный (+704300% и т.п.), поэтому скрываем.
+  // Бонусные акции — по номиналу 1 ₽ (за первую сделку, рекрута, 2 млн ВКД).
+  // Процент роста для них бессмысленный (+704300%), скрываем.
   const sharesAvgPrice    = totalShares > 0 ? sharesCost / totalShares : 0;
-  const sharesIsMostlyGifted = sharesAvgPrice > 0 && sharesAvgPrice < 100;
+  const sharesIsMostlyGifted = sharesAvgPrice > 0 && sharesAvgPrice <= 1;
   const sharesGrowthPct   = sharesCost > 0 ? Math.round((sharesValue - sharesCost) / sharesCost * 100) : 0;
 
   // Filter state: year + month ('all' = all months in year)

@@ -76,9 +76,9 @@ export default function Shares() {
     const value  = total * currentSharePrice;
     const growth = value - cost;
     const growthPct = cost > 0 ? (growth / cost) * 100 : 0;
-    // Подарочные акции (avg < 100 ₽) — % прироста бессмысленный, не показываем.
+    // Бонусные акции — по номиналу 1 ₽ (за первую сделку, рекрута, 2 млн ВКД).
     const avgPrice = total > 0 ? cost / total : 0;
-    const isMostlyGifted = avgPrice > 0 && avgPrice < 100;
+    const isMostlyGifted = avgPrice > 0 && avgPrice <= 1;
     return { total, cost, value, growth, growthPct, isMostlyGifted, currentPrice: currentSharePrice };
   }, [myShares, currentSharePrice]);
 
@@ -299,8 +299,8 @@ export default function Shares() {
                 const packetCost = p.quantity * p.acquiredPrice;
                 const packetValue = p.quantity * currentSharePrice;
                 const growthPct = packetCost > 0 ? ((packetValue - packetCost) / packetCost) * 100 : 0;
-                // Подарочные пакеты (цена входа < 100 ₽) — % не показываем, ставим «бонус».
-                const isGift = p.acquiredPrice > 0 && p.acquiredPrice < 100;
+                // Бонусные пакеты — выданы по номиналу 1 ₽. Покупки по нормальной цене (даже со скидкой 10%) — обычный %.
+                const isGift = p.acquiredPrice > 0 && p.acquiredPrice <= 1;
                 return (
                   <Box key={p.id} sx={{ display: 'grid', gridTemplateColumns: '110px 130px 1fr 130px 130px 130px 110px', borderTop: '1px solid rgba(255,255,255,0.04)', '&:hover': { background: 'rgba(201,168,76,0.04)' } }}>
                     <Box sx={{ p: 1.6 }}>
