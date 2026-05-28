@@ -65,7 +65,7 @@ const TOOLS: ToolMeta[] = [
     label: 'AI Финансовый навигатор',
     description: 'Поможет разобраться в акциях, пассивном доходе, структуре и росте капитала внутри Welcome 24. Видит твои реальные данные: акции, ВКД, рекрутов, открытые тиры.',
     icon: <DiamondRoundedIcon sx={{ fontSize: 32 }} />,
-    color: '#7B2FBE',
+    color: '#F59E0B',
   },
   {
     key: 'mlm_recruiter',
@@ -760,7 +760,7 @@ const CHAT_META: Record<ChatProps['tool'], {
   },
   shares_advisor: {
     title: 'AI Финансовый навигатор',
-    color: '#A855F7',           // более светлый фиолет для контраста на тёмном
+    color: '#F59E0B',           // янтарный — яркий и заметный для финансового инструмента
     icon: <DiamondRoundedIcon sx={{ fontSize: 28 }} />,
     subtitle: 'Поможет разобраться в акциях, пассивном доходе, структуре и росте капитала внутри Welcome 24.',
     placeholder: 'Спроси про акции, пассивный доход, структуру…',
@@ -1053,27 +1053,6 @@ function ChatTool({ tool, onBack, onUsageChange }: ChatProps) {
                       {meta.icon}
                     </Box>
                     {meta.emptyState}
-                    {QUICK_QUESTIONS[tool] && QUICK_QUESTIONS[tool].length > 0 && (
-                      <Box sx={{ mt: 3.5, display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'center', maxWidth: 780, mx: 'auto' }}>
-                        {QUICK_QUESTIONS[tool].map(q => (
-                          <Chip
-                            key={q}
-                            label={q}
-                            onClick={() => setInput(q)}
-                            sx={{
-                              background: alpha(meta.color, 0.14),
-                              color: '#F1F5F9',
-                              border: `1px solid ${alpha(meta.color, 0.45)}`,
-                              fontWeight: 600,
-                              fontSize: 13,
-                              height: 32,
-                              cursor: 'pointer',
-                              '&:hover': { background: alpha(meta.color, 0.24), borderColor: meta.color },
-                            }}
-                          />
-                        ))}
-                      </Box>
-                    )}
                   </Box>
                 )}
                 {messages.map(m => (
@@ -1107,6 +1086,34 @@ function ChatTool({ tool, onBack, onUsageChange }: ChatProps) {
           </Card>
 
           {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+
+          {/* Быстрые вопросы — всегда видны над полем ввода (не только при пустом чате) */}
+          {QUICK_QUESTIONS[tool] && QUICK_QUESTIONS[tool].length > 0 && (
+            <Box sx={{
+              mb: 1.5, display: 'flex', gap: 0.8, overflowX: 'auto', pb: 0.5,
+              '&::-webkit-scrollbar': { height: 4 },
+              '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.1)', borderRadius: 2 },
+            }}>
+              {QUICK_QUESTIONS[tool].map(q => (
+                <Chip
+                  key={q}
+                  label={q}
+                  onClick={() => setInput(q)}
+                  size="small"
+                  sx={{
+                    flexShrink: 0,
+                    background: alpha(meta.color, 0.12),
+                    color: '#F1F5F9',
+                    border: `1px solid ${alpha(meta.color, 0.35)}`,
+                    fontWeight: 500,
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    '&:hover': { background: alpha(meta.color, 0.22), borderColor: meta.color },
+                  }}
+                />
+              ))}
+            </Box>
+          )}
 
           <Card>
             <CardContent sx={{ p: 2 }}>
