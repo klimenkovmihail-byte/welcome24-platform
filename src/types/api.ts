@@ -177,6 +177,10 @@ export interface Lesson {
   title: string;
   duration: string;
   videoUrl: string;
+  content?: string;                  // описание урока
+  attachments?: CourseAttachment[];  // PDF и другие файлы урока
+  unlocked?: boolean;                // предыдущий урок завершён
+  completed?: boolean;               // этот урок завершён агентом
   order: number;
 }
 

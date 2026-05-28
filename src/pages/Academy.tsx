@@ -106,15 +106,12 @@ function downloadICS(ev: AcademyEvent) {
 // ----------------- Course card -----------------
 function CourseCard({ c, delay, onOpen }: { c: AcademyCourse; delay: number; onOpen: (c: AcademyCourse) => void }) {
   const catColor = courseCategoryColors[c.category] || '#64748B';
-  const locked = c.unlocked === false;
   return (
-    <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: delay * 0.04 }} whileHover={!locked ? { y: -4 } : undefined} style={{ height: '100%' }}>
+    <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: delay * 0.04 }} whileHover={{ y: -4 }} style={{ height: '100%' }}>
       <Card
-        onClick={() => !locked && onOpen(c)}
-        sx={{ height: '100%', cursor: locked ? 'not-allowed' : 'pointer', display: 'flex', flexDirection: 'column',
-          opacity: locked ? 0.55 : 1,
-          filter: locked ? 'grayscale(0.5)' : 'none',
-          '&:hover': !locked ? { border: '1px solid rgba(201,168,76,0.25)', boxShadow: '0 12px 32px rgba(0,0,0,0.4)' } : {},
+        onClick={() => onOpen(c)}
+        sx={{ height: '100%', cursor: 'pointer', display: 'flex', flexDirection: 'column',
+          '&:hover': { border: '1px solid rgba(201,168,76,0.25)', boxShadow: '0 12px 32px rgba(0,0,0,0.4)' },
           transition: 'all 0.3s' }}
       >
         <Box sx={{ position: 'relative', paddingTop: '56.25%', overflow: 'hidden', borderRadius: '16px 16px 0 0' }}>
@@ -126,17 +123,9 @@ function CourseCard({ c, delay, onOpen }: { c: AcademyCourse; delay: number; onO
           <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(8,12,24,0.92))', display: 'flex', alignItems: 'flex-end', p: 2, pointerEvents: 'none' }}>
             <Chip label={c.category} size="small" sx={{ background: alpha(catColor, 0.9), color: '#fff', fontWeight: 700, pointerEvents: 'auto' }} />
           </Box>
-          {c.completed && !locked && (
+          {c.completed && (
             <Box sx={{ position: 'absolute', top: 12, right: 12, background: 'rgba(34,197,94,0.9)', borderRadius: '50%', p: 0.5 }}>
               <CheckCircleRoundedIcon sx={{ color: '#fff', fontSize: 20 }} />
-            </Box>
-          )}
-          {locked && (
-            <Box sx={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(8,12,24,0.55)', zIndex: 2 }}>
-              <LockRoundedIcon sx={{ color: 'rgba(255,255,255,0.85)', fontSize: 32, mb: 0.5 }} />
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.85)', fontWeight: 700, fontSize: 11 }}>
-                Завершите предыдущий курс
-              </Typography>
             </Box>
           )}
           <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, '&:hover': { opacity: 1 }, transition: 'opacity 0.3s', pointerEvents: 'none' }}>
@@ -740,10 +729,19 @@ export default function Academy() {
           // Effective lesson completion (combine initial + local state).
           // На бэке у урока нет персонального флага completed — он берётся из course_progress отдельно.
           // Пока что считаем все уроки не начатыми по умолчанию (initial=false).
-          const lessonsWithState = openCourse.lessons.map(l => ({
-            ...l,
-            done: isLessonDone(openCourse.id, l.id, false),
-          }));
+          // Бэк уже сам считает unlocked/completed по course_progress, но локальные
+          // изменения через toggleLesson переопределяют (для оптимистичного UI).
+          const lessonsWithState = (() => {
+            const out: Array<typeof openCourse.lessons[number] & { done: boolean; unlocked: boolean }> = [];
+            let prevDone = true;
+            for (const l of openCourse.lessons) {
+              const serverDone = !!l.completed;
+              const done = isLessonDone(openCourse.id, l.id, serverDone);
+              out.push({ ...l, done, unlocked: prevDone });
+              prevDone = done;
+            }
+            return out;
+          })();
           const doneCount = lessonsWithState.filter(l => l.done).length;
           const totalListed = lessonsWithState.length;
           const progressPct = totalListed > 0 ? Math.round((doneCount / totalListed) * 100) : openCourse.progress;
@@ -773,78 +771,6 @@ export default function Academy() {
                   <Chip label={openCourse.level} sx={{ background: alpha(levelColor[openCourse.level] || '#64748B', 0.15), color: levelColor[openCourse.level] || '#94A3B8', fontWeight: 700 }} />
                   <Chip icon={<PeopleRoundedIcon />} label={`Автор: ${openCourse.authorName}`} sx={{ background: 'rgba(255,255,255,0.05)', color: '#94A3B8' }} />
                 </Box>
-
-                {/* Контент курса (развёрнутое описание) */}
-                {openCourse.content && (
-                  <Box sx={{ p: 2.5, borderRadius: 2, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.05)', mb: 2.5 }}>
-                    <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', mb: 1 }}>
-                      О курсе
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: '#E2E8F0', whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
-                      {openCourse.content}
-                    </Typography>
-                  </Box>
-                )}
-
-                {/* PDF-приложения */}
-                {openCourse.attachments && openCourse.attachments.length > 0 && (
-                  <Box sx={{ mb: 2.5 }}>
-                    <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', mb: 1 }}>
-                      Материалы курса ({openCourse.attachments.length})
-                    </Typography>
-                    <Stack spacing={1}>
-                      {openCourse.attachments.map((a, i) => (
-                        <Box key={`${a.url}-${i}`}
-                          component="a" href={a.url} target="_blank" rel="noopener noreferrer"
-                          sx={{
-                            display: 'flex', alignItems: 'center', gap: 1.5, p: 1.2,
-                            borderRadius: 2, border: '1px solid rgba(201,168,76,0.15)',
-                            background: 'rgba(201,168,76,0.04)',
-                            textDecoration: 'none', cursor: 'pointer',
-                            '&:hover': { background: 'rgba(201,168,76,0.08)', borderColor: 'rgba(201,168,76,0.3)' },
-                            transition: 'all 0.2s',
-                          }}>
-                          <PictureAsPdfRoundedIcon sx={{ color: '#EF4444', fontSize: 22 }} />
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography variant="body2" sx={{ color: '#F1F5F9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>
-                              {a.name}
-                            </Typography>
-                            {a.size && (
-                              <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
-                                {a.size < 1024 * 1024 ? `${Math.round(a.size / 1024)} КБ` : `${(a.size / (1024 * 1024)).toFixed(1)} МБ`}
-                              </Typography>
-                            )}
-                          </Box>
-                          <DownloadRoundedIcon sx={{ color: '#C9A84C', fontSize: 20 }} />
-                        </Box>
-                      ))}
-                    </Stack>
-                  </Box>
-                )}
-
-                {/* Кнопка «Отметить пройденным» для курсов без уроков */}
-                {openCourse.lessons.length === 0 && !openCourse.completedOnServer && (
-                  <Button
-                    fullWidth variant="contained"
-                    onClick={() => {
-                      academyApi.completeCourse(openCourse.id).then(() => {
-                        // оптимистично закрываем диалог и перезагружаем курсы
-                        setOpenCourse(c => c ? { ...c, completedOnServer: true, completed: true } : c);
-                      }).catch(() => { /* tolerate */ });
-                    }}
-                    startIcon={<CheckCircleRoundedIcon />}
-                    sx={{ mb: 2.5, background: 'rgba(34,197,94,0.18)', color: '#22C55E', boxShadow: 'none',
-                      '&:hover': { background: 'rgba(34,197,94,0.28)', boxShadow: 'none' } }}
-                  >
-                    Отметить курс пройденным
-                  </Button>
-                )}
-                {openCourse.lessons.length === 0 && openCourse.completedOnServer && (
-                  <Box sx={{ mb: 2.5, p: 1.5, borderRadius: 2, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <CheckCircleRoundedIcon sx={{ color: '#22C55E', fontSize: 20 }} />
-                    <Typography variant="body2" sx={{ color: '#22C55E', fontWeight: 600 }}>Курс пройден — следующий разблокирован</Typography>
-                  </Box>
-                )}
 
                 {/* Progress */}
                 <Box sx={{ p: 2, borderRadius: 2, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.05)', mb: 2.5 }}>
@@ -890,40 +816,92 @@ export default function Academy() {
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   {lessonsWithState.map(l => {
                     const expanded = expandedLessonId === l.id;
+                    const locked = !l.unlocked;
                     return (
                       <Box key={l.id} sx={{ borderRadius: 2, overflow: 'hidden',
-                        background: l.done ? 'rgba(34,197,94,0.06)' : 'rgba(255,255,255,0.025)',
-                        border: l.done ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(255,255,255,0.05)',
+                        background: locked ? 'rgba(255,255,255,0.015)' : (l.done ? 'rgba(34,197,94,0.06)' : 'rgba(255,255,255,0.025)'),
+                        border: locked ? '1px solid rgba(255,255,255,0.04)' : (l.done ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(255,255,255,0.05)'),
+                        opacity: locked ? 0.55 : 1,
                       }}>
                         <Box
-                          onClick={() => setExpandedLessonId(expanded ? null : l.id)}
+                          onClick={() => !locked && setExpandedLessonId(expanded ? null : l.id)}
                           sx={{
                             p: 1.5,
                             display: 'flex', alignItems: 'center', gap: 1.5,
-                            cursor: 'pointer',
-                            '&:hover': { background: 'rgba(201,168,76,0.06)' },
+                            cursor: locked ? 'not-allowed' : 'pointer',
+                            '&:hover': !locked ? { background: 'rgba(201,168,76,0.06)' } : {},
                             transition: 'background 0.15s',
                           }}
                         >
-                          <IconButton
-                            size="small"
-                            onClick={(e) => { e.stopPropagation(); toggleLesson(openCourse.id, l.id, false); }}
-                            sx={{ p: 0.3 }}
-                          >
-                            {l.done
-                              ? <CheckCircleRoundedIcon sx={{ color: '#22C55E', fontSize: 22 }} />
-                              : <PlayCircleRoundedIcon sx={{ color: '#94A3B8', fontSize: 22 }} />}
-                          </IconButton>
+                          {locked ? (
+                            <LockRoundedIcon sx={{ color: '#64748B', fontSize: 22, ml: 0.5 }} />
+                          ) : (
+                            <IconButton
+                              size="small"
+                              onClick={(e) => { e.stopPropagation(); toggleLesson(openCourse.id, l.id, false); }}
+                              sx={{ p: 0.3 }}
+                            >
+                              {l.done
+                                ? <CheckCircleRoundedIcon sx={{ color: '#22C55E', fontSize: 22 }} />
+                                : <PlayCircleRoundedIcon sx={{ color: '#94A3B8', fontSize: 22 }} />}
+                            </IconButton>
+                          )}
                           <Typography variant="body2" sx={{ color: '#F1F5F9', flex: 1, textDecoration: l.done ? 'line-through' : 'none', opacity: l.done ? 0.7 : 1 }}>{l.title}</Typography>
                           <Typography variant="caption" sx={{ color: '#64748B' }}>{l.duration}</Typography>
-                          <ChevronRightRoundedIcon sx={{ color: '#64748B', fontSize: 18, transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+                          {!locked && (
+                            <ChevronRightRoundedIcon sx={{ color: '#64748B', fontSize: 18, transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+                          )}
                         </Box>
-                        {expanded && (
-                          <Box sx={{ background: '#000' }}>
-                            <VideoPlayer src={l.videoUrl} />
-                            <Box sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.4)' }}>
+                        {expanded && !locked && (
+                          <Box>
+                            {l.videoUrl && (
+                              <Box sx={{ background: '#000' }}>
+                                <VideoPlayer src={l.videoUrl} />
+                              </Box>
+                            )}
+                            {l.content && (
+                              <Box sx={{ p: 2, background: 'rgba(0,0,0,0.2)' }}>
+                                <Typography variant="body2" sx={{ color: '#E2E8F0', whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+                                  {l.content}
+                                </Typography>
+                              </Box>
+                            )}
+                            {l.attachments && l.attachments.length > 0 && (
+                              <Box sx={{ p: 1.5, background: 'rgba(0,0,0,0.15)', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                                <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', mb: 1 }}>
+                                  Материалы урока
+                                </Typography>
+                                <Stack spacing={0.8}>
+                                  {l.attachments.map((a, i) => (
+                                    <Box key={`${a.url}-${i}`}
+                                      component="a" href={a.url} target="_blank" rel="noopener noreferrer"
+                                      sx={{
+                                        display: 'flex', alignItems: 'center', gap: 1.2, p: 1,
+                                        borderRadius: 1.5, border: '1px solid rgba(201,168,76,0.15)',
+                                        background: 'rgba(201,168,76,0.04)',
+                                        textDecoration: 'none',
+                                        '&:hover': { background: 'rgba(201,168,76,0.08)' },
+                                      }}>
+                                      <PictureAsPdfRoundedIcon sx={{ color: '#EF4444', fontSize: 20 }} />
+                                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Typography variant="caption" sx={{ color: '#F1F5F9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', fontWeight: 600, fontSize: 12 }}>
+                                          {a.name}
+                                        </Typography>
+                                        {a.size && (
+                                          <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>
+                                            {a.size < 1024 * 1024 ? `${Math.round(a.size / 1024)} КБ` : `${(a.size / (1024 * 1024)).toFixed(1)} МБ`}
+                                          </Typography>
+                                        )}
+                                      </Box>
+                                      <DownloadRoundedIcon sx={{ color: '#C9A84C', fontSize: 18 }} />
+                                    </Box>
+                                  ))}
+                                </Stack>
+                              </Box>
+                            )}
+                            <Box sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)' }}>
                               <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                                {l.videoUrl ? 'Просмотр видео — Kinescope / YouTube' : 'Видео для этого урока ещё не загружено'}
+                                {!l.videoUrl && !l.content && !l.attachments?.length ? 'Материалов пока нет — отметь пройденным когда будешь готов' : 'Изучи материалы и отметь пройденным'}
                               </Typography>
                               <Button
                                 size="small"
@@ -941,7 +919,7 @@ export default function Academy() {
                   })}
                 </Box>
                 <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mt: 1.5, fontStyle: 'italic' }}>
-                  Клик по строке — открыть видео, по иконке слева — отметить пройденным
+                  Уроки открываются последовательно: следующий доступен после прохождения предыдущего.
                 </Typography>
               </DialogContent>
             </>
