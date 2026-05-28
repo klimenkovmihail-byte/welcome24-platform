@@ -852,27 +852,32 @@ export default function Academy() {
                             <ChevronRightRoundedIcon sx={{ color: '#64748B', fontSize: 18, transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
                           )}
                         </Box>
-                        {expanded && !locked && (
+                        {expanded && !locked && (() => {
+                          const hasVideo = !!l.videoUrl;
+                          const hasContent = !!(l.content && l.content.trim());
+                          const hasAttachments = !!(l.attachments && l.attachments.length > 0);
+                          const empty = !hasVideo && !hasContent && !hasAttachments;
+                          return (
                           <Box>
-                            {l.videoUrl && (
+                            {hasVideo && (
                               <Box sx={{ background: '#000' }}>
                                 <VideoPlayer src={l.videoUrl} />
                               </Box>
                             )}
-                            {l.content && (
-                              <Box sx={{ p: 2, background: 'rgba(0,0,0,0.2)' }}>
+                            {hasContent && (
+                              <Box sx={{ p: 2.5, background: 'rgba(0,0,0,0.2)' }}>
                                 <Typography variant="body2" sx={{ color: '#E2E8F0', whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
                                   {l.content}
                                 </Typography>
                               </Box>
                             )}
-                            {l.attachments && l.attachments.length > 0 && (
+                            {hasAttachments && (
                               <Box sx={{ p: 1.5, background: 'rgba(0,0,0,0.15)', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
                                 <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', mb: 1 }}>
                                   Материалы урока
                                 </Typography>
                                 <Stack spacing={0.8}>
-                                  {l.attachments.map((a, i) => (
+                                  {l.attachments!.map((a, i) => (
                                     <Box key={`${a.url}-${i}`}
                                       component="a" href={a.url} target="_blank" rel="noopener noreferrer"
                                       sx={{
@@ -899,21 +904,33 @@ export default function Academy() {
                                 </Stack>
                               </Box>
                             )}
-                            <Box sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)' }}>
-                              <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                                {!l.videoUrl && !l.content && !l.attachments?.length ? 'Материалов пока нет — отметь пройденным когда будешь готов' : 'Изучи материалы и отметь пройденным'}
+                            {empty && (
+                              <Box sx={{ p: 4, textAlign: 'center', background: 'rgba(255,255,255,0.02)' }}>
+                                <MenuBookRoundedIcon sx={{ fontSize: 40, color: 'rgba(255,255,255,0.15)', mb: 1 }} />
+                                <Typography variant="body2" sx={{ color: '#94A3B8', mb: 0.5 }}>
+                                  Материалы для этого урока ещё не добавлены
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
+                                  Администратор скоро загрузит видео, описание или PDF. А пока — отметь пройденным когда будешь готов
+                                </Typography>
+                              </Box>
+                            )}
+                            <Box sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, background: 'rgba(0,0,0,0.3)' }}>
+                              <Typography variant="caption" sx={{ color: '#94A3B8', flex: 1 }}>
+                                {empty ? '' : 'Изучи материалы и отметь пройденным'}
                               </Typography>
                               <Button
                                 size="small"
                                 variant={l.done ? 'outlined' : 'contained'}
                                 onClick={() => toggleLesson(openCourse.id, l.id, false)}
-                                sx={{ fontSize: 11 }}
+                                sx={{ fontSize: 11, flexShrink: 0 }}
                               >
                                 {l.done ? 'Снять отметку' : 'Отметить пройденным'}
                               </Button>
                             </Box>
                           </Box>
-                        )}
+                          );
+                        })()}
                       </Box>
                     );
                   })}
