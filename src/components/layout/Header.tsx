@@ -11,6 +11,7 @@ import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import DoneAllRoundedIcon from '@mui/icons-material/DoneAllRounded';
+import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import { motion } from 'framer-motion';
 import { getCurrentAgent, openAdminPanel, logoutAgent } from '../../auth/auth';
 import { notificationsApi, type Notification as ApiNotification } from '../../api/notifications';
@@ -67,9 +68,11 @@ const defaultTypeCfg = typeConfig.system;
 
 interface HeaderProps {
   currentPath: string;
+  isMobile?: boolean;
+  onMenuClick?: () => void;
 }
 
-export default function Header({ currentPath }: HeaderProps) {
+export default function Header({ currentPath, isMobile = false, onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
   const page = pageTitles[currentPath] || { title: 'Welcome 24', subtitle: '' };
   const user = getCurrentAgent();
@@ -134,46 +137,59 @@ export default function Header({ currentPath }: HeaderProps) {
   return (
     <Box sx={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      px: 4, py: 2.5,
+      px: { xs: 2, md: 4 }, py: { xs: 1.5, md: 2.5 },
       background: 'linear-gradient(90deg, rgba(13,22,40,0.95) 0%, rgba(8,12,24,0.98) 100%)',
       borderBottom: '1px solid rgba(201,168,76,0.08)',
       backdropFilter: 'blur(20px)',
       position: 'sticky', top: 0, zIndex: 100,
+      gap: 1,
     }}>
-      <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} key={currentPath}>
-        <Typography variant="h5" sx={{ fontWeight: 800, color: '#F1F5F9', lineHeight: 1.2 }}>
-          {page.title}
-        </Typography>
-        <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 500 }}>
-          {page.subtitle}
-        </Typography>
-      </motion.div>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+        {isMobile && (
+          <IconButton
+            onClick={onMenuClick}
+            sx={{ color: '#C9A84C', '&:hover': { background: 'rgba(201,168,76,0.08)' } }}
+          >
+            <MenuRoundedIcon />
+          </IconButton>
+        )}
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} key={currentPath} style={{ minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 800, color: '#F1F5F9', lineHeight: 1.2, fontSize: { xs: 18, md: 24 }, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {page.title}
+          </Typography>
+          <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 500, display: { xs: 'none', sm: 'block' } }}>
+            {page.subtitle}
+          </Typography>
+        </motion.div>
+      </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Tooltip title={shares.isMostlyGifted
-          ? `Акции: ${shares.qty} шт · бонусные`
-          : `Акции: ${shares.qty} шт · рост ${shares.growthPct.toFixed(1)}%`
-        }>
-          <Chip
-            icon={<TrendingUpRoundedIcon sx={{ fontSize: 16 }} />}
-            label={`${shares.qty} акц.`}
-            size="small"
-            sx={{
-              background: 'rgba(201,168,76,0.12)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.2)',
-              fontWeight: 700, '& .MuiChip-icon': { color: '#C9A84C' }
-            }}
-          />
-        </Tooltip>
-        <Tooltip title="Текущая стоимость портфеля акций">
-          <Chip
-            label={formatMoney(shares.value)}
-            size="small"
-            sx={{
-              background: 'rgba(34,197,94,0.12)', color: '#22C55E', border: '1px solid rgba(34,197,94,0.2)',
-              fontWeight: 700,
-            }}
-          />
-        </Tooltip>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 2 } }}>
+        <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 2 }}>
+          <Tooltip title={shares.isMostlyGifted
+            ? `Акции: ${shares.qty} шт · бонусные`
+            : `Акции: ${shares.qty} шт · рост ${shares.growthPct.toFixed(1)}%`
+          }>
+            <Chip
+              icon={<TrendingUpRoundedIcon sx={{ fontSize: 16 }} />}
+              label={`${shares.qty} акц.`}
+              size="small"
+              sx={{
+                background: 'rgba(201,168,76,0.12)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.2)',
+                fontWeight: 700, '& .MuiChip-icon': { color: '#C9A84C' }
+              }}
+            />
+          </Tooltip>
+          <Tooltip title="Текущая стоимость портфеля акций">
+            <Chip
+              label={formatMoney(shares.value)}
+              size="small"
+              sx={{
+                background: 'rgba(34,197,94,0.12)', color: '#22C55E', border: '1px solid rgba(34,197,94,0.2)',
+                fontWeight: 700,
+              }}
+            />
+          </Tooltip>
+        </Box>
 
         {isAdmin && (
           <Tooltip title="Перейти в админ-панель">
@@ -183,6 +199,7 @@ export default function Header({ currentPath }: HeaderProps) {
               startIcon={<AdminPanelSettingsRoundedIcon sx={{ fontSize: 16 }} />}
               onClick={openAdminPanel}
               sx={{
+                display: { xs: 'none', md: 'inline-flex' },
                 borderColor: 'rgba(239,68,68,0.35)',
                 color: '#EF4444',
                 fontWeight: 700,
@@ -276,7 +293,7 @@ export default function Header({ currentPath }: HeaderProps) {
           onClick={(e) => setMenuAnchor(e.currentTarget)}
           sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer', '&:hover': { opacity: 0.8 }, transition: 'opacity 0.2s' }}
         >
-          <Box sx={{ textAlign: 'right' }}>
+          <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
             <Typography variant="caption" sx={{ fontWeight: 700, color: '#F1F5F9', display: 'block' }}>
               {(user?.name || '').split(' ').slice(0, 2).join(' ')}
             </Typography>

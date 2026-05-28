@@ -48,15 +48,18 @@ export default function Logo({ variant = 'full', size = 40, color = '#C9A84C', p
   }
 
   // Full SVG логотип «корона + WELCOME 24».
-  // Aspect = 2.94 → width = size * 2.94.
+  // Aspect = 2.94 → натуральная ширина = size * 2.94.
   const width = size * FULL_ASPECT;
 
   // Чёрный SVG → перекрашиваем через mask-image + фоновый цвет/градиент.
+  // width задаёт желаемый размер, maxWidth:100% не даёт вылезти за узкий
+  // контейнер (мобильный логин), aspectRatio держит пропорции при сжатии.
   return (
     <Box
       sx={{
-        height: size,
         width,
+        maxWidth: '100%',
+        aspectRatio: String(FULL_ASPECT),
         background: premium ? PREMIUM_GOLD_GRADIENT : color,
         WebkitMaskImage: `url(${FULL_SRC})`,
         maskImage: `url(${FULL_SRC})`,

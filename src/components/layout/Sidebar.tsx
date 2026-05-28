@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, Avatar, Chip, Tooltip, IconButton, Divider, alpha } from '@mui/material';
+import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, Avatar, Chip, Tooltip, IconButton, Divider, Drawer, alpha } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
@@ -41,30 +41,39 @@ const getLevelColor = (level: number) => {
   return '#78716C';
 };
 
-export default function Sidebar() {
+interface SidebarProps {
+  isMobile?: boolean;
+  mobileOpen?: boolean;
+  onClose?: () => void;
+}
+
+export default function Sidebar({ isMobile = false, mobileOpen = false, onClose = () => {} }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
-  return (
-    <motion.div
-      animate={{ width: collapsed ? 72 : 240 }}
-      transition={{ duration: 0.3 }}
-      style={{ flexShrink: 0, overflow: 'hidden' }}
-    >
+  // На мобиле сайдбар всегда развёрнут (он в оверлее-drawer'е), мини-режим только на десктопе.
+  const mini = !isMobile && collapsed;
+
+  const handleNav = (path: string) => {
+    navigate(path);
+    if (isMobile) onClose();
+  };
+
+  const content = (
       <Box sx={{
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
         background: 'linear-gradient(180deg, #0D1628 0%, #080C18 100%)',
         borderRight: '1px solid rgba(201,168,76,0.1)',
-        position: 'sticky',
+        position: isMobile ? 'static' : 'sticky',
         top: 0,
         overflow: 'hidden',
       }}>
         {/* Logo */}
-        <Box sx={{ p: collapsed ? 1.5 : 2.5, pt: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: collapsed ? 0 : 1.5 }}>
-          {collapsed ? (
+        <Box sx={{ p: mini ? 1.5 : 2.5, pt: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: mini ? 0 : 1.5 }}>
+          {mini ? (
             <LogoIcon size={40} color="#C9A84C" premium />
           ) : (
             <AnimatePresence>
@@ -83,14 +92,14 @@ export default function Sidebar() {
             const active = location.pathname === item.path;
             return (
               <ListItem key={item.path} disablePadding>
-                <Tooltip title={collapsed ? item.label : ''} placement="right">
+                <Tooltip title={mini ? item.label : ''} placement="right">
                   <ListItemButton
-                    onClick={() => navigate(item.path)}
+                    onClick={() => handleNav(item.path)}
                     sx={{
                       borderRadius: 3,
                       minHeight: 48,
-                      px: collapsed ? 1.5 : 2,
-                      justifyContent: collapsed ? 'center' : 'flex-start',
+                      px: mini ? 1.5 : 2,
+                      justifyContent: mini ? 'center' : 'flex-start',
                       position: 'relative',
                       overflow: 'hidden',
                       background: active ? 'linear-gradient(135deg, rgba(201,168,76,0.15), rgba(201,168,76,0.08))' : 'transparent',
@@ -110,11 +119,11 @@ export default function Sidebar() {
                         width: 3, height: 24, background: '#C9A84C', borderRadius: '0 4px 4px 0',
                       }} />
                     )}
-                    <ListItemIcon sx={{ minWidth: collapsed ? 0 : 36, color: 'inherit' }}>
+                    <ListItemIcon sx={{ minWidth: mini ? 0 : 36, color: 'inherit' }}>
                       {item.icon}
                     </ListItemIcon>
                     <AnimatePresence>
-                      {!collapsed && (
+                      {!mini && (
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
                           <ListItemText
                             primary={item.label}
@@ -133,15 +142,15 @@ export default function Sidebar() {
         <Divider sx={{ borderColor: 'rgba(201,168,76,0.08)', mx: 2 }} />
 
         {/* User */}
-        <Box sx={{ p: collapsed ? 1 : 2, pb: 2.5 }}>
-          {!collapsed ? (
+        <Box sx={{ p: mini ? 1 : 2, pb: 2.5 }}>
+          {!mini ? (
             <Box sx={{
               display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5,
               borderRadius: 3, background: 'rgba(201,168,76,0.06)',
               border: '1px solid rgba(201,168,76,0.1)',
               cursor: 'pointer', '&:hover': { background: 'rgba(201,168,76,0.1)' },
               transition: 'all 0.2s',
-            }} onClick={() => navigate('/profile')}>
+            }} onClick={() => handleNav('/profile')}>
               <Avatar sx={{
                 width: 36, height: 36, fontSize: 14, fontWeight: 700,
                 background: `linear-gradient(135deg, ${getLevelColor(currentUser.level)}, ${alpha(getLevelColor(currentUser.level), 0.6)})`,
@@ -158,7 +167,7 @@ export default function Sidebar() {
             </Box>
           ) : (
             <Tooltip title="Профиль" placement="right">
-              <Avatar onClick={() => navigate('/profile')} sx={{
+              <Avatar onClick={() => handleNav('/profile')} sx={{
                 width: 40, height: 40, fontSize: 14, fontWeight: 700, mx: 'auto', cursor: 'pointer',
                 background: `linear-gradient(135deg, ${getLevelColor(currentUser.level)}, ${alpha(getLevelColor(currentUser.level), 0.6)})`,
                 color: '#0A0E1A',
@@ -168,8 +177,8 @@ export default function Sidebar() {
             </Tooltip>
           )}
 
-          <Box sx={{ display: 'flex', justifyContent: collapsed ? 'center' : 'space-between', mt: 1, alignItems: 'center' }}>
-            <Tooltip title={collapsed ? 'Выйти' : 'Выйти из аккаунта'} placement="right">
+          <Box sx={{ display: 'flex', justifyContent: mini ? 'center' : 'space-between', mt: 1, alignItems: 'center' }}>
+            <Tooltip title={mini ? 'Выйти' : 'Выйти из аккаунта'} placement="right">
               <IconButton
                 size="small"
                 onClick={() => { logoutAgent(); navigate('/login'); }}
@@ -178,14 +187,14 @@ export default function Sidebar() {
                 <LogoutRoundedIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            {!collapsed && (
+            {!mini && !isMobile && (
               <IconButton size="small" onClick={() => setCollapsed(true)} sx={{ color: '#64748B', '&:hover': { color: '#C9A84C' } }}>
                 <ChevronLeftRoundedIcon fontSize="small" />
               </IconButton>
             )}
           </Box>
 
-          {collapsed && (
+          {mini && (
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 0.5 }}>
               <IconButton size="small" onClick={() => setCollapsed(false)} sx={{ color: '#64748B', '&:hover': { color: '#C9A84C' } }}>
                 <ChevronRightRoundedIcon fontSize="small" />
@@ -194,6 +203,29 @@ export default function Sidebar() {
           )}
         </Box>
       </Box>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer
+        variant="temporary"
+        open={mobileOpen}
+        onClose={onClose}
+        ModalProps={{ keepMounted: true }}
+        slotProps={{ paper: { sx: { width: 260, border: 'none', backgroundColor: 'transparent', backgroundImage: 'none', boxShadow: '0 24px 80px rgba(0,0,0,0.6)' } } }}
+      >
+        {content}
+      </Drawer>
+    );
+  }
+
+  return (
+    <motion.div
+      animate={{ width: collapsed ? 72 : 240 }}
+      transition={{ duration: 0.3 }}
+      style={{ flexShrink: 0, overflow: 'hidden' }}
+    >
+      {content}
     </motion.div>
   );
 }

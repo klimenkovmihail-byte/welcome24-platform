@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Box } from '@mui/material';
+import { Box, useMediaQuery, useTheme } from '@mui/material';
 import { useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
@@ -15,6 +15,9 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [subStatus, setSubStatus] = useState<SubscriptionStatus | null>(null);
   const agent = getCurrentAgent();
 
@@ -28,6 +31,11 @@ export default function Layout({ children }: LayoutProps) {
     // Перепроверяем статус при смене страницы (вдруг пользователь только что подал claim).
   }, [reload, location.pathname]);
 
+  // Закрываем мобильный сайдбар при переходе на другую страницу.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
   // Сотрудники / lifetime-VIP / нет статуса — обычное отображение, бар сам решит что показать.
   const showLocked = subStatus?.blocked === true;
   // На странице /login и /profile блокировку игнорируем — иначе залогиниться/сменить пароль нельзя.
@@ -35,11 +43,11 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', background: '#080C18' }}>
-      <Sidebar />
+      <Sidebar isMobile={isMobile} mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
         <ImpersonationBanner />
-        <Header currentPath={location.pathname} />
-        <Box sx={{ flex: 1, p: 4, overflow: 'auto' }}>
+        <Header currentPath={location.pathname} isMobile={isMobile} onMenuClick={() => setMobileOpen(true)} />
+        <Box sx={{ flex: 1, p: { xs: 2, md: 4 }, overflow: 'auto' }}>
           {subStatus && agent?.id && (
             <SubscriptionBar status={subStatus} agentId={agent.id} onUpdated={reload} />
           )}
