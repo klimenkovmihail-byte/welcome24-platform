@@ -59,8 +59,8 @@ const TOOLS: ToolMeta[] = [
   },
   {
     key: 'shares_advisor',
-    label: 'AI эксперт по акциям',
-    description: 'Расскажет о твоих акциях, посчитает прогноз стоимости, объяснит как получить бонусные пакеты. Видит твои реальные данные: баланс, ВКД, доход.',
+    label: 'AI Финансовый навигатор',
+    description: 'Поможет разобраться в акциях, пассивном доходе, структуре и росте капитала внутри Welcome 24. Видит твои реальные данные: акции, ВКД, рекрутов, открытые тиры.',
     icon: <DiamondRoundedIcon sx={{ fontSize: 32 }} />,
     color: '#7B2FBE',
   },
@@ -557,22 +557,40 @@ const CHAT_META: Record<ChatProps['tool'], {
     ),
   },
   shares_advisor: {
-    title: 'AI эксперт по акциям',
+    title: 'AI Финансовый навигатор',
     color: '#7B2FBE',
     icon: <DiamondRoundedIcon sx={{ fontSize: 24 }} />,
-    subtitle: 'Видит твои реальные данные: баланс акций, текущую котировку, ВКД и комиссию за год.',
-    placeholder: 'Спроси про свои акции, прогнозы, бонусы…',
+    subtitle: 'Поможет разобраться в акциях, пассивном доходе, структуре и росте капитала внутри Welcome 24.',
+    placeholder: 'Спроси про акции, пассивный доход, структуру…',
     emptyState: (
       <>
-        <Typography variant="body2">Задай вопрос — например:</Typography>
-        <Typography variant="caption" sx={{ display: 'block', mt: 1, fontStyle: 'italic' }}>
-          «Сколько сейчас стоит мой портфель?»<br />
-          «Что мне даст достижение 2 млн ВКД в году?»<br />
-          «Как я могу купить ещё акции со скидкой?»
+        <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 600, color: '#E2E8F0' }}>
+          Привет! Я Финансовый навигатор Welcome 24.
+        </Typography>
+        <Typography variant="caption" sx={{ display: 'block', mt: 1, color: '#94A3B8', lineHeight: 1.6 }}>
+          Я помогу разобраться в акциях, пассивном доходе и росте капитала внутри компании.<br />
+          Могу посчитать сколько акций ты можешь купить, показать стоимость пакета,<br />
+          объяснить правила продажи, рассчитать пассивный доход, подсказать сколько<br />
+          агентов не хватает до следующего уровня.
         </Typography>
       </>
     ),
   },
+};
+
+// Быстрые вопросы — клик отправляет вопрос в чат.
+const QUICK_QUESTIONS: Record<string, string[]> = {
+  shares_advisor: [
+    'Сколько акций я могу купить со своей комиссии?',
+    'Сколько сейчас стоят мои акции?',
+    'Как работает пассивный доход?',
+    'Сколько агентов мне нужно до следующего уровня?',
+    'Что такое защищённый и растущий доход?',
+    'Можно ли продать акции?',
+    'Что будет с акциями, если я уйду?',
+    'Как мне увеличить капитал в Welcome 24?',
+  ],
+  legal_advisor: [],
 };
 
 function ChatTool({ tool, onBack, onUsageChange }: ChatProps) {
@@ -793,6 +811,26 @@ function ChatTool({ tool, onBack, onUsageChange }: ChatProps) {
                       {meta.icon}
                     </Box>
                     {meta.emptyState}
+                    {QUICK_QUESTIONS[tool] && QUICK_QUESTIONS[tool].length > 0 && (
+                      <Box sx={{ mt: 3, display: 'flex', flexWrap: 'wrap', gap: 0.8, justifyContent: 'center', maxWidth: 720, mx: 'auto' }}>
+                        {QUICK_QUESTIONS[tool].map(q => (
+                          <Chip
+                            key={q}
+                            label={q}
+                            onClick={() => setInput(q)}
+                            sx={{
+                              background: alpha(meta.color, 0.08),
+                              color: meta.color,
+                              border: `1px solid ${alpha(meta.color, 0.25)}`,
+                              fontWeight: 500,
+                              fontSize: 12,
+                              cursor: 'pointer',
+                              '&:hover': { background: alpha(meta.color, 0.15) },
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    )}
                   </Box>
                 )}
                 {messages.map(m => (
