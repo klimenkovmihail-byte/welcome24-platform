@@ -32,6 +32,7 @@ import { currentUser } from '../data/mockData';
 import { academyApi, type AcademyEvent, type AcademyCourse, type WebinarRecording } from '../api/academy';
 import CoverImage from '../components/CoverImage';
 import VideoPlayer from '../components/VideoPlayer';
+import ErrorBoundary from '../components/ErrorBoundary';
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
 
 const courseCategoryColors: Record<string, string> = {
@@ -382,6 +383,14 @@ function EventCard({ e, compact = false }: { e: AcademyEvent; compact?: boolean 
 }
 
 export default function Academy() {
+  return (
+    <ErrorBoundary>
+      <AcademyImpl />
+    </ErrorBoundary>
+  );
+}
+
+function AcademyImpl() {
   // Данные с бэка
   const [academyCourses, setAcademyCourses] = useState<AcademyCourse[]>([]);
   const [webinarRecordings, setWebinarRecordings] = useState<WebinarRecording[]>([]);
@@ -461,7 +470,11 @@ export default function Academy() {
 
   const toggleLesson = (courseId: number, lessonId: number, initial: boolean) => {
     const key = `${courseId}-${lessonId}`;
-    setLessonProgress(prev => ({ ...prev, [key]: !(prev[key] ?? initial) }));
+    const currentDone = lessonProgress[key] ?? initial;
+    const newDone = !currentDone;
+    setLessonProgress(prev => ({ ...prev, [key]: newDone }));
+    // Сохраняем прогресс на бэке — для разблокировки следующего урока и для сохранения после reload.
+    academyApi.completeLesson(courseId, lessonId, newDone).catch(() => { /* tolerate */ });
   };
 
   const getWebinarLikes = (w: WebinarRecording) => webinarLikeOverride[w.id] ?? w.likesCount;
@@ -734,10 +747,18 @@ export default function Academy() {
           const lessonsWithState = (() => {
             const out: Array<typeof openCourse.lessons[number] & { done: boolean; unlocked: boolean }> = [];
             let prevDone = true;
-            for (const l of openCourse.lessons) {
+            for (const l of (openCourse.lessons || [])) {
               const serverDone = !!l.completed;
               const done = isLessonDone(openCourse.id, l.id, serverDone);
-              out.push({ ...l, done, unlocked: prevDone });
+              // Защищаем поля от undefined — иначе при рендере JSX может упасть.
+              out.push({
+                ...l,
+                content: l.content || '',
+                attachments: l.attachments || [],
+                videoUrl: l.videoUrl || '',
+                done,
+                unlocked: prevDone,
+              });
               prevDone = done;
             }
             return out;

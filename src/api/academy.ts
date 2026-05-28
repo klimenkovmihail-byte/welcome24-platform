@@ -189,6 +189,8 @@ export const academyApi = {
   events:   () => api.get<RawEvent[]>('/api/academy/events').then(rows => rows.map(normalizeEvent)),
   rate:     (courseId: number, rating: number) =>
     api.post<{ ok: true }>(`/api/academy/courses/${courseId}/rate`, { rating }),
+  completeLesson: (courseId: number, lessonId: number, completed: boolean) =>
+    api.post<{ completedLessons: number[] }>(`/api/academy/courses/${courseId}/lessons/${lessonId}/complete`, { completed }),
   likeWebinar: (id: number) =>
     api.post<{ liked: boolean; likes: number }>(`/api/academy/webinars/${id}/like`),
   trackWebinarView: (id: number) =>
