@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, LinearProgress, Grid, Tabs, Tab, alpha,
   Button, Dialog, DialogContent, IconButton, ToggleButtonGroup, ToggleButton, Divider,
-  Tooltip,
+  Tooltip, Stack,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import PlayCircleRoundedIcon from '@mui/icons-material/PlayCircleRounded';
