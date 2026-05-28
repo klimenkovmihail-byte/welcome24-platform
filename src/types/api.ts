@@ -180,10 +180,20 @@ export interface Lesson {
   order: number;
 }
 
+export interface CourseAttachment {
+  name: string;
+  url: string;
+  key?: string;
+  size?: number;
+}
+
 export interface Course {
   id: number;
   title: string;
   description: string;
+  content?: string;                 // развёрнутое описание/материалы курса
+  attachments?: CourseAttachment[]; // PDF и другие файлы
+  orderIdx?: number;
   category: CourseCategory;
   level: CourseLevel;
   coverUrl: string;
@@ -195,6 +205,8 @@ export interface Course {
   ratingCount: number;
   tags: string[];
   published: boolean;
+  unlocked?: boolean;               // курс доступен агенту (предыдущий пройден)
+  completed?: boolean;              // курс пройден этим агентом
   createdAt: string;
 }
 

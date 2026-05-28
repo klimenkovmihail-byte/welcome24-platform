@@ -7,6 +7,9 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import PlayCircleRoundedIcon from '@mui/icons-material/PlayCircleRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import LockRoundedIcon from '@mui/icons-material/LockRounded';
+import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded';
+import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import StarRoundedIcon from '@mui/icons-material/StarRounded';
 import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded';
 import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded';
@@ -103,12 +106,15 @@ function downloadICS(ev: AcademyEvent) {
 // ----------------- Course card -----------------
 function CourseCard({ c, delay, onOpen }: { c: AcademyCourse; delay: number; onOpen: (c: AcademyCourse) => void }) {
   const catColor = courseCategoryColors[c.category] || '#64748B';
+  const locked = c.unlocked === false;
   return (
-    <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: delay * 0.04 }} whileHover={{ y: -4 }} style={{ height: '100%' }}>
+    <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: delay * 0.04 }} whileHover={!locked ? { y: -4 } : undefined} style={{ height: '100%' }}>
       <Card
-        onClick={() => onOpen(c)}
-        sx={{ height: '100%', cursor: 'pointer', display: 'flex', flexDirection: 'column',
-          '&:hover': { border: '1px solid rgba(201,168,76,0.25)', boxShadow: '0 12px 32px rgba(0,0,0,0.4)' },
+        onClick={() => !locked && onOpen(c)}
+        sx={{ height: '100%', cursor: locked ? 'not-allowed' : 'pointer', display: 'flex', flexDirection: 'column',
+          opacity: locked ? 0.55 : 1,
+          filter: locked ? 'grayscale(0.5)' : 'none',
+          '&:hover': !locked ? { border: '1px solid rgba(201,168,76,0.25)', boxShadow: '0 12px 32px rgba(0,0,0,0.4)' } : {},
           transition: 'all 0.3s' }}
       >
         <Box sx={{ position: 'relative', paddingTop: '56.25%', overflow: 'hidden', borderRadius: '16px 16px 0 0' }}>
@@ -120,9 +126,17 @@ function CourseCard({ c, delay, onOpen }: { c: AcademyCourse; delay: number; onO
           <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(8,12,24,0.92))', display: 'flex', alignItems: 'flex-end', p: 2, pointerEvents: 'none' }}>
             <Chip label={c.category} size="small" sx={{ background: alpha(catColor, 0.9), color: '#fff', fontWeight: 700, pointerEvents: 'auto' }} />
           </Box>
-          {c.completed && (
+          {c.completed && !locked && (
             <Box sx={{ position: 'absolute', top: 12, right: 12, background: 'rgba(34,197,94,0.9)', borderRadius: '50%', p: 0.5 }}>
               <CheckCircleRoundedIcon sx={{ color: '#fff', fontSize: 20 }} />
+            </Box>
+          )}
+          {locked && (
+            <Box sx={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(8,12,24,0.55)', zIndex: 2 }}>
+              <LockRoundedIcon sx={{ color: 'rgba(255,255,255,0.85)', fontSize: 32, mb: 0.5 }} />
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.85)', fontWeight: 700, fontSize: 11 }}>
+                Завершите предыдущий курс
+              </Typography>
             </Box>
           )}
           <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, '&:hover': { opacity: 1 }, transition: 'opacity 0.3s', pointerEvents: 'none' }}>
@@ -760,6 +774,78 @@ export default function Academy() {
                   <Chip icon={<PeopleRoundedIcon />} label={`Автор: ${openCourse.authorName}`} sx={{ background: 'rgba(255,255,255,0.05)', color: '#94A3B8' }} />
                 </Box>
 
+                {/* Контент курса (развёрнутое описание) */}
+                {openCourse.content && (
+                  <Box sx={{ p: 2.5, borderRadius: 2, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.05)', mb: 2.5 }}>
+                    <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', mb: 1 }}>
+                      О курсе
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#E2E8F0', whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+                      {openCourse.content}
+                    </Typography>
+                  </Box>
+                )}
+
+                {/* PDF-приложения */}
+                {openCourse.attachments && openCourse.attachments.length > 0 && (
+                  <Box sx={{ mb: 2.5 }}>
+                    <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', mb: 1 }}>
+                      Материалы курса ({openCourse.attachments.length})
+                    </Typography>
+                    <Stack spacing={1}>
+                      {openCourse.attachments.map((a, i) => (
+                        <Box key={`${a.url}-${i}`}
+                          component="a" href={a.url} target="_blank" rel="noopener noreferrer"
+                          sx={{
+                            display: 'flex', alignItems: 'center', gap: 1.5, p: 1.2,
+                            borderRadius: 2, border: '1px solid rgba(201,168,76,0.15)',
+                            background: 'rgba(201,168,76,0.04)',
+                            textDecoration: 'none', cursor: 'pointer',
+                            '&:hover': { background: 'rgba(201,168,76,0.08)', borderColor: 'rgba(201,168,76,0.3)' },
+                            transition: 'all 0.2s',
+                          }}>
+                          <PictureAsPdfRoundedIcon sx={{ color: '#EF4444', fontSize: 22 }} />
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="body2" sx={{ color: '#F1F5F9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                              {a.name}
+                            </Typography>
+                            {a.size && (
+                              <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
+                                {a.size < 1024 * 1024 ? `${Math.round(a.size / 1024)} КБ` : `${(a.size / (1024 * 1024)).toFixed(1)} МБ`}
+                              </Typography>
+                            )}
+                          </Box>
+                          <DownloadRoundedIcon sx={{ color: '#C9A84C', fontSize: 20 }} />
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Box>
+                )}
+
+                {/* Кнопка «Отметить пройденным» для курсов без уроков */}
+                {openCourse.lessons.length === 0 && !openCourse.completedOnServer && (
+                  <Button
+                    fullWidth variant="contained"
+                    onClick={() => {
+                      academyApi.completeCourse(openCourse.id).then(() => {
+                        // оптимистично закрываем диалог и перезагружаем курсы
+                        setOpenCourse(c => c ? { ...c, completedOnServer: true, completed: true } : c);
+                      }).catch(() => { /* tolerate */ });
+                    }}
+                    startIcon={<CheckCircleRoundedIcon />}
+                    sx={{ mb: 2.5, background: 'rgba(34,197,94,0.18)', color: '#22C55E', boxShadow: 'none',
+                      '&:hover': { background: 'rgba(34,197,94,0.28)', boxShadow: 'none' } }}
+                  >
+                    Отметить курс пройденным
+                  </Button>
+                )}
+                {openCourse.lessons.length === 0 && openCourse.completedOnServer && (
+                  <Box sx={{ mb: 2.5, p: 1.5, borderRadius: 2, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CheckCircleRoundedIcon sx={{ color: '#22C55E', fontSize: 20 }} />
+                    <Typography variant="body2" sx={{ color: '#22C55E', fontWeight: 600 }}>Курс пройден — следующий разблокирован</Typography>
+                  </Box>
+                )}
+
                 {/* Progress */}
                 <Box sx={{ p: 2, borderRadius: 2, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.05)', mb: 2.5 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -783,7 +869,13 @@ export default function Academy() {
                     <Rating
                       value={myRating}
                       size="large"
-                      onChange={(_, v) => setMyRatings(prev => ({ ...prev, [openCourse.id]: v || 0 }))}
+                      onChange={(_, v) => {
+                        const rating = v || 0;
+                        setMyRatings(prev => ({ ...prev, [openCourse.id]: rating }));
+                        if (rating >= 1) {
+                          academyApi.rate(openCourse.id, rating).catch(() => { /* tolerate */ });
+                        }
+                      }}
                       icon={<StarRoundedIcon sx={{ color: '#F59E0B' }} fontSize="inherit" />}
                       emptyIcon={<StarRoundedIcon sx={{ color: '#475569' }} fontSize="inherit" />}
                     />

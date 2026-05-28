@@ -11,10 +11,20 @@ export interface Lesson {
   videoUrl: string;
 }
 
+export interface CourseAttachment {
+  name: string;
+  url: string;
+  key?: string;
+  size?: number;
+}
+
 export interface AcademyCourse {
   id: number;
   title: string;
   description: string;
+  content?: string;
+  attachments?: CourseAttachment[];
+  orderIdx?: number;
   category: string;
   level: string;
   coverUrl: string;
@@ -25,6 +35,8 @@ export interface AcademyCourse {
   rating: number;
   ratingCount: number;
   published: boolean;
+  unlocked?: boolean;        // курс доступен (предыдущий пройден)
+  completedOnServer?: boolean; // курс пройден этим агентом по данным бэка
   lessons: Lesson[];
   // Совместимость со старой страницей — заполняется на фронте после загрузки прогресса.
   progress: number;
@@ -69,9 +81,12 @@ export interface AcademyEvent {
 }
 
 type RawCourse = {
-  id: number; title: string; description: string; category: string; level: string;
+  id: number; title: string; description: string; content?: string;
+  attachments?: CourseAttachment[]; order_idx?: number;
+  category: string; level: string;
   cover_url: string; duration: string; author_id: number | null; author_name: string;
   tags: string[]; rating: number; rating_count: number; published: boolean;
+  unlocked?: boolean; completed?: boolean;
   lessons: Array<{ id: number; title: string; duration: string; video_url: string }>;
 };
 
@@ -93,14 +108,19 @@ function normalizeCourse(r: RawCourse): AcademyCourse {
   const lessons = (r.lessons || []).map(l => ({ id: l.id, title: l.title, duration: l.duration, videoUrl: l.video_url }));
   return {
     id: r.id, title: r.title, description: r.description || '',
+    content: r.content || '',
+    attachments: r.attachments || [],
+    orderIdx: r.order_idx ?? 0,
     category: r.category, level: r.level,
     coverUrl: r.cover_url || '', duration: r.duration || '',
     authorId: r.author_id, authorName: r.author_name || '',
     tags: r.tags || [], rating: r.rating || 0, ratingCount: r.rating_count || 0,
     published: !!r.published,
+    unlocked: r.unlocked !== false,
+    completedOnServer: !!r.completed,
     lessons,
     progress: 0,
-    completed: false,
+    completed: !!r.completed,
     students: 0,
     totalLessons: lessons.length,
   };
@@ -163,6 +183,8 @@ export const academyApi = {
   events:   () => api.get<RawEvent[]>('/api/academy/events').then(rows => rows.map(normalizeEvent)),
   rate:     (courseId: number, rating: number) =>
     api.post<{ ok: true }>(`/api/academy/courses/${courseId}/rate`, { rating }),
+  completeCourse: (courseId: number) =>
+    api.post<{ ok: true }>(`/api/academy/courses/${courseId}/complete`),
   likeWebinar: (id: number) =>
     api.post<{ liked: boolean; likes: number }>(`/api/academy/webinars/${id}/like`),
   trackWebinarView: (id: number) =>
