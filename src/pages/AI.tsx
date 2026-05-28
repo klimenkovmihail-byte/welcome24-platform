@@ -25,7 +25,10 @@ import DiamondRoundedIcon from '@mui/icons-material/DiamondRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
-import { aiApi, type AiUsage, type AiTool, type ChatSummary, type StoredMessage } from '../api/ai';
+import CalculateRoundedIcon from '@mui/icons-material/CalculateRounded';
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
+import ExpandLessRoundedIcon from '@mui/icons-material/ExpandLessRounded';
+import { aiApi, type AiUsage, type AiTool, type ChatSummary, type StoredMessage, type MlmStats } from '../api/ai';
 
 interface ToolMeta {
   key: AiTool;
@@ -451,6 +454,205 @@ function SocialForm({ onSubmit, loading }: SubProps) {
 }
 
 // ============================================================
+// Калькулятор пассивного дохода (для AI Финансового навигатора).
+// Считает доход с MLM-структуры по таблице из ТЗ Welcome 24.
+// Автозаполнение из реальных данных бэка, можно править для what-if.
+// ============================================================
+const MLM_TABLE = [
+  { level: 1, protected: 3.5, growth: 0,   requires: 0,  cap: 100_000 },
+  { level: 2, protected: 0.1, growth: 2.8, requires: 5,  cap: 120_000 },
+  { level: 3, protected: 0.1, growth: 2.4, requires: 10, cap: 80_000  },
+  { level: 4, protected: 0.1, growth: 1.4, requires: 15, cap: 60_000  },
+  { level: 5, protected: 0.1, growth: 0.9, requires: 20, cap: 30_000  },
+  { level: 6, protected: 0.5, growth: 2.0, requires: 25, cap: 50_000  },
+  { level: 7, protected: 0.5, growth: 4.0, requires: 40, cap: 100_000 },
+];
+
+function fmtRub(n: number): string {
+  return Math.round(n).toLocaleString('ru-RU') + ' ₽';
+}
+
+function PassiveIncomeCalculator() {
+  const [stats, setStats] = useState<MlmStats | null>(null);
+  const [agentsByLevel, setAgentsByLevel] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
+  const [l1FirstDeal, setL1FirstDeal] = useState(0);
+  const [avgVkd, setAvgVkd] = useState(300_000);
+  const [dealsPerMonth, setDealsPerMonth] = useState(0.5);
+  const [loading, setLoading] = useState(true);
+
+  // Автозаполнение при монтировании.
+  useEffect(() => {
+    aiApi.mlmStats()
+      .then(s => {
+        setStats(s);
+        setAgentsByLevel(s.byLevel);
+        setL1FirstDeal(s.l1WithFirstDeal);
+        if (s.avgDealVkd > 0) setAvgVkd(s.avgDealVkd);
+        if (s.dealsPerMonth > 0) setDealsPerMonth(s.dealsPerMonth);
+      })
+      .catch(() => { /* tolerate, оставляем дефолты */ })
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Расчёт.
+  const rows = MLM_TABLE.map(t => {
+    const agentsCount = agentsByLevel[t.level - 1] || 0;
+    const dealsPerYearPerAgent = dealsPerMonth * 12;
+    const vkdPerYearPerAgent = avgVkd * dealsPerYearPerAgent;
+    const growthUnlocked = l1FirstDeal >= t.requires;
+    const effectivePct = t.protected + (growthUnlocked ? t.growth : 0);
+
+    const raw = vkdPerYearPerAgent * agentsCount * (effectivePct / 100);
+    const cap = agentsCount * t.cap;
+    const capped = Math.min(raw, cap);
+    return {
+      ...t,
+      agentsCount,
+      growthUnlocked,
+      effectivePct,
+      yearlyIncome: capped,
+      monthlyIncome: capped / 12,
+      cappedBy: raw > cap && cap > 0,
+    };
+  });
+
+  const totalYearly = rows.reduce((s, r) => s + r.yearlyIncome, 0);
+  const totalMonthly = totalYearly / 12;
+
+  const setAgentsAtLevel = (idx: number, val: number) => {
+    setAgentsByLevel(prev => {
+      const next = [...prev];
+      next[idx] = Math.max(0, Math.floor(val) || 0);
+      return next;
+    });
+  };
+
+  const resetFromStats = () => {
+    if (!stats) return;
+    setAgentsByLevel(stats.byLevel);
+    setL1FirstDeal(stats.l1WithFirstDeal);
+    if (stats.avgDealVkd > 0) setAvgVkd(stats.avgDealVkd);
+    if (stats.dealsPerMonth > 0) setDealsPerMonth(stats.dealsPerMonth);
+  };
+
+  return (
+    <Box>
+      <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', mb: 1.5, lineHeight: 1.6 }}>
+        Введи структуру команды и параметры одного агента — увидишь сколько можно зарабатывать пассивно.
+        Поля автозаполнены реальными данными, можно править для сценариев «а что если».
+      </Typography>
+
+      {loading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+          <CircularProgress size={20} sx={{ color: '#A855F7' }} />
+        </Box>
+      )}
+
+      {/* Параметры агента */}
+      <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, mb: 2 }}>
+        <TextField
+          label="Средний ВКД сделки, ₽" size="small" type="number"
+          value={avgVkd} onChange={e => setAvgVkd(Number(e.target.value) || 0)}
+        />
+        <TextField
+          label="Сделок в месяц на агента" size="small" type="number" inputProps={{ step: 0.1 }}
+          value={dealsPerMonth} onChange={e => setDealsPerMonth(Number(e.target.value) || 0)}
+        />
+        <TextField
+          label="L1 с первой сделкой" size="small" type="number"
+          value={l1FirstDeal} onChange={e => setL1FirstDeal(Math.max(0, Number(e.target.value) || 0))}
+          helperText="открывают растущие %"
+        />
+      </Box>
+
+      {/* Поля по уровням + расчёт по строкам */}
+      <Box sx={{ overflowX: 'auto', mb: 2 }}>
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: '70px 90px 120px 90px 1fr 1fr',
+          gap: 0.5,
+          minWidth: 720,
+          alignItems: 'center',
+        }}>
+          {/* Header */}
+          <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, fontSize: 10, textTransform: 'uppercase' }}>Уровень</Typography>
+          <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, fontSize: 10, textTransform: 'uppercase' }}>Агентов</Typography>
+          <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, fontSize: 10, textTransform: 'uppercase' }}>Защ. % / Раст. %</Typography>
+          <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, fontSize: 10, textTransform: 'uppercase' }}>Итого %</Typography>
+          <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, fontSize: 10, textTransform: 'uppercase' }}>В месяц</Typography>
+          <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, fontSize: 10, textTransform: 'uppercase' }}>В год</Typography>
+
+          {rows.map(r => (
+            <Box key={r.level} sx={{ display: 'contents' }}>
+              <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 700, py: 0.7 }}>L{r.level}</Typography>
+              <TextField
+                size="small" type="number"
+                value={r.agentsCount}
+                onChange={e => setAgentsAtLevel(r.level - 1, Number(e.target.value))}
+                slotProps={{ input: { sx: { fontSize: 13, py: 0.5 } } }}
+              />
+              <Typography variant="caption" sx={{ color: '#94A3B8', py: 0.7, fontSize: 11 }}>
+                {r.protected}% / {r.growth}%{!r.growthUnlocked && r.level > 1 && (
+                  <Tooltip title={`Нужно ${r.requires} L1 с первой сделкой, есть ${l1FirstDeal}`}>
+                    <span style={{ color: '#EF4444', marginLeft: 4 }}>×</span>
+                  </Tooltip>
+                )}
+              </Typography>
+              <Chip
+                label={`${r.effectivePct.toFixed(1)}%`}
+                size="small"
+                sx={{
+                  background: r.growthUnlocked || r.level === 1 ? 'rgba(34,197,94,0.12)' : 'rgba(100,116,139,0.15)',
+                  color: r.growthUnlocked || r.level === 1 ? '#22C55E' : '#94A3B8',
+                  fontWeight: 700, fontSize: 11, height: 22,
+                  justifySelf: 'start',
+                }}
+              />
+              <Typography variant="body2" sx={{ color: '#F1F5F9', py: 0.7, fontWeight: 600 }}>
+                {fmtRub(r.monthlyIncome)}
+                {r.cappedBy && (
+                  <Tooltip title={`Ограничено cap'ом ${fmtRub(r.cap)} в год с агента`}>
+                    <span style={{ color: '#F59E0B', marginLeft: 4, fontSize: 11 }}>cap</span>
+                  </Tooltip>
+                )}
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#C9A84C', py: 0.7, fontWeight: 700 }}>
+                {fmtRub(r.yearlyIncome)}
+              </Typography>
+            </Box>
+          ))}
+
+          {/* Итого */}
+          <Box sx={{ display: 'contents' }}>
+            <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 900, py: 1.2, borderTop: '2px solid rgba(201,168,76,0.3)' }}>ИТОГО</Typography>
+            <Box sx={{ borderTop: '2px solid rgba(201,168,76,0.3)' }} />
+            <Box sx={{ borderTop: '2px solid rgba(201,168,76,0.3)' }} />
+            <Box sx={{ borderTop: '2px solid rgba(201,168,76,0.3)' }} />
+            <Typography variant="body2" sx={{ color: '#22C55E', fontWeight: 900, py: 1.2, borderTop: '2px solid rgba(201,168,76,0.3)' }}>
+              {fmtRub(totalMonthly)}
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#C9A84C', fontWeight: 900, py: 1.2, borderTop: '2px solid rgba(201,168,76,0.3)' }}>
+              {fmtRub(totalYearly)}
+            </Typography>
+          </Box>
+        </Box>
+      </Box>
+
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+        <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11, fontStyle: 'italic' }}>
+          Расчёт носит информационный характер. Это не гарантия дохода.
+        </Typography>
+        {stats && (
+          <Button size="small" onClick={resetFromStats} sx={{ color: '#A855F7', fontSize: 11 }}>
+            Сбросить к моим реальным данным
+          </Button>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+// ============================================================
 // AI-рекрутер MLM — one-shot форма
 // ============================================================
 function MlmRecruiterForm({ onSubmit, loading }: SubProps) {
@@ -602,6 +804,7 @@ function ChatTool({ tool, onBack, onUsageChange }: ChatProps) {
   const [loading, setLoading] = useState(false);
   const [chatsLoading, setChatsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [calcOpen, setCalcOpen] = useState(false);    // калькулятор пассивного дохода (только для shares_advisor)
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Загрузка списка чатов на старте — изолированно по инструменту.
@@ -729,6 +932,38 @@ function ChatTool({ tool, onBack, onUsageChange }: ChatProps) {
           </Box>
         </CardContent>
       </Card>
+
+      {/* Калькулятор пассивного дохода — только для shares_advisor */}
+      {tool === 'shares_advisor' && (
+        <Card sx={{ mb: 2 }}>
+          <Box
+            onClick={() => setCalcOpen(o => !o)}
+            sx={{
+              p: 2, display: 'flex', alignItems: 'center', gap: 1.5,
+              cursor: 'pointer',
+              '&:hover': { background: alpha(meta.color, 0.04) },
+            }}
+          >
+            <CalculateRoundedIcon sx={{ color: meta.color, fontSize: 22 }} />
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: '#F1F5F9' }}>
+                Калькулятор пассивного дохода
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#64748B' }}>
+                Посчитай сколько можно зарабатывать на своей структуре по 7 уровням
+              </Typography>
+            </Box>
+            {calcOpen
+              ? <ExpandLessRoundedIcon sx={{ color: '#94A3B8' }} />
+              : <ExpandMoreRoundedIcon sx={{ color: '#94A3B8' }} />}
+          </Box>
+          {calcOpen && (
+            <Box sx={{ p: 2.5, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+              <PassiveIncomeCalculator />
+            </Box>
+          )}
+        </Card>
+      )}
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '260px 1fr' }, gap: 2, alignItems: 'start' }}>
         {/* Список диалогов */}

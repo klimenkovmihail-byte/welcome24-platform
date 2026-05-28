@@ -58,7 +58,16 @@ export interface SendResponse {
   usage: AiUsage;
 }
 
+export interface MlmStats {
+  byLevel: number[];          // [L1, L2, ..., L7]
+  l1WithFirstDeal: number;
+  avgDealVkd: number;
+  dealsPerMonth: number;
+  teamSize: number;
+}
+
 export const aiApi = {
+  mlmStats: () => api.get<MlmStats>('/api/ai/mlm-stats'),
   usage:    () => api.get<AiUsage>('/api/ai/usage'),
   tools:    () => api.get<Array<{ key: AiTool; label: string }>>('/api/ai/tools'),
   generate: (tool: AiTool, input: Record<string, unknown>) =>
