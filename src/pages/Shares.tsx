@@ -286,8 +286,8 @@ export default function Shares() {
               const safePage = Math.min(packetsPage, totalPages - 1);
               const pagePackets = sortedPackets.slice(safePage * PACKETS_PER_PAGE, (safePage + 1) * PACKETS_PER_PAGE);
               return (
-            <Box sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '110px 130px 1fr 130px 130px 130px 110px', background: 'rgba(255,255,255,0.03)' }}>
+            <Box sx={{ borderRadius: 2, overflowX: 'auto', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '110px 130px 1fr 130px 130px 130px 110px', minWidth: 880, background: 'rgba(255,255,255,0.03)' }}>
                 {['Дата', 'Тип', 'Примечание', 'Кол-во', 'Цена входа', 'Тек. цена', '%'].map(h => (
                   <Box key={h} sx={{ p: 2 }}>
                     <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 11 }}>{h}</Typography>
@@ -302,7 +302,7 @@ export default function Shares() {
                 // Бонусные пакеты — выданы по номиналу 1 ₽. Покупки по нормальной цене (даже со скидкой 10%) — обычный %.
                 const isGift = p.acquiredPrice > 0 && p.acquiredPrice <= 1;
                 return (
-                  <Box key={p.id} sx={{ display: 'grid', gridTemplateColumns: '110px 130px 1fr 130px 130px 130px 110px', borderTop: '1px solid rgba(255,255,255,0.04)', '&:hover': { background: 'rgba(201,168,76,0.04)' } }}>
+                  <Box key={p.id} sx={{ display: 'grid', gridTemplateColumns: '110px 130px 1fr 130px 130px 130px 110px', minWidth: 880, borderTop: '1px solid rgba(255,255,255,0.04)', '&:hover': { background: 'rgba(201,168,76,0.04)' } }}>
                     <Box sx={{ p: 1.6 }}>
                       <Typography variant="body2" sx={{ color: '#94A3B8' }}>
                         {new Date(p.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })}
@@ -338,7 +338,7 @@ export default function Shares() {
                 );
               })}
               {/* Totals — всегда по всем пакетам, не только текущей странице */}
-              <Box sx={{ display: 'grid', gridTemplateColumns: '110px 130px 1fr 130px 130px 130px 110px', borderTop: '2px solid rgba(201,168,76,0.25)', background: 'rgba(201,168,76,0.04)' }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '110px 130px 1fr 130px 130px 130px 110px', minWidth: 880, borderTop: '2px solid rgba(201,168,76,0.25)', background: 'rgba(201,168,76,0.04)' }}>
                 <Box sx={{ p: 1.6 }}><Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 800 }}>ИТОГО · {myShares.length}</Typography></Box>
                 <Box sx={{ p: 1.6 }} />
                 <Box sx={{ p: 1.6 }} />

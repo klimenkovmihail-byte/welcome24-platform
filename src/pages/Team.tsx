@@ -398,8 +398,8 @@ export default function Team() {
               </Box>
             </Box>
 
-            <Box sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <Table size="small">
+            <Box sx={{ borderRadius: 2, overflowX: 'auto', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <Table size="small" sx={{ minWidth: 560 }}>
                 <TableHead>
                   <TableRow>
                     <TableCell sx={{ width: 100, fontWeight: 700, color: '#64748B', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Уровень</TableCell>
@@ -539,16 +539,14 @@ export default function Team() {
                     onClick={() => setExpandedLevel(expanded ? null : l.level)}
                     sx={{
                       p: 2.5, cursor: agentsOnLevel.length > 0 ? 'pointer' : 'default',
-                      display: 'grid',
-                      gridTemplateColumns: '60px 1fr 140px 140px 160px 40px',
-                      gap: 2, alignItems: 'center',
+                      display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
                       '&:hover': agentsOnLevel.length > 0 ? { background: `${color}08` } : undefined,
                       transition: 'background 0.15s',
                     }}
                   >
                     {/* Bubble L-number */}
                     <Box sx={{
-                      width: 48, height: 48, borderRadius: 2.5,
+                      width: 48, height: 48, borderRadius: 2.5, flexShrink: 0,
                       background: `linear-gradient(135deg, ${color}, ${alpha(color, 0.6)})`,
                       color: '#0A0E1A',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -559,7 +557,7 @@ export default function Team() {
                     </Box>
 
                     {/* Status + description */}
-                    <Box>
+                    <Box sx={{ flex: '1 1 180px', minWidth: 0 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.4 }}>
                         <Typography variant="body1" sx={{ fontWeight: 700, color: '#F1F5F9' }}>
                           Уровень {l.level}
@@ -580,35 +578,43 @@ export default function Team() {
                       </Typography>
                     </Box>
 
-                    {/* Agents count */}
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography variant="caption" sx={{ color: '#64748B', display: 'block', fontSize: 11 }}>Агентов</Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 800, color, lineHeight: 1 }}>{l.count}</Typography>
-                    </Box>
+                    {/* Stats group — на мобиле переносится на отдельную строку (order:1) */}
+                    <Box sx={{
+                      display: 'flex', alignItems: 'flex-start', gap: { xs: 1, sm: 3 },
+                      flexShrink: 0, order: { xs: 1, sm: 0 },
+                      width: { xs: '100%', sm: 'auto' },
+                      justifyContent: { xs: 'space-between', sm: 'flex-end' },
+                    }}>
+                      {/* Agents count */}
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography variant="caption" sx={{ color: '#64748B', display: 'block', fontSize: 11 }}>Агентов</Typography>
+                        <Typography variant="h6" sx={{ fontWeight: 800, color, lineHeight: 1 }}>{l.count}</Typography>
+                      </Box>
 
-                    {/* ВКД */}
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography variant="caption" sx={{ color: '#64748B', display: 'block', fontSize: 11 }}>ВКД команды</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 800, color: '#F1F5F9', lineHeight: 1 }}>
-                        {l.totalVkd > 0 ? `${fmtCompact(l.totalVkd)} ₽` : '—'}
-                      </Typography>
-                    </Box>
-
-                    {/* Passive income */}
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography variant="caption" sx={{ color: '#64748B', display: 'block', fontSize: 11 }}>Ваш доход</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 900, color: l.cappedIncome > 0 ? '#22C55E' : '#475569', lineHeight: 1 }}>
-                        {l.cappedIncome > 0 ? `${fmt(l.cappedIncome)} ₽` : '—'}
-                      </Typography>
-                      {l.cappedIncome > 0 && (
-                        <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>
-                          по ставке {l.effectivePct.toFixed(1)}%
+                      {/* ВКД */}
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography variant="caption" sx={{ color: '#64748B', display: 'block', fontSize: 11 }}>ВКД команды</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 800, color: '#F1F5F9', lineHeight: 1 }}>
+                          {l.totalVkd > 0 ? `${fmtCompact(l.totalVkd)} ₽` : '—'}
                         </Typography>
-                      )}
+                      </Box>
+
+                      {/* Passive income */}
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography variant="caption" sx={{ color: '#64748B', display: 'block', fontSize: 11 }}>Ваш доход</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 900, color: l.cappedIncome > 0 ? '#22C55E' : '#475569', lineHeight: 1 }}>
+                          {l.cappedIncome > 0 ? `${fmt(l.cappedIncome)} ₽` : '—'}
+                        </Typography>
+                        {l.cappedIncome > 0 && (
+                          <Typography variant="caption" sx={{ color: '#64748B', fontSize: 10 }}>
+                            по ставке {l.effectivePct.toFixed(1)}%
+                          </Typography>
+                        )}
+                      </Box>
                     </Box>
 
                     {/* Expand arrow */}
-                    <IconButton size="small" sx={{ color: '#64748B', visibility: agentsOnLevel.length > 0 ? 'visible' : 'hidden' }}>
+                    <IconButton size="small" sx={{ color: '#64748B', flexShrink: 0, visibility: agentsOnLevel.length > 0 ? 'visible' : 'hidden' }}>
                       <KeyboardArrowDownRoundedIcon sx={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                     </IconButton>
                   </Box>
@@ -669,7 +675,8 @@ export default function Team() {
         // === Agents flat table view ===
         <Card>
           <CardContent sx={{ p: 0 }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '60px 1fr 120px 130px 110px 120px 110px', p: '12px 24px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <Box sx={{ overflowX: 'auto' }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '60px 1fr 120px 130px 110px 120px 110px', minWidth: 760, p: '12px 24px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               {['У', 'Агент', 'Город', 'ВКД', 'Сделок', 'Статус', 'Дата'].map(h => (
                 <Typography key={h} variant="caption" sx={{ color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 11 }}>{h}</Typography>
               ))}
@@ -680,7 +687,7 @@ export default function Team() {
                 return (
                   <motion.div key={a.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}>
                     <Box sx={{
-                      display: 'grid', gridTemplateColumns: '60px 1fr 120px 130px 110px 120px 110px',
+                      display: 'grid', gridTemplateColumns: '60px 1fr 120px 130px 110px 120px 110px', minWidth: 760,
                       alignItems: 'center', px: 3, py: 1.5,
                       borderBottom: '1px solid rgba(255,255,255,0.04)',
                       '&:hover': { background: 'rgba(201,168,76,0.04)' },
@@ -710,6 +717,7 @@ export default function Team() {
                 );
               })}
             </AnimatePresence>
+            </Box>
           </CardContent>
         </Card>
       )}
