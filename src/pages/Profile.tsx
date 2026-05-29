@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Box, Card, CardContent, Typography, Avatar, Chip, Grid, Divider, Button,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, Stack, IconButton, Alert, Tooltip,
@@ -29,6 +29,7 @@ import { supportApi, type SupportTicketSummary, type SupportTicketFull } from '.
 import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { buildReferralLink } from '../utils/referralLink';
+import { agentsApi } from '../api/agents';
 
 // Аплоад файла в Yandex Storage через /api/upload — для вложений в тикеты поддержки.
 async function uploadAttachment(file: File): Promise<string> {
@@ -195,6 +196,24 @@ export default function Profile() {
   }, [user]);
 
   const [supportForm, setSupportForm] = useState({ topic: '', message: '' });
+
+  // Привязка Telegram-бота: статус + deep-link.
+  const [tg, setTg] = useState<{ linked: boolean; available: boolean; deepLink?: string; botUsername?: string } | null>(null);
+  const [tgLoading, setTgLoading] = useState(true);
+  const loadTg = useCallback(() => {
+    agentsApi.telegramLink()
+      .then(setTg)
+      .catch(() => setTg(null))
+      .finally(() => setTgLoading(false));
+  }, []);
+  useEffect(() => { loadTg(); }, [loadTg]);
+  // Когда агент возвращается из Telegram (нажал Start) — обновляем статус.
+  useEffect(() => {
+    const onFocus = () => loadTg();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [loadTg]);
+  const handleTgUnlink = () => { agentsApi.telegramUnlink().then(loadTg).catch(() => { /* tolerate */ }); };
 
   // Реф-ссылка приходит из БД (бэк её авто-генерит). На случай если поле ещё
   // не обновилось — собираем тот же URL на клиенте из id+name (зеркало бэка).
@@ -471,6 +490,51 @@ export default function Profile() {
                       </IconButton>
                     </Tooltip>
                   </Box>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Telegram bot */}
+            <Card sx={{ mb: 3 }}>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                  <Box sx={{ width: 36, height: 36, borderRadius: 2, background: 'rgba(34,158,217,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <TelegramIcon sx={{ color: '#229ED9', fontSize: 20 }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#F1F5F9' }}>Telegram-уведомления</Typography>
+                    <Typography variant="caption" sx={{ color: '#64748B' }}>Напоминания об оплате, сделки, акции</Typography>
+                  </Box>
+                </Box>
+
+                {tgLoading ? (
+                  <CircularProgress size={20} sx={{ color: '#229ED9' }} />
+                ) : tg?.linked ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                    <Chip icon={<CheckCircleRoundedIcon sx={{ fontSize: 16 }} />} label="Подключено" size="small"
+                      sx={{ background: 'rgba(34,197,94,0.15)', color: '#22C55E', fontWeight: 700, '& .MuiChip-icon': { color: '#22C55E' } }} />
+                    <Button size="small" onClick={handleTgUnlink} sx={{ color: '#64748B', '&:hover': { color: '#EF4444' } }}>
+                      Отвязать
+                    </Button>
+                  </Box>
+                ) : tg?.available && tg.deepLink ? (
+                  <Box>
+                    <Button
+                      variant="contained" fullWidth
+                      component="a" href={tg.deepLink} target="_blank" rel="noopener noreferrer"
+                      startIcon={<TelegramIcon />}
+                      sx={{ background: 'linear-gradient(135deg, #229ED9, #2AABEE)', color: '#fff', fontWeight: 700, '&:hover': { boxShadow: '0 6px 20px rgba(34,158,217,0.35)' } }}
+                    >
+                      Подключить Telegram
+                    </Button>
+                    <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mt: 1, lineHeight: 1.5 }}>
+                      Откроется бот — нажмите «Start». Затем вернитесь сюда, статус обновится автоматически.
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Typography variant="caption" sx={{ color: '#64748B' }}>
+                    Бот скоро будет доступен.
+                  </Typography>
                 )}
               </CardContent>
             </Card>

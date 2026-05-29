@@ -111,4 +111,10 @@ export const agentsApi = {
   reviews: (id: number) => api.get<RawReview[]>(`/api/agents/${id}/reviews`).then(rows => rows.map(normalizeReview)),
   createReview: (id: number, rating: number, text: string) =>
     api.post<RawReview>(`/api/agents/${id}/reviews`, { rating, text }).then(normalizeReview),
+
+  // Telegram-бот: статус привязки + deep-link, отвязка.
+  telegramLink: () =>
+    api.get<{ linked: boolean; available: boolean; deepLink?: string; botUsername?: string }>('/api/agents/me/telegram-link'),
+  telegramUnlink: () =>
+    api.post<{ ok: boolean }>('/api/agents/me/telegram-unlink', {}),
 };
