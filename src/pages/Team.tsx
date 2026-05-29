@@ -101,6 +101,9 @@ export default function Team() {
     [levels, marketingPlan, l1AgentsWithDeals],
   );
   const totalPassiveIncome = incomeBreakdown.reduce((s, l) => s + l.cappedIncome, 0);
+  // Ставка (effectivePct) по уровню — чтобы показать рубли дохода ментора с конкретного агента.
+  const rateByLevel = useMemo(() => new Map(incomeBreakdown.map(l => [l.level, l.effectivePct])), [incomeBreakdown]);
+  const agentIncome = (a: TeamMember) => Math.round((a.vkd || 0) * (rateByLevel.get(a.teamLevel) || 0) / 100);
   const totalTeamVkd = totals.vkd;
   const totalTeamAgents = totals.agents;
   const totalTeamDeals = totals.deals;
@@ -595,7 +598,7 @@ export default function Team() {
                       <Box sx={{ textAlign: 'right' }}>
                         <Typography variant="caption" sx={{ color: '#64748B', display: 'block', fontSize: 11 }}>ВКД команды</Typography>
                         <Typography variant="body2" sx={{ fontWeight: 800, color: '#F1F5F9', lineHeight: 1 }}>
-                          {l.totalVkd > 0 ? `${fmtCompact(l.totalVkd)} ₽` : '—'}
+                          {l.totalVkd > 0 ? `${fmt(l.totalVkd)} ₽` : '—'}
                         </Typography>
                       </Box>
 
@@ -646,11 +649,11 @@ export default function Team() {
                                       {a.name.split(' ').slice(0, 2).join(' ')}
                                     </Typography>
                                     <Box sx={{ display: 'flex', gap: 0.6, alignItems: 'center' }}>
-                                      <Typography variant="caption" sx={{ color: '#94A3B8', fontSize: 11 }}>{a.city}</Typography>
-                                      {da && (
+                                      <Typography variant="caption" sx={{ color: '#94A3B8', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.city}</Typography>
+                                      {agentIncome(a) > 0 && (
                                         <>
-                                          <Box component="span" sx={{ width: 3, height: 3, borderRadius: '50%', background: '#475569' }} />
-                                          <Typography variant="caption" sx={{ color: '#C9A84C', fontWeight: 700, fontSize: 11 }}>{da.deals} сд.</Typography>
+                                          <Box component="span" sx={{ width: 3, height: 3, borderRadius: '50%', background: '#475569', flexShrink: 0 }} />
+                                          <Typography variant="caption" sx={{ color: '#22C55E', fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>+{fmt(agentIncome(a))} ₽</Typography>
                                         </>
                                       )}
                                     </Box>
@@ -676,8 +679,8 @@ export default function Team() {
         <Card>
           <CardContent sx={{ p: 0 }}>
             <Box sx={{ overflowX: 'auto' }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '60px 1fr 120px 130px 110px 120px 110px', minWidth: 760, p: '12px 24px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              {['У', 'Агент', 'Город', 'ВКД', 'Сделок', 'Статус', 'Дата'].map(h => (
+            <Box sx={{ display: 'grid', gridTemplateColumns: '52px 230px 150px 120px 120px 84px 110px 92px', minWidth: 958, p: '12px 24px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              {['У', 'Агент', 'Город', 'ВКД', 'Доход', 'Сделок', 'Статус', 'Дата'].map(h => (
                 <Typography key={h} variant="caption" sx={{ color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 11 }}>{h}</Typography>
               ))}
             </Box>
@@ -687,21 +690,24 @@ export default function Team() {
                 return (
                   <motion.div key={a.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}>
                     <Box sx={{
-                      display: 'grid', gridTemplateColumns: '60px 1fr 120px 130px 110px 120px 110px', minWidth: 760,
+                      display: 'grid', gridTemplateColumns: '52px 230px 150px 120px 120px 84px 110px 92px', minWidth: 958,
                       alignItems: 'center', px: 3, py: 1.5,
                       borderBottom: '1px solid rgba(255,255,255,0.04)',
                       '&:hover': { background: 'rgba(201,168,76,0.04)' },
                     }}>
                       <Chip label={`У${a.teamLevel}`} size="small" sx={{ background: `${color}20`, color, fontWeight: 800, width: 36, height: 22, fontSize: 11 }} />
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Avatar sx={{ width: 30, height: 30, fontSize: 11, fontWeight: 700, background: `${color}25`, color }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, pr: 1 }}>
+                        <Avatar sx={{ width: 30, height: 30, fontSize: 11, fontWeight: 700, background: `${color}25`, color, flexShrink: 0 }}>
                           {a.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
                         </Avatar>
-                        <Typography variant="body2" sx={{ color: '#F1F5F9' }}>{a.name}</Typography>
+                        <Typography variant="body2" sx={{ color: '#F1F5F9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</Typography>
                       </Box>
-                      <Typography variant="body2" sx={{ color: '#94A3B8' }}>{a.city}</Typography>
+                      <Typography variant="body2" sx={{ color: '#94A3B8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', pr: 1 }}>{a.city || '—'}</Typography>
                       <Typography variant="body2" sx={{ fontWeight: 700, color: a.vkd > 0 ? '#C9A84C' : '#475569' }}>
                         {a.vkd > 0 ? `${fmt(a.vkd)} ₽` : '—'}
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 800, color: agentIncome(a) > 0 ? '#22C55E' : '#475569' }}>
+                        {agentIncome(a) > 0 ? `+${fmt(agentIncome(a))} ₽` : '—'}
                       </Typography>
                       <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 600 }}>{a.deals || '—'}</Typography>
                       <Chip label={a.status === 'active' ? 'активен' : 'не активен'} size="small" sx={{
