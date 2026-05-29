@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, LinearProgress, Grid, Tabs, Tab, alpha,
   Button, Dialog, DialogContent, IconButton, ToggleButtonGroup, ToggleButton, Divider,
-  Tooltip, Stack,
+  Tooltip, Stack, useMediaQuery, useTheme,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import PlayCircleRoundedIcon from '@mui/icons-material/PlayCircleRounded';
@@ -567,6 +567,9 @@ function AcademyImpl() {
     ? Math.round(academyCourses.reduce((s, c) => s + c.progress, 0) / academyCourses.length)
     : 0;
 
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   return (
     <Box>
       {/* Stats row */}
@@ -594,18 +597,23 @@ function AcademyImpl() {
       <Tabs
         value={tab}
         onChange={(_, v) => setTab(v)}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
         sx={{
           mb: 3,
+          minHeight: 44,
           '& .MuiTabs-indicator': { background: '#C9A84C', height: 3, borderRadius: 99 },
           '& .MuiTab-root': {
-            color: '#64748B', fontWeight: 700, fontSize: 14, textTransform: 'none',
+            color: '#64748B', fontWeight: 700, fontSize: { xs: 13, md: 14 }, textTransform: 'none',
+            minHeight: 44, minWidth: 'auto', px: { xs: 1.25, md: 2 },
             '&.Mui-selected': { color: '#F1F5F9' },
           },
         }}
       >
-        <Tab value="courses"    label="Курсы" icon={<MenuBookRoundedIcon />} iconPosition="start" />
-        <Tab value="recordings" label="Записи вебинаров" icon={<OndemandVideoRoundedIcon />} iconPosition="start" />
-        <Tab value="schedule"   label="Расписание" icon={<EventAvailableRoundedIcon />} iconPosition="start" />
+        <Tab value="courses"    label="Курсы" icon={isMobile ? undefined : <MenuBookRoundedIcon />} iconPosition="start" />
+        <Tab value="recordings" label={isMobile ? 'Вебинары' : 'Записи вебинаров'} icon={isMobile ? undefined : <OndemandVideoRoundedIcon />} iconPosition="start" />
+        <Tab value="schedule"   label="Расписание" icon={isMobile ? undefined : <EventAvailableRoundedIcon />} iconPosition="start" />
       </Tabs>
 
       {/* === COURSES TAB === */}
@@ -734,7 +742,7 @@ function AcademyImpl() {
       )}
 
       {/* ===== Course dialog ===== */}
-      <Dialog open={!!openCourse} onClose={() => setOpenCourse(null)} maxWidth="md" fullWidth
+      <Dialog open={!!openCourse} onClose={() => setOpenCourse(null)} maxWidth="md" fullWidth fullScreen={isMobile}
         slotProps={{ paper: { sx: { background: 'linear-gradient(135deg, #0F1629 0%, #0A0E1A 100%)', border: '1px solid rgba(201,168,76,0.15)', borderRadius: 3 } } }}
       >
         {openCourse && (() => {
@@ -966,7 +974,7 @@ function AcademyImpl() {
       </Dialog>
 
       {/* ===== Webinar recording dialog ===== */}
-      <Dialog open={!!openWebinar} onClose={() => setOpenWebinar(null)} maxWidth="md" fullWidth
+      <Dialog open={!!openWebinar} onClose={() => setOpenWebinar(null)} maxWidth="md" fullWidth fullScreen={isMobile}
         slotProps={{ paper: { sx: { background: 'linear-gradient(135deg, #0F1629 0%, #0A0E1A 100%)', border: '1px solid rgba(201,168,76,0.15)', borderRadius: 3 } } }}
       >
         {openWebinar && (() => {
