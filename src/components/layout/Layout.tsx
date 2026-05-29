@@ -47,14 +47,18 @@ export default function Layout({ children }: LayoutProps) {
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
         <ImpersonationBanner />
         <Header currentPath={location.pathname} isMobile={isMobile} onMenuClick={() => setMobileOpen(true)} />
-        <Box sx={{ flex: 1, p: { xs: 2, md: 4 }, overflow: 'auto' }}>
-          {subStatus && agent?.id && (
-            <SubscriptionBar status={subStatus} agentId={agent.id} onUpdated={reload} />
-          )}
-          {showLocked && !allowedWhenBlocked && agent?.id
-            ? <SubscriptionLockedView status={subStatus!} agentId={agent.id} onUpdated={reload} />
-            : children
-          }
+        <Box sx={{ flex: 1, overflow: 'auto' }}>
+          {/* Ограничиваем ширину контента и центрируем — иначе на широких мониторах
+              (2K+) всё растягивается на всю ширину и выглядит разреженно. */}
+          <Box sx={{ maxWidth: 1440, mx: 'auto', p: { xs: 2, md: 4 } }}>
+            {subStatus && agent?.id && (
+              <SubscriptionBar status={subStatus} agentId={agent.id} onUpdated={reload} />
+            )}
+            {showLocked && !allowedWhenBlocked && agent?.id
+              ? <SubscriptionLockedView status={subStatus!} agentId={agent.id} onUpdated={reload} />
+              : children
+            }
+          </Box>
         </Box>
       </Box>
     </Box>

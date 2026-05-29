@@ -349,13 +349,13 @@ export default function News() {
         </motion.div>
       )}
 
-      {/* Grid of regular articles */}
-      <Grid container spacing={3}>
+      {/* Grid of regular articles — auto-fit: карточки ровно заполняют ширину
+          при любом их числе (2 → две на всю ширину, без пустой колонки). */}
+      <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))' }}>
         {rest.map((article, i) => {
           const c = categoryColors[article.category] || { bg: 'rgba(100,116,139,0.15)', color: '#94A3B8' };
           return (
-            <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={article.id}>
-              <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }} whileHover={{ y: -4 }} style={{ height: '100%' }}>
+              <motion.div key={article.id} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }} whileHover={{ y: -4 }} style={{ height: '100%' }}>
                 <Card
                   onClick={() => setOpenId(article.id)}
                   sx={{
@@ -390,10 +390,9 @@ export default function News() {
                   </CardContent>
                 </Card>
               </motion.div>
-            </Grid>
           );
         })}
-      </Grid>
+      </Box>
 
       {/* === Full article dialog === */}
       <Dialog
