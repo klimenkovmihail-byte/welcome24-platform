@@ -117,4 +117,10 @@ export const agentsApi = {
     api.get<{ linked: boolean; available: boolean; deepLink?: string; botUsername?: string }>('/api/agents/me/telegram-link'),
   telegramUnlink: () =>
     api.post<{ ok: boolean }>('/api/agents/me/telegram-unlink', {}),
+
+  // MAX-бот: статус привязки + ссылка на бота и код (привязка по коду).
+  maxLink: () =>
+    api.get<{ linked: boolean; available: boolean; botLink?: string; botUsername?: string; code?: string }>('/api/agents/me/max-link'),
+  maxUnlink: () =>
+    api.post<{ ok: boolean }>('/api/agents/me/max-unlink', {}),
 };

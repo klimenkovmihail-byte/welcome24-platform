@@ -215,6 +215,27 @@ export default function Profile() {
   }, [loadTg]);
   const handleTgUnlink = () => { agentsApi.telegramUnlink().then(loadTg).catch(() => { /* tolerate */ }); };
 
+  // Привязка MAX-бота (привязка по коду).
+  const [mx, setMx] = useState<{ linked: boolean; available: boolean; botLink?: string; code?: string } | null>(null);
+  const [mxLoading, setMxLoading] = useState(true);
+  const [mxCodeCopied, setMxCodeCopied] = useState(false);
+  const loadMx = useCallback(() => {
+    agentsApi.maxLink()
+      .then(setMx)
+      .catch(() => setMx(null))
+      .finally(() => setMxLoading(false));
+  }, []);
+  useEffect(() => { loadMx(); }, [loadMx]);
+  useEffect(() => {
+    const onFocus = () => loadMx();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [loadMx]);
+  const handleMxUnlink = () => { agentsApi.maxUnlink().then(loadMx).catch(() => { /* tolerate */ }); };
+  const handleCopyMxCode = () => {
+    if (mx?.code) { navigator.clipboard?.writeText(mx.code); setMxCodeCopied(true); setTimeout(() => setMxCodeCopied(false), 1500); }
+  };
+
   // Реф-ссылка приходит из БД (бэк её авто-генерит). На случай если поле ещё
   // не обновилось — собираем тот же URL на клиенте из id+name (зеркало бэка).
   const referralLink = (() => {
@@ -529,6 +550,61 @@ export default function Profile() {
                     </Button>
                     <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mt: 1, lineHeight: 1.5 }}>
                       Откроется бот — нажмите «Start». Затем вернитесь сюда, статус обновится автоматически.
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Typography variant="caption" sx={{ color: '#64748B' }}>
+                    Бот скоро будет доступен.
+                  </Typography>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* MAX bot */}
+            <Card sx={{ mb: 3 }}>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                  <Box sx={{ width: 36, height: 36, borderRadius: 2, background: 'rgba(139,92,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <ChatRoundedIcon sx={{ color: '#8B5CF6', fontSize: 20 }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#F1F5F9' }}>MAX-уведомления</Typography>
+                    <Typography variant="caption" sx={{ color: '#64748B' }}>То же, что Telegram — в мессенджере MAX</Typography>
+                  </Box>
+                </Box>
+
+                {mxLoading ? (
+                  <CircularProgress size={20} sx={{ color: '#8B5CF6' }} />
+                ) : mx?.linked ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                    <Chip icon={<CheckCircleRoundedIcon sx={{ fontSize: 16 }} />} label="Подключено" size="small"
+                      sx={{ background: 'rgba(34,197,94,0.15)', color: '#22C55E', fontWeight: 700, '& .MuiChip-icon': { color: '#22C55E' } }} />
+                    <Button size="small" onClick={handleMxUnlink} sx={{ color: '#64748B', '&:hover': { color: '#EF4444' } }}>
+                      Отвязать
+                    </Button>
+                  </Box>
+                ) : mx?.available && mx.botLink ? (
+                  <Box>
+                    <Button
+                      variant="contained" fullWidth
+                      component="a" href={mx.botLink} target="_blank" rel="noopener noreferrer"
+                      startIcon={<ChatRoundedIcon />}
+                      sx={{ background: 'linear-gradient(135deg, #8B5CF6, #6E4AE6)', color: '#fff', fontWeight: 700, '&:hover': { boxShadow: '0 6px 20px rgba(139,92,246,0.35)' } }}
+                    >
+                      Открыть бота MAX
+                    </Button>
+                    <Box sx={{ mt: 1.5, p: 1.2, borderRadius: 2, background: 'rgba(139,92,246,0.06)', border: '1px dashed rgba(139,92,246,0.25)', display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="caption" sx={{ color: '#94A3B8', flex: 1 }}>
+                        Отправьте боту код: <b style={{ color: '#C4B5FD', fontFamily: 'monospace' }}>{mx.code}</b>
+                      </Typography>
+                      <Tooltip title={mxCodeCopied ? 'Скопировано!' : 'Скопировать код'}>
+                        <IconButton size="small" onClick={handleCopyMxCode} sx={{ color: mxCodeCopied ? '#22C55E' : '#64748B' }}>
+                          {mxCodeCopied ? <CheckCircleRoundedIcon sx={{ fontSize: 16 }} /> : <ContentCopyRoundedIcon sx={{ fontSize: 16 }} />}
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                    <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mt: 1, lineHeight: 1.5 }}>
+                      Откроется бот — нажмите «Старт» и отправьте этот код. Статус обновится автоматически.
                     </Typography>
                   </Box>
                 ) : (
