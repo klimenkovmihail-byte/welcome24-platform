@@ -569,6 +569,10 @@ function AcademyImpl() {
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  // Невысокий экран (ноутбуки 10–15"): диалог во весь экран + видео ниже,
+  // иначе плеер съедает всю высоту и комментарии/оценки уходят за край.
+  const isShort = useMediaQuery('(max-height: 820px)');
+  const compactDialog = isMobile || isShort;
 
   return (
     <Box>
@@ -742,7 +746,7 @@ function AcademyImpl() {
       )}
 
       {/* ===== Course dialog ===== */}
-      <Dialog open={!!openCourse} onClose={() => setOpenCourse(null)} maxWidth="md" fullWidth fullScreen={isMobile}
+      <Dialog open={!!openCourse} onClose={() => setOpenCourse(null)} maxWidth="md" fullWidth fullScreen={compactDialog}
         slotProps={{ paper: { sx: { background: 'linear-gradient(135deg, #0F1629 0%, #0A0E1A 100%)', border: '1px solid rgba(201,168,76,0.15)', borderRadius: 3 } } }}
       >
         {openCourse && (() => {
@@ -974,7 +978,7 @@ function AcademyImpl() {
       </Dialog>
 
       {/* ===== Webinar recording dialog ===== */}
-      <Dialog open={!!openWebinar} onClose={() => setOpenWebinar(null)} maxWidth="md" fullWidth fullScreen={isMobile}
+      <Dialog open={!!openWebinar} onClose={() => setOpenWebinar(null)} maxWidth="md" fullWidth fullScreen={compactDialog}
         slotProps={{ paper: { sx: { background: 'linear-gradient(135deg, #0F1629 0%, #0A0E1A 100%)', border: '1px solid rgba(201,168,76,0.15)', borderRadius: 3 } } }}
       >
         {openWebinar && (() => {
@@ -995,8 +999,11 @@ function AcademyImpl() {
                 </IconButton>
               </Box>
 
-              {/* Video player (Kinescope / YouTube / mp4 / placeholder) */}
-              <VideoPlayer src={openWebinar.videoUrl} poster={openWebinar.coverUrl} />
+              {/* Video player (Kinescope / YouTube / mp4 / placeholder).
+                  На невысоких экранах ограничиваем высоту, чтобы комментарии/оценки
+                  ниже оставались доступны скроллом. */}
+              <VideoPlayer src={openWebinar.videoUrl} poster={openWebinar.coverUrl}
+                height={compactDialog ? 'min(46vh, 420px)' : undefined} />
 
               <DialogContent sx={{ p: 3 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, flexWrap: 'wrap', gap: 1 }}>
