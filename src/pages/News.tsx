@@ -172,7 +172,9 @@ export default function News() {
   );
 
   const featured = filtered.find(a => a.featured);
-  const rest = filtered.filter(a => !a.featured);
+  // В сетку идут все, КРОМЕ той одной, что показана баннером (не все featured —
+  // иначе вторая «Главное»-новость пропадала бы вовсе).
+  const rest = filtered.filter(a => a.id !== featured?.id);
   const openArticle = openId !== null ? newsArticles.find(a => a.id === openId) : null;
 
   const getLikes = (a: NewsArticle) => likesOverride[a.id] ?? a.likes;
