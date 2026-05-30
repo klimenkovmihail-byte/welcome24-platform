@@ -74,11 +74,11 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
         {/* Logo */}
         <Box sx={{ p: mini ? 1.5 : 2.5, pt: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: mini ? 0 : 1.5 }}>
           {mini ? (
-            <LogoIcon size={40} color="#C9A84C" premium />
+            <LogoIcon size={48} color="#C9A84C" premium />
           ) : (
             <AnimatePresence>
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Logo variant="full" size={48} premium />
+                <Logo variant="full" size={64} premium />
               </motion.div>
             </AnimatePresence>
           )}
