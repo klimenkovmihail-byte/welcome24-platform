@@ -20,6 +20,17 @@ export interface CaseTask {
   updated_at: string;
 }
 
+export interface CaseAttachment {
+  id: number;
+  case_id: number;
+  uploader_id: number | null;
+  uploader_name: string | null;
+  name: string;
+  url: string;
+  size: number;
+  created_at: string;
+}
+
 export interface CaseItem {
   id: number;
   agent_id: number;
@@ -32,6 +43,7 @@ export interface CaseItem {
   created_at: string;
   updated_at: string;
   tasks: CaseTask[];
+  attachments: CaseAttachment[];
 }
 
 export interface TaskTypeMeta {
@@ -68,6 +80,10 @@ export const casesApi = {
   addTask: (caseId: number, taskType: TaskType) =>
     api.post<CaseItem>(`/api/cases/${caseId}/tasks`, { taskType }),
   types: () => api.get<TaskTypeMeta[]>('/api/cases/meta/types'),
+  addAttachment: (caseId: number, body: { name: string; url: string; size?: number }) =>
+    api.post<CaseItem>(`/api/cases/${caseId}/attachments`, body),
+  deleteAttachment: (caseId: number, attId: number) =>
+    api.del<CaseItem>(`/api/cases/${caseId}/attachments/${attId}`),
 
   // Специалист/админ.
   queue: (track?: TaskTrack) =>

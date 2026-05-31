@@ -7,7 +7,24 @@ import { motion } from 'framer-motion';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
 import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded';
+import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
+import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
+import { Link } from '@mui/material';
 import { casesApi, type CaseItem, type TaskTypeMeta, type TaskType, STATUS_RU } from '../api/cases';
+import { API_BASE_URL, getToken } from '../api/apiClient';
+
+// Загрузка файла в Yandex Storage через /api/upload.
+async function uploadCaseFile(file: File): Promise<{ url: string; name: string; size: number }> {
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('type', 'doc');
+  const res = await fetch(`${API_BASE_URL}/api/upload`, {
+    method: 'POST', headers: { Authorization: `Bearer ${getToken()}` }, body: fd,
+  });
+  if (!res.ok) throw new Error('Не удалось загрузить файл');
+  const data = await res.json();
+  return { url: data.url, name: file.name, size: file.size };
+}
 
 // Цвет статуса задачи.
 function statusColor(status: string): string {
@@ -69,6 +86,23 @@ export default function Cases() {
 
   const handleAddTask = (caseId: number, taskType: TaskType) => {
     casesApi.addTask(caseId, taskType).then(load).catch(() => { /* tolerate */ });
+  };
+
+  const [uploadingId, setUploadingId] = useState<number | null>(null);
+  const handleUpload = async (caseId: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingId(caseId);
+    try {
+      const meta = await uploadCaseFile(file);
+      await casesApi.addAttachment(caseId, meta);
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка загрузки');
+    } finally {
+      setUploadingId(null);
+      e.target.value = '';
+    }
   };
 
   return (
@@ -135,6 +169,32 @@ export default function Cases() {
                       );
                     })}
                   </Stack>
+
+                  {/* Вложения */}
+                  <Box sx={{ mt: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="caption" sx={{ color: '#64748B', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>Файлы</Typography>
+                      <Button component="label" size="small" disabled={uploadingId === c.id}
+                        startIcon={uploadingId === c.id ? <CircularProgress size={14} /> : <AttachFileRoundedIcon />}
+                        sx={{ color: '#C9A84C', textTransform: 'none' }}>
+                        Прикрепить
+                        <input type="file" hidden onChange={e => handleUpload(c.id, e)} />
+                      </Button>
+                    </Box>
+                    {c.attachments?.length > 0 && (
+                      <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                        {c.attachments.map(at => (
+                          <Box key={at.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, borderRadius: 1.5, background: 'rgba(255,255,255,0.03)' }}>
+                            <DescriptionRoundedIcon sx={{ fontSize: 18, color: '#94A3B8' }} />
+                            <Link href={at.url} target="_blank" rel="noopener" sx={{ color: '#E2C97E', flex: 1, fontSize: 13, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
+                              {at.name}
+                            </Link>
+                            <Typography variant="caption" sx={{ color: '#64748B' }}>{at.uploader_name}</Typography>
+                          </Box>
+                        ))}
+                      </Stack>
+                    )}
+                  </Box>
 
                   {/* Добавить ипотеку, если её ещё нет */}
                   {!c.tasks.some(t => t.type === 'mortgage') && (
