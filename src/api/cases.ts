@@ -44,6 +44,7 @@ export interface CaseItem {
   updated_at: string;
   tasks: CaseTask[];
   attachments: CaseAttachment[];
+  unread?: number;
 }
 
 export interface TaskTypeMeta {

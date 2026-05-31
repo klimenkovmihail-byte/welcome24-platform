@@ -255,11 +255,13 @@ export default function Cases() {
 
                   {/* Обсуждение (чат заявки) */}
                   <Box sx={{ mt: 2 }}>
-                    <Button size="small" startIcon={<ChatBubbleOutlineRoundedIcon />}
-                      onClick={() => setChatOpenId(chatOpenId === c.id ? null : c.id)}
-                      sx={{ color: '#C9A84C', textTransform: 'none' }}>
-                      {chatOpenId === c.id ? 'Скрыть обсуждение' : 'Обсуждение со специалистом'}
-                    </Button>
+                    <Badge badgeContent={chatOpenId === c.id ? 0 : (c.unread || 0)} color="error" sx={{ '& .MuiBadge-badge': { fontWeight: 800 } }}>
+                      <Button size="small" startIcon={<ChatBubbleOutlineRoundedIcon />}
+                        onClick={() => { const opening = chatOpenId !== c.id; setChatOpenId(opening ? c.id : null); if (opening) casesApi.markRead(c.id).then(load).catch(() => {}); }}
+                        sx={{ color: (c.unread && chatOpenId !== c.id) ? '#EF4444' : '#C9A84C', textTransform: 'none', fontWeight: (c.unread && chatOpenId !== c.id) ? 700 : 400 }}>
+                        {chatOpenId === c.id ? 'Скрыть обсуждение' : (c.unread ? `Новое сообщение (${c.unread})` : 'Обсуждение со специалистом')}
+                      </Button>
+                    </Badge>
                     {chatOpenId === c.id && (
                       <Box sx={{ mt: 1 }}><CaseChat caseId={c.id} myId={myId} /></Box>
                     )}
