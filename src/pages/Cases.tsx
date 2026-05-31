@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
 import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded';
 import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
@@ -49,6 +50,8 @@ export default function Cases() {
   const [types, setTypes] = useState<TaskTypeMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
 
   // Диалог новой заявки.
   const [open, setOpen] = useState(false);
@@ -110,6 +113,15 @@ export default function Cases() {
     }
   };
 
+  const q = search.trim().toLowerCase();
+  const filteredCases = cases.filter(c => {
+    const matchQ = !q || c.client_name.toLowerCase().includes(q)
+      || (c.object_address || '').toLowerCase().includes(q)
+      || (c.city || '').toLowerCase().includes(q);
+    const matchType = typeFilter === 'all' || c.tasks.some(t => t.type === typeFilter);
+    return matchQ && matchType;
+  });
+
   return (
     <Box>
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
@@ -129,15 +141,37 @@ export default function Cases() {
         </Button>
       </Box>
 
+      {/* Фильтры и поиск */}
+      {cases.length > 0 && (
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2, alignItems: 'center' }}>
+          <TextField
+            size="small" placeholder="Поиск: клиент, объект, город…"
+            value={search} onChange={e => setSearch(e.target.value)}
+            sx={{ flex: '1 1 240px', minWidth: 180 }}
+            slotProps={{ input: { startAdornment: <SearchRoundedIcon sx={{ fontSize: 18, color: '#64748B', mr: 1 }} /> } }}
+          />
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <Select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+              <MenuItem value="all">Все типы</MenuItem>
+              {types.map(t => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
+            </Select>
+          </FormControl>
+        </Box>
+      )}
+
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress sx={{ color: '#C9A84C' }} /></Box>
       ) : cases.length === 0 ? (
         <Card><CardContent sx={{ py: 6, textAlign: 'center' }}>
           <Typography sx={{ color: '#64748B' }}>У вас пока нет заявок. Создайте первую — специалист возьмёт её в работу.</Typography>
         </CardContent></Card>
+      ) : filteredCases.length === 0 ? (
+        <Card><CardContent sx={{ py: 6, textAlign: 'center' }}>
+          <Typography sx={{ color: '#64748B' }}>Ничего не найдено по фильтру.</Typography>
+        </CardContent></Card>
       ) : (
         <Stack spacing={2}>
-          {cases.map((c, i) => (
+          {filteredCases.map((c, i) => (
             <motion.div key={c.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
               <Card>
                 <CardContent sx={{ p: 3 }}>
