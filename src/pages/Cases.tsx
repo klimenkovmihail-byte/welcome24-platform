@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, MenuItem, CircularProgress, Alert, Stack, Divider,
-  FormControl, Select,
+  FormControl, Select, Badge,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
