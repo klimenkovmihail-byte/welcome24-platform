@@ -5,6 +5,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import ImpersonationBanner from './ImpersonationBanner';
 import PushBanner from './PushBanner';
+import { syncPushSubscription } from '../../push';
 import SubscriptionBar from '../SubscriptionBar';
 import SubscriptionLockedView from '../SubscriptionLockedView';
 import { subscriptionApi, type SubscriptionStatus } from '../../api/subscription';
@@ -36,6 +37,12 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  // Привязываем существующую push-подписку к текущему пользователю (на случай,
+  // если в этом браузере раньше входил другой аккаунт).
+  useEffect(() => {
+    if (agent) syncPushSubscription();
+  }, [agent?.id]);
 
   // Сотрудники / lifetime-VIP / нет статуса — обычное отображение, бар сам решит что показать.
   const showLocked = subStatus?.blocked === true;

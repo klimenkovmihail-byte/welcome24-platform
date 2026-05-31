@@ -134,3 +134,22 @@ export async function disablePush(): Promise<PushState> {
   }
   return 'default';
 }
+
+// Синхронизация подписки при загрузке: если на устройстве уже есть активная
+// подписка и разрешение granted — переотправляем её на бэк под ТЕКУЩИМ
+// пользователем. Чинит кейс «в одном браузере входили разные аккаунты» —
+// подписка перепривязывается к тому, кто залогинен сейчас.
+export async function syncPushSubscription(): Promise<void> {
+  if (!pushSupported() || Notification.permission !== 'granted') return;
+  const reg = await getReg();
+  const sub = reg ? await reg.pushManager.getSubscription() : null;
+  if (!sub) return;
+  const json = sub.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
+  if (json.endpoint && json.keys?.p256dh && json.keys?.auth) {
+    await agentsApi.pushSubscribe({
+      endpoint: json.endpoint,
+      keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+      userAgent: navigator.userAgent,
+    }).catch(() => { /* tolerate */ });
+  }
+}
