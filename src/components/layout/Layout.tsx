@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import ImpersonationBanner from './ImpersonationBanner';
+import PushBanner from './PushBanner';
 import SubscriptionBar from '../SubscriptionBar';
 import SubscriptionLockedView from '../SubscriptionLockedView';
 import { subscriptionApi, type SubscriptionStatus } from '../../api/subscription';
@@ -54,6 +55,8 @@ export default function Layout({ children }: LayoutProps) {
             {subStatus && agent?.id && (
               <SubscriptionBar status={subStatus} agentId={agent.id} onUpdated={reload} />
             )}
+            {/* Мягкий баннер «Включить уведомления?» — не показываем на заблокированном экране */}
+            {!(showLocked && !allowedWhenBlocked) && <PushBanner />}
             {showLocked && !allowedWhenBlocked && agent?.id
               ? <SubscriptionLockedView status={subStatus!} agentId={agent.id} onUpdated={reload} />
               : children
