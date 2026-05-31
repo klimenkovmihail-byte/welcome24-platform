@@ -53,6 +53,7 @@ export default function Cases() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [stateFilter, setStateFilter] = useState<'active' | 'done' | 'all'>('all');
 
   // Диалог новой заявки.
   const [open, setOpen] = useState(false);
@@ -115,13 +116,17 @@ export default function Cases() {
   };
 
   const q = search.trim().toLowerCase();
+  const CLOSED = ['done', 'cancelled', 'issued', 'rejected'];
+  const isCaseClosed = (c: CaseItem) => c.tasks.length > 0 && c.tasks.every(t => CLOSED.includes(t.status));
   const filteredCases = cases.filter(c => {
     const matchQ = !q || c.client_name.toLowerCase().includes(q)
       || (c.object_address || '').toLowerCase().includes(q)
       || (c.city || '').toLowerCase().includes(q);
     const matchType = typeFilter === 'all' || c.tasks.some(t => t.type === typeFilter);
-    return matchQ && matchType;
-  });
+    const closed = isCaseClosed(c);
+    const matchState = stateFilter === 'all' || (stateFilter === 'active' && !closed) || (stateFilter === 'done' && closed);
+    return matchQ && matchType && matchState;
+  }).sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
 
   return (
     <Box>
@@ -155,6 +160,13 @@ export default function Cases() {
             <Select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
               <MenuItem value="all">Все типы</MenuItem>
               {types.map(t => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <Select value={stateFilter} onChange={e => setStateFilter(e.target.value as typeof stateFilter)}>
+              <MenuItem value="all">Все</MenuItem>
+              <MenuItem value="active">Активные</MenuItem>
+              <MenuItem value="done">Завершённые</MenuItem>
             </Select>
           </FormControl>
         </Box>
