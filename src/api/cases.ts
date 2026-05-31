@@ -6,7 +6,7 @@
 import { api } from './apiClient';
 
 export type TaskTrack = 'legal' | 'mortgage';
-export type TaskType = 'doc_check' | 'contract' | 'deposit' | 'mortgage';
+export type TaskType = 'doc_check' | 'contract' | 'deposit' | 'dkp' | 'mortgage';
 
 export interface CaseTask {
   id: number;
@@ -54,15 +54,11 @@ export interface TaskTypeMeta {
 
 // Русские подписи статусов (совпадают с бэком statusLabel).
 export const STATUS_RU: Record<string, string> = {
-  new: 'Новая',
-  in_progress: 'В работе',
-  done: 'Готово',
-  cancelled: 'Отменена',
-  consultation: 'Консультация',
-  approval: 'Заявка на одобрение',
-  approved: 'Одобрено',
-  rejected: 'Отказ',
-  issued: 'Ипотека выдана',
+  check: 'Проверка документов', contract: 'Договор', deposit: 'Задаток / аванс',
+  dkp: 'ДКП', deal: 'Сделка', act: 'Акт', done: 'Завершено',
+  new: 'Новая', in_progress: 'В работе', cancelled: 'Отменена',
+  consultation: 'Консультация', approval: 'Заявка на одобрение',
+  approved: 'Одобрено', rejected: 'Отказ', issued: 'Ипотека выдана',
 };
 
 // Допустимые следующие статусы для исполнителя (UI кнопки), по дорожке.
