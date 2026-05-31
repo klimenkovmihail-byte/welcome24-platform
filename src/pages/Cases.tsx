@@ -1,0 +1,178 @@
+import { useEffect, useState, useCallback } from 'react';
+import {
+  Box, Card, CardContent, Typography, Chip, Button, Dialog, DialogTitle, DialogContent,
+  DialogActions, TextField, MenuItem, CircularProgress, Alert, Stack, Divider,
+} from '@mui/material';
+import { motion } from 'framer-motion';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
+import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded';
+import { casesApi, type CaseItem, type TaskTypeMeta, type TaskType, STATUS_RU } from '../api/cases';
+
+// Цвет статуса задачи.
+function statusColor(status: string): string {
+  switch (status) {
+    case 'done': case 'approved': case 'issued': return '#22C55E';
+    case 'cancelled': case 'rejected': return '#EF4444';
+    case 'in_progress': case 'approval': case 'consultation': return '#F59E0B';
+    default: return '#64748B'; // new
+  }
+}
+
+const trackIcon = (track: string) =>
+  track === 'mortgage'
+    ? <AccountBalanceRoundedIcon sx={{ fontSize: 18, color: '#8B5CF6' }} />
+    : <GavelRoundedIcon sx={{ fontSize: 18, color: '#C9A84C' }} />;
+
+export default function Cases() {
+  const [cases, setCases] = useState<CaseItem[]>([]);
+  const [types, setTypes] = useState<TaskTypeMeta[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Диалог новой заявки.
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<{ clientName: string; objectAddress: string; city: string; note: string; taskType: TaskType | '' }>(
+    { clientName: '', objectAddress: '', city: '', note: '', taskType: '' },
+  );
+
+  const load = useCallback(() => {
+    setLoading(true);
+    casesApi.list()
+      .then(setCases)
+      .catch(e => setError(e?.message || 'Ошибка загрузки заявок'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { casesApi.types().then(setTypes).catch(() => setTypes([])); }, []);
+
+  const handleCreate = () => {
+    if (!form.clientName.trim() || !form.taskType) return;
+    setSaving(true);
+    casesApi.create({
+      clientName: form.clientName.trim(),
+      objectAddress: form.objectAddress.trim() || undefined,
+      city: form.city.trim() || undefined,
+      note: form.note.trim() || undefined,
+      taskType: form.taskType as TaskType,
+    })
+      .then(() => {
+        setOpen(false);
+        setForm({ clientName: '', objectAddress: '', city: '', note: '', taskType: '' });
+        load();
+      })
+      .catch(e => setError(e?.message || 'Не удалось создать заявку'))
+      .finally(() => setSaving(false));
+  };
+
+  const handleAddTask = (caseId: number, taskType: TaskType) => {
+    casesApi.addTask(caseId, taskType).then(load).catch(() => { /* tolerate */ });
+  };
+
+  return (
+    <Box>
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: '#F1F5F9' }}>Заявки специалистам</Typography>
+          <Typography variant="caption" sx={{ color: '#64748B' }}>
+            Проверка документов, договор, задаток, ипотека — юристы и брокеры Welcome 24
+          </Typography>
+        </Box>
+        <Button
+          variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setOpen(true)}
+          sx={{ background: 'linear-gradient(135deg, #C9A84C, #E2C97E)', color: '#0A0E1A', fontWeight: 700 }}
+        >
+          Новая заявка
+        </Button>
+      </Box>
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress sx={{ color: '#C9A84C' }} /></Box>
+      ) : cases.length === 0 ? (
+        <Card><CardContent sx={{ py: 6, textAlign: 'center' }}>
+          <Typography sx={{ color: '#64748B' }}>У вас пока нет заявок. Создайте первую — специалист возьмёт её в работу.</Typography>
+        </CardContent></Card>
+      ) : (
+        <Stack spacing={2}>
+          {cases.map((c, i) => (
+            <motion.div key={c.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
+              <Card>
+                <CardContent sx={{ p: 3 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#F1F5F9' }}>{c.client_name}</Typography>
+                      <Typography variant="caption" sx={{ color: '#94A3B8' }}>
+                        {[c.object_address, c.city].filter(Boolean).join(' · ') || 'Объект не указан'}
+                      </Typography>
+                      {c.note && <Typography variant="body2" sx={{ color: '#64748B', mt: 0.5 }}>{c.note}</Typography>}
+                    </Box>
+                    <Chip label={c.status === 'open' ? 'Открыта' : 'Закрыта'} size="small"
+                      sx={{ background: c.status === 'open' ? 'rgba(34,197,94,0.12)' : 'rgba(100,116,139,0.12)', color: c.status === 'open' ? '#22C55E' : '#64748B', fontWeight: 700 }} />
+                  </Box>
+
+                  <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.08)' }} />
+
+                  {/* Задачи внутри заявки */}
+                  <Stack spacing={1}>
+                    {c.tasks.map(t => {
+                      const meta = types.find(x => x.key === t.type);
+                      return (
+                        <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                          {trackIcon(t.track)}
+                          <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 600, flex: '1 1 auto' }}>
+                            {meta?.label || t.type}
+                          </Typography>
+                          <Chip label={STATUS_RU[t.status] || t.status} size="small"
+                            sx={{ background: `${statusColor(t.status)}22`, color: statusColor(t.status), fontWeight: 700 }} />
+                          <Typography variant="caption" sx={{ color: '#64748B', minWidth: 120, textAlign: 'right' }}>
+                            {t.assignee_name ? t.assignee_name : 'ждёт специалиста'}
+                          </Typography>
+                        </Box>
+                      );
+                    })}
+                  </Stack>
+
+                  {/* Добавить ипотеку, если её ещё нет */}
+                  {!c.tasks.some(t => t.type === 'mortgage') && (
+                    <Button size="small" startIcon={<AccountBalanceRoundedIcon />} onClick={() => handleAddTask(c.id, 'mortgage')}
+                      sx={{ mt: 1.5, color: '#8B5CF6', textTransform: 'none' }}>
+                      Добавить ипотеку (брокер)
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </Stack>
+      )}
+
+      {/* Диалог новой заявки */}
+      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm"
+        slotProps={{ paper: { sx: { background: 'linear-gradient(135deg, #0F1629, #0A0E1A)', border: '1px solid rgba(201,168,76,0.15)' } } }}>
+        <DialogTitle sx={{ fontWeight: 800, color: '#F1F5F9' }}>Новая заявка</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField label="Клиент (ФИО)" value={form.clientName} onChange={e => setForm({ ...form, clientName: e.target.value })} fullWidth size="small" required />
+            <TextField label="Объект / адрес" value={form.objectAddress} onChange={e => setForm({ ...form, objectAddress: e.target.value })} fullWidth size="small" />
+            <TextField label="Город" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} fullWidth size="small" />
+            <TextField select label="Что нужно?" value={form.taskType} onChange={e => setForm({ ...form, taskType: e.target.value as TaskType })} fullWidth size="small" required>
+              {types.map(t => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
+            </TextField>
+            <TextField label="Комментарий" value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} fullWidth size="small" multiline minRows={2} />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setOpen(false)} sx={{ color: '#64748B' }}>Отмена</Button>
+          <Button variant="contained" disabled={saving || !form.clientName.trim() || !form.taskType} onClick={handleCreate}
+            sx={{ background: 'linear-gradient(135deg, #C9A84C, #E2C97E)', color: '#0A0E1A', fontWeight: 700 }}>
+            {saving ? <CircularProgress size={18} sx={{ color: '#0A0E1A' }} /> : 'Создать'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+}

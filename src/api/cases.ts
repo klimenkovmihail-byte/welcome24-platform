@@ -1,0 +1,92 @@
+/**
+ * api/cases — Заявки специалистам (Фаза 2 / Блок A: юрист + брокер).
+ * Агент создаёт заявку и стартовую задачу; специалисты берут в работу и двигают статусы.
+ */
+
+import { api } from './apiClient';
+
+export type TaskTrack = 'legal' | 'mortgage';
+export type TaskType = 'doc_check' | 'contract' | 'deposit' | 'mortgage';
+
+export interface CaseTask {
+  id: number;
+  case_id: number;
+  type: TaskType;
+  track: TaskTrack;
+  assignee_id: number | null;
+  assignee_name: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CaseItem {
+  id: number;
+  agent_id: number;
+  agent_name?: string;
+  client_name: string;
+  object_address: string;
+  city: string;
+  note: string;
+  status: 'open' | 'closed';
+  created_at: string;
+  updated_at: string;
+  tasks: CaseTask[];
+}
+
+export interface TaskTypeMeta {
+  key: TaskType;
+  track: TaskTrack;
+  label: string;
+}
+
+// Русские подписи статусов (совпадают с бэком statusLabel).
+export const STATUS_RU: Record<string, string> = {
+  new: 'Новая',
+  in_progress: 'В работе',
+  done: 'Готово',
+  cancelled: 'Отменена',
+  consultation: 'Консультация',
+  approval: 'Заявка на одобрение',
+  approved: 'Одобрено',
+  rejected: 'Отказ',
+  issued: 'Ипотека выдана',
+};
+
+// Допустимые следующие статусы для исполнителя (UI кнопки), по дорожке.
+export const NEXT_STATUSES: Record<TaskTrack, string[]> = {
+  legal: ['new', 'in_progress', 'done', 'cancelled'],
+  mortgage: ['consultation', 'approval', 'approved', 'rejected', 'issued', 'cancelled'],
+};
+
+export const casesApi = {
+  // Агент: мои заявки (админ — все).
+  list: () => api.get<CaseItem[]>('/api/cases'),
+  get: (id: number) => api.get<CaseItem>(`/api/cases/${id}`),
+  create: (body: { clientName: string; objectAddress?: string; city?: string; note?: string; taskType: TaskType }) =>
+    api.post<CaseItem>('/api/cases', body),
+  addTask: (caseId: number, taskType: TaskType) =>
+    api.post<CaseItem>(`/api/cases/${caseId}/tasks`, { taskType }),
+  types: () => api.get<TaskTypeMeta[]>('/api/cases/meta/types'),
+
+  // Специалист/админ.
+  queue: (track?: TaskTrack) =>
+    api.get<QueueTask[]>(`/api/cases/queue/list${track ? `?track=${track}` : ''}`),
+  assigned: () => api.get<QueueTask[]>('/api/cases/assigned/list'),
+  take: (taskId: number) => api.post<CaseItem>(`/api/cases/tasks/${taskId}/take`, {}),
+  updateTask: (taskId: number, body: { status?: string; assigneeId?: number | null }) =>
+    api.patch<CaseItem>(`/api/cases/tasks/${taskId}`, body),
+};
+
+export interface QueueTask {
+  task_id: number;
+  case_id: number;
+  type: TaskType;
+  track: TaskTrack;
+  status: string;
+  client_name: string;
+  object_address: string;
+  city: string;
+  agent_id?: number;
+  created_at?: string;
+}

@@ -25,6 +25,7 @@ import Profile from './pages/Profile';
 import Shares from './pages/Shares';
 import Docs from './pages/Docs';
 import AI from './pages/AI';
+import Cases from './pages/Cases';
 
 export default function App() {
   useEffect(() => {
@@ -61,6 +62,7 @@ export default function App() {
                   <Route path="/shares" element={<Shares />} />
                   <Route path="/docs" element={<Docs />} />
                   <Route path="/ai" element={<AI />} />
+                  <Route path="/cases" element={<Cases />} />
                   <Route path="/profile" element={<Profile />} />
                 </Routes>
               </Layout>
