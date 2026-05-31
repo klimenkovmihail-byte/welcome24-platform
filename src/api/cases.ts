@@ -83,8 +83,10 @@ export const casesApi = {
     api.del<CaseItem>(`/api/cases/${caseId}/attachments/${attId}`),
   messages: (caseId: number, after = 0) =>
     api.get<CaseMessage[]>(`/api/cases/${caseId}/messages?after=${after}`),
-  sendMessage: (caseId: number, body: string) =>
-    api.post<CaseMessage>(`/api/cases/${caseId}/messages`, { body }),
+  sendMessage: (caseId: number, payload: { body?: string; attachmentUrl?: string; attachmentName?: string }) =>
+    api.post<CaseMessage>(`/api/cases/${caseId}/messages`, payload),
+  markRead: (caseId: number, lastId?: number) =>
+    api.post<{ ok: boolean }>(`/api/cases/${caseId}/read`, lastId ? { lastId } : {}),
 
   // Специалист/админ.
   queue: (track?: TaskTrack) =>
