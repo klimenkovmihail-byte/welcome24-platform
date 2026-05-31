@@ -17,6 +17,7 @@ import { casesApi, type CaseItem, type TaskTypeMeta, type TaskType, STATUS_RU } 
 import { API_BASE_URL, getToken } from '../api/apiClient';
 import { getCurrentAgent } from '../auth/auth';
 import CaseChat from '../components/CaseChat';
+import CaseTimeline from '../components/CaseTimeline';
 
 // Загрузка файла в Yandex Storage через /api/upload.
 async function uploadCaseFile(file: File): Promise<{ url: string; name: string; size: number }> {
@@ -263,7 +264,13 @@ export default function Cases() {
                       </Button>
                     </Badge>
                     {chatOpenId === c.id && (
-                      <Box sx={{ mt: 1 }}><CaseChat caseId={c.id} myId={myId} /></Box>
+                      <Box sx={{ mt: 1 }}>
+                        <CaseChat caseId={c.id} myId={myId} />
+                        <Box sx={{ mt: 2 }}>
+                          <Typography variant="caption" sx={{ color: '#64748B', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em', display: 'block', mb: 1 }}>История</Typography>
+                          <CaseTimeline caseId={c.id} />
+                        </Box>
+                      </Box>
                     )}
                   </Box>
 
