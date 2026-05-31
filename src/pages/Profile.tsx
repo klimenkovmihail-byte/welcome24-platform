@@ -30,6 +30,8 @@ import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { buildReferralLink } from '../utils/referralLink';
 import { agentsApi } from '../api/agents';
+import NotificationsActiveRoundedIcon from '@mui/icons-material/NotificationsActiveRounded';
+import { getPushState, enablePush, disablePush, type PushState } from '../push';
 
 // Аплоад файла в Yandex Storage через /api/upload — для вложений в тикеты поддержки.
 async function uploadAttachment(file: File): Promise<string> {
@@ -232,6 +234,19 @@ export default function Profile() {
     return () => window.removeEventListener('focus', onFocus);
   }, [loadMx]);
   const handleMxUnlink = () => { agentsApi.maxUnlink().then(loadMx).catch(() => { /* tolerate */ }); };
+
+  // Web Push (PWA-уведомления в браузер).
+  const [pushState, setPushState] = useState<PushState>('default');
+  const [pushBusy, setPushBusy] = useState(false);
+  useEffect(() => { getPushState().then(setPushState).catch(() => setPushState('unsupported')); }, []);
+  const handlePushEnable = () => {
+    setPushBusy(true);
+    enablePush().then(setPushState).catch(() => { /* tolerate */ }).finally(() => setPushBusy(false));
+  };
+  const handlePushDisable = () => {
+    setPushBusy(true);
+    disablePush().then(setPushState).catch(() => { /* tolerate */ }).finally(() => setPushBusy(false));
+  };
   const handleCopyMxCode = () => {
     if (mx?.code) { navigator.clipboard?.writeText(mx.code); setMxCodeCopied(true); setTimeout(() => setMxCodeCopied(false), 1500); }
   };
@@ -511,6 +526,55 @@ export default function Profile() {
                       </IconButton>
                     </Tooltip>
                   </Box>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Push-уведомления в браузер (PWA) */}
+            <Card sx={{ mb: 3 }}>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                  <Box sx={{ width: 36, height: 36, borderRadius: 2, background: 'rgba(201,168,76,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <NotificationsActiveRoundedIcon sx={{ color: '#C9A84C', fontSize: 20 }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#F1F5F9' }}>Уведомления на это устройство</Typography>
+                    <Typography variant="caption" sx={{ color: '#64748B' }}>Push прямо в браузер/приложение — работает даже без Telegram</Typography>
+                  </Box>
+                </Box>
+
+                {pushState === 'subscribed' ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                    <Chip icon={<CheckCircleRoundedIcon sx={{ fontSize: 16 }} />} label="Включены" size="small"
+                      sx={{ background: 'rgba(34,197,94,0.15)', color: '#22C55E', fontWeight: 700, '& .MuiChip-icon': { color: '#22C55E' } }} />
+                    <Button size="small" disabled={pushBusy} onClick={handlePushDisable} sx={{ color: '#64748B', '&:hover': { color: '#EF4444' } }}>
+                      {pushBusy ? <CircularProgress size={16} /> : 'Выключить'}
+                    </Button>
+                  </Box>
+                ) : pushState === 'default' ? (
+                  <Button
+                    variant="contained" fullWidth disabled={pushBusy}
+                    onClick={handlePushEnable}
+                    startIcon={pushBusy ? <CircularProgress size={16} sx={{ color: '#0A0E1A' }} /> : <NotificationsActiveRoundedIcon />}
+                    sx={{ background: 'linear-gradient(135deg, #C9A84C, #E2C97E)', color: '#0A0E1A', fontWeight: 700, '&:hover': { boxShadow: '0 6px 20px rgba(201,168,76,0.35)' } }}
+                  >
+                    Включить уведомления
+                  </Button>
+                ) : pushState === 'ios-needs-install' ? (
+                  <Box sx={{ p: 1.5, borderRadius: 2, background: 'rgba(201,168,76,0.06)', border: '1px dashed rgba(201,168,76,0.25)' }}>
+                    <Typography variant="caption" sx={{ color: '#94A3B8', lineHeight: 1.6 }}>
+                      На iPhone push доступен после добавления портала на экран:
+                      нажмите <b style={{ color: '#C9A84C' }}>Поделиться</b> → <b style={{ color: '#C9A84C' }}>На экран «Домой»</b>, затем откройте приложение с экрана и включите уведомления здесь.
+                    </Typography>
+                  </Box>
+                ) : pushState === 'denied' ? (
+                  <Typography variant="caption" sx={{ color: '#64748B', lineHeight: 1.6 }}>
+                    Уведомления заблокированы в настройках браузера. Разрешите их для этого сайта и обновите страницу.
+                  </Typography>
+                ) : pushState === 'server-off' ? (
+                  <Typography variant="caption" sx={{ color: '#64748B' }}>Уведомления скоро будут доступны.</Typography>
+                ) : (
+                  <Typography variant="caption" sx={{ color: '#64748B' }}>Этот браузер не поддерживает push-уведомления.</Typography>
                 )}
               </CardContent>
             </Card>

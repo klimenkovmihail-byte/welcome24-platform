@@ -123,4 +123,12 @@ export const agentsApi = {
     api.get<{ linked: boolean; available: boolean; botLink?: string; botUsername?: string; code?: string }>('/api/agents/me/max-link'),
   maxUnlink: () =>
     api.post<{ ok: boolean }>('/api/agents/me/max-unlink', {}),
+
+  // Web Push (PWA-уведомления в браузер): VAPID-ключ + подписка/отписка устройства.
+  pushKey: () =>
+    api.get<{ enabled: boolean; publicKey: string }>('/api/agents/me/push-key'),
+  pushSubscribe: (sub: { endpoint: string; keys: { p256dh: string; auth: string }; userAgent?: string }) =>
+    api.post<{ ok: boolean }>('/api/agents/me/push-subscribe', sub),
+  pushUnsubscribe: (endpoint: string) =>
+    api.post<{ ok: boolean }>('/api/agents/me/push-unsubscribe', { endpoint }),
 };
