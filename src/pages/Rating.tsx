@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Box, Card, CardContent, Typography, Avatar, Chip, ToggleButton, ToggleButtonGroup, alpha, Menu, MenuItem, Divider, CircularProgress, Alert } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded';
-import MonetizationOnRoundedIcon from '@mui/icons-material/MonetizationOnRounded';
 import { ratingApi, type RatingAgent } from '../api/rating';
 import { getCurrentAgent } from '../auth/auth';
 
@@ -319,9 +318,11 @@ export default function Rating() {
           </Box>
 
           {/* Header */}
+          <Box sx={{ overflowX: 'auto' }}>
+          <Box sx={{ minWidth: 620 }}>
           <Box sx={{
             display: 'grid',
-            gridTemplateColumns: '60px 1fr 140px 160px',
+            gridTemplateColumns: '52px 1fr 130px 150px',
             p: '12px 24px',
             background: 'rgba(255,255,255,0.02)',
             borderBottom: '1px solid rgba(255,255,255,0.06)',
@@ -351,7 +352,7 @@ export default function Rating() {
                   >
                     <Box sx={{
                       display: 'grid',
-                      gridTemplateColumns: '60px 1fr 140px 160px',
+                      gridTemplateColumns: '52px 1fr 130px 150px',
                       alignItems: 'center',
                       px: 3, py: 2,
                       borderBottom: '1px solid rgba(255,255,255,0.04)',
@@ -385,10 +386,7 @@ export default function Rating() {
 
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {sortBy === 'vkd' ? (
-                          <>
-                            <MonetizationOnRoundedIcon sx={{ color: '#C9A84C', fontSize: 18 }} />
-                            <Typography variant="body2" sx={{ fontWeight: 800, color: '#C9A84C' }}>{fmt(agent.vkd)} ₽</Typography>
-                          </>
+                          <Typography variant="body2" sx={{ fontWeight: 800, color: '#C9A84C' }}>{fmt(agent.vkd)} ₽</Typography>
                         ) : (
                           <>
                             <HandshakeRoundedIcon sx={{ color: '#4361EE', fontSize: 18 }} />
@@ -402,6 +400,8 @@ export default function Rating() {
               })}
             </motion.div>
           </AnimatePresence>
+          </Box>
+          </Box>
 
           {ranking.length > 5 && (
             <Box sx={{ p: 2, textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.04)' }}>

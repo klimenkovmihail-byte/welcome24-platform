@@ -329,7 +329,7 @@ export default function Header({ currentPath, isMobile = false, onMenuClick }: H
             <PersonRoundedIcon sx={{ fontSize: 18, mr: 1.5, color: '#94A3B8' }} />
             <Typography variant="body2">Профиль</Typography>
           </MenuItem>
-          <MenuItem onClick={() => { setMenuAnchor(null); navigate('/team'); }} sx={{ py: 1.2 }}>
+          <MenuItem onClick={() => { setMenuAnchor(null); navigate('/profile'); }} sx={{ py: 1.2 }}>
             <SettingsRoundedIcon sx={{ fontSize: 18, mr: 1.5, color: '#94A3B8' }} />
             <Typography variant="body2">Настройки</Typography>
           </MenuItem>

@@ -452,8 +452,9 @@ export default function Dashboard() {
                   </Box>
                 </Box>
 
-                <Box sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 1fr 1fr', background: 'rgba(255,255,255,0.03)' }}>
+                <Box sx={{ borderRadius: 2, overflowX: 'auto', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <Box sx={{ minWidth: 560 }}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '110px 1fr 1fr 1fr 1fr', background: 'rgba(255,255,255,0.03)' }}>
                     {['Дата', 'Тип', 'Комиссия', 'ВКД', 'Доход'].map((h) => (
                       <Box key={h} sx={{ p: 2 }}>
                         <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 11 }}>{h}</Typography>
@@ -465,7 +466,7 @@ export default function Dashboard() {
                       <Typography variant="body2" sx={{ color: '#64748B' }}>В этом периоде сделок нет</Typography>
                     </Box>
                   ) : filteredDeals.map((d) => (
-                    <Box key={d.id} sx={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 1fr 1fr', borderTop: '1px solid rgba(255,255,255,0.04)', '&:hover': { background: 'rgba(201,168,76,0.04)' } }}>
+                    <Box key={d.id} sx={{ display: 'grid', gridTemplateColumns: '110px 1fr 1fr 1fr 1fr', borderTop: '1px solid rgba(255,255,255,0.04)', '&:hover': { background: 'rgba(201,168,76,0.04)' } }}>
                       <Box sx={{ p: 1.6 }}>
                         <Typography variant="body2" sx={{ color: '#94A3B8' }}>{new Date(d.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })}</Typography>
                       </Box>
@@ -488,7 +489,7 @@ export default function Dashboard() {
                     </Box>
                   ))}
                   {filteredDeals.length > 0 && (
-                    <Box sx={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 1fr 1fr', borderTop: '2px solid rgba(201,168,76,0.25)', background: 'rgba(201,168,76,0.04)' }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '110px 1fr 1fr 1fr 1fr', borderTop: '2px solid rgba(201,168,76,0.25)', background: 'rgba(201,168,76,0.04)' }}>
                       <Box sx={{ p: 1.6 }}><Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 800 }}>ИТОГО · {filteredDeals.length}</Typography></Box>
                       <Box sx={{ p: 1.6 }} />
                       <Box sx={{ p: 1.6 }} />
@@ -496,6 +497,7 @@ export default function Dashboard() {
                       <Box sx={{ p: 1.6 }}><Typography variant="body2" sx={{ color: '#22C55E', fontWeight: 900 }}>{fmt(filteredIncome)} ₽</Typography></Box>
                     </Box>
                   )}
+                  </Box>
                 </Box>
               </CardContent>
             </Card>
