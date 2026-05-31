@@ -26,19 +26,27 @@ const MONTHS = [
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = ['all', ...Array.from({ length: CURRENT_YEAR - 2022 + 1 }, (_, i) => String(2022 + i)).reverse()];
 
-/** Считает пассивный доход агента по уровням MLM-плана. */
+/** Считает пассивный доход агента по уровням MLM-плана.
+ *  Доход с КАЖДОГО члена команды обрезается по cap уровня (capPerAgent), а
+ *  итог уровня = сумма этих обрезанных значений. Так строки раскрытого списка
+ *  суммируются ровно в итог уровня, и ни одна строка/итог не превышает cap. */
 function computeIncome(
   levels: TeamLevelStats[],
   plan: MarketingPlanLevel[],
   l1WithDeals: number,
+  agents: TeamMember[],
 ) {
   return levels.map(stats => {
     const p = plan.find(x => x.level === stats.level);
     const growingUnlocked = p?.required == null ? true : l1WithDeals >= (p.required ?? 0);
     const effectivePct = (p?.protected || 0) + (growingUnlocked && p?.growing ? p.growing : 0);
-    const rawIncome = Math.round(stats.totalVkd * effectivePct / 100);
     const capPerAgent = p?.capPerAgent ?? 0;
-    const cappedIncome = Math.min(rawIncome, stats.withDealCount * capPerAgent);
+    const onLevel = agents.filter(a => a.teamLevel === stats.level);
+    const perAgentRaw = (a: TeamMember) => Math.round((a.vkd || 0) * effectivePct / 100);
+    const perAgentCapped = (a: TeamMember) =>
+      capPerAgent > 0 ? Math.min(perAgentRaw(a), capPerAgent) : perAgentRaw(a);
+    const rawIncome = onLevel.reduce((s, a) => s + perAgentRaw(a), 0);
+    const cappedIncome = onLevel.reduce((s, a) => s + perAgentCapped(a), 0);
     return { ...stats, growingUnlocked, effectivePct, rawIncome, cappedIncome, capPerAgent, required: p?.required ?? null, protected: p?.protected ?? 0, growing: p?.growing ?? null };
   });
 }
@@ -97,13 +105,19 @@ export default function Team() {
 
   const l1AgentsWithDeals = levels[0]?.withDealCount ?? 0;
   const incomeBreakdown = useMemo(
-    () => computeIncome(levels, marketingPlan, l1AgentsWithDeals),
-    [levels, marketingPlan, l1AgentsWithDeals],
+    () => computeIncome(levels, marketingPlan, l1AgentsWithDeals, teamAgents),
+    [levels, marketingPlan, l1AgentsWithDeals, teamAgents],
   );
   const totalPassiveIncome = incomeBreakdown.reduce((s, l) => s + l.cappedIncome, 0);
-  // Ставка (effectivePct) по уровню — чтобы показать рубли дохода ментора с конкретного агента.
+  // Ставка (effectivePct) и cap по уровню — чтобы показать рубли дохода ментора
+  // с конкретного агента, обрезанные по потолку уровня (как и итог уровня).
   const rateByLevel = useMemo(() => new Map(incomeBreakdown.map(l => [l.level, l.effectivePct])), [incomeBreakdown]);
-  const agentIncome = (a: TeamMember) => Math.round((a.vkd || 0) * (rateByLevel.get(a.teamLevel) || 0) / 100);
+  const capByLevel = useMemo(() => new Map(incomeBreakdown.map(l => [l.level, l.capPerAgent])), [incomeBreakdown]);
+  const agentIncome = (a: TeamMember) => {
+    const raw = Math.round((a.vkd || 0) * (rateByLevel.get(a.teamLevel) || 0) / 100);
+    const cap = capByLevel.get(a.teamLevel) || 0;
+    return cap > 0 ? Math.min(raw, cap) : raw;
+  };
   const totalTeamVkd = totals.vkd;
   const totalTeamAgents = totals.agents;
   const totalTeamDeals = totals.deals;
