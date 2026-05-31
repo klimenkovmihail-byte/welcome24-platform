@@ -113,11 +113,14 @@ export default function Team() {
   // с конкретного агента, обрезанные по потолку уровня (как и итог уровня).
   const rateByLevel = useMemo(() => new Map(incomeBreakdown.map(l => [l.level, l.effectivePct])), [incomeBreakdown]);
   const capByLevel = useMemo(() => new Map(incomeBreakdown.map(l => [l.level, l.capPerAgent])), [incomeBreakdown]);
-  const agentIncome = (a: TeamMember) => {
+  // Доход с агента + флаг «упёрся в потолок уровня» (capped).
+  const agentIncomeInfo = (a: TeamMember) => {
     const raw = Math.round((a.vkd || 0) * (rateByLevel.get(a.teamLevel) || 0) / 100);
     const cap = capByLevel.get(a.teamLevel) || 0;
-    return cap > 0 ? Math.min(raw, cap) : raw;
+    const capped = cap > 0 && raw > cap;
+    return { value: capped ? cap : raw, capped };
   };
+  const agentIncome = (a: TeamMember) => agentIncomeInfo(a).value;
   const totalTeamVkd = totals.vkd;
   const totalTeamAgents = totals.agents;
   const totalTeamDeals = totals.deals;
@@ -664,12 +667,15 @@ export default function Team() {
                                     </Typography>
                                     <Box sx={{ display: 'flex', gap: 0.6, alignItems: 'center' }}>
                                       <Typography variant="caption" sx={{ color: '#94A3B8', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.city}</Typography>
-                                      {agentIncome(a) > 0 && (
+                                      {(() => { const inc = agentIncomeInfo(a); return inc.value > 0 && (
                                         <>
                                           <Box component="span" sx={{ width: 3, height: 3, borderRadius: '50%', background: '#475569', flexShrink: 0 }} />
-                                          <Typography variant="caption" sx={{ color: '#22C55E', fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>+{fmt(agentIncome(a))} ₽</Typography>
+                                          <Typography variant="caption" sx={{ color: inc.capped ? '#EF4444' : '#22C55E', fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>+{fmt(inc.value)} ₽</Typography>
+                                          {inc.capped && (
+                                            <Chip label="cap" size="small" sx={{ height: 15, fontSize: 9, fontWeight: 800, background: 'rgba(239,68,68,0.15)', color: '#EF4444', '& .MuiChip-label': { px: 0.6 } }} />
+                                          )}
                                         </>
-                                      )}
+                                      ); })()}
                                     </Box>
                                   </Box>
                                   {a.status === 'inactive' && (
@@ -720,9 +726,16 @@ export default function Team() {
                       <Typography variant="body2" sx={{ fontWeight: 700, color: a.vkd > 0 ? '#C9A84C' : '#475569' }}>
                         {a.vkd > 0 ? `${fmt(a.vkd)} ₽` : '—'}
                       </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 800, color: agentIncome(a) > 0 ? '#22C55E' : '#475569' }}>
-                        {agentIncome(a) > 0 ? `+${fmt(agentIncome(a))} ₽` : '—'}
-                      </Typography>
+                      {(() => { const inc = agentIncomeInfo(a); return (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 800, color: inc.value > 0 ? (inc.capped ? '#EF4444' : '#22C55E') : '#475569' }}>
+                            {inc.value > 0 ? `+${fmt(inc.value)} ₽` : '—'}
+                          </Typography>
+                          {inc.capped && (
+                            <Chip label="cap" size="small" sx={{ height: 16, fontSize: 9, fontWeight: 800, background: 'rgba(239,68,68,0.15)', color: '#EF4444', '& .MuiChip-label': { px: 0.6 } }} />
+                          )}
+                        </Box>
+                      ); })()}
                       <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 600 }}>{a.deals || '—'}</Typography>
                       <Chip label={a.status === 'active' ? 'активен' : 'не активен'} size="small" sx={{
                         background: a.status === 'active' ? 'rgba(34,197,94,0.12)' : 'rgba(100,116,139,0.12)',

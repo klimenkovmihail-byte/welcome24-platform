@@ -69,17 +69,8 @@ export async function loginAgent(
   try {
     const data = await api.post<LoginResponse>('/api/auth/login', { email: e, password });
 
-    // Если на портал зашёл админ — отправляем его в админку (SSO ему нужен будет ещё раз войти, увы)
-    if (data.user.role === 'admin' && e !== 'mk@w24.agency') {
-      // mk@w24.agency — гибридный (CEO работает и как агент), оставляем
-      setToken(null);
-      return {
-        ok: false,
-        error: 'Это администраторский email. Перенаправляем в админ-панель…',
-        redirectTo: `${ADMIN_URL}/login?ssoEmail=${encodeURIComponent(e)}`,
-      };
-    }
-
+    // Вход на портале всегда ведёт в портал (платформу) — независимо от роли.
+    // Админ при необходимости перейдёт в админ-панель кнопкой в шапке портала.
     setToken(data.token);
     const user: AgentUser = {
       ...data.user,
