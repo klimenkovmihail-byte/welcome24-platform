@@ -149,8 +149,13 @@ export default function Cases() {
                       </Typography>
                       {c.note && <Typography variant="body2" sx={{ color: '#64748B', mt: 0.5 }}>{c.note}</Typography>}
                     </Box>
-                    <Chip label={c.status === 'open' ? 'Открыта' : 'Закрыта'} size="small"
-                      sx={{ background: c.status === 'open' ? 'rgba(34,197,94,0.12)' : 'rgba(100,116,139,0.12)', color: c.status === 'open' ? '#22C55E' : '#64748B', fontWeight: 700 }} />
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Chip label={c.status === 'open' ? 'Открыта' : 'Закрыта'} size="small"
+                        sx={{ background: c.status === 'open' ? 'rgba(34,197,94,0.12)' : 'rgba(100,116,139,0.12)', color: c.status === 'open' ? '#22C55E' : '#64748B', fontWeight: 700 }} />
+                      <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mt: 0.5, fontSize: 11 }}>
+                        {new Date(c.created_at.replace(' ', 'T') + 'Z').toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                      </Typography>
+                    </Box>
                   </Box>
 
                   <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.08)' }} />
