@@ -84,6 +84,10 @@ export const casesApi = {
     api.post<CaseItem>(`/api/cases/${caseId}/attachments`, body),
   deleteAttachment: (caseId: number, attId: number) =>
     api.del<CaseItem>(`/api/cases/${caseId}/attachments/${attId}`),
+  messages: (caseId: number, after = 0) =>
+    api.get<CaseMessage[]>(`/api/cases/${caseId}/messages?after=${after}`),
+  sendMessage: (caseId: number, body: string) =>
+    api.post<CaseMessage>(`/api/cases/${caseId}/messages`, { body }),
 
   // Специалист/админ.
   queue: (track?: TaskTrack) =>

@@ -10,8 +10,11 @@ import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded
 import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import { Link } from '@mui/material';
+import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
 import { casesApi, type CaseItem, type TaskTypeMeta, type TaskType, STATUS_RU } from '../api/cases';
 import { API_BASE_URL, getToken } from '../api/apiClient';
+import { getCurrentAgent } from '../auth/auth';
+import CaseChat from '../components/CaseChat';
 
 // Загрузка файла в Yandex Storage через /api/upload.
 async function uploadCaseFile(file: File): Promise<{ url: string; name: string; size: number }> {
@@ -88,6 +91,8 @@ export default function Cases() {
     casesApi.addTask(caseId, taskType).then(load).catch(() => { /* tolerate */ });
   };
 
+  const myId = getCurrentAgent()?.id ?? null;
+  const [chatOpenId, setChatOpenId] = useState<number | null>(null);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
   const handleUpload = async (caseId: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -196,10 +201,22 @@ export default function Cases() {
                     )}
                   </Box>
 
+                  {/* Обсуждение (чат заявки) */}
+                  <Box sx={{ mt: 2 }}>
+                    <Button size="small" startIcon={<ChatBubbleOutlineRoundedIcon />}
+                      onClick={() => setChatOpenId(chatOpenId === c.id ? null : c.id)}
+                      sx={{ color: '#C9A84C', textTransform: 'none' }}>
+                      {chatOpenId === c.id ? 'Скрыть обсуждение' : 'Обсуждение со специалистом'}
+                    </Button>
+                    {chatOpenId === c.id && (
+                      <Box sx={{ mt: 1 }}><CaseChat caseId={c.id} myId={myId} /></Box>
+                    )}
+                  </Box>
+
                   {/* Добавить ипотеку, если её ещё нет */}
                   {!c.tasks.some(t => t.type === 'mortgage') && (
                     <Button size="small" startIcon={<AccountBalanceRoundedIcon />} onClick={() => handleAddTask(c.id, 'mortgage')}
-                      sx={{ mt: 1.5, color: '#8B5CF6', textTransform: 'none' }}>
+                      sx={{ mt: 1.5, color: '#8B5CF6', textTransform: 'none', display: 'block' }}>
                       Добавить ипотеку (брокер)
                     </Button>
                   )}
