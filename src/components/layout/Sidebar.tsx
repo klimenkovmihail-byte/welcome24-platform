@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, Avatar, Chip, Tooltip, IconButton, Divider, Drawer, alpha } from '@mui/material';
+import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, Avatar, Chip, Tooltip, IconButton, Divider, Drawer, alpha, Badge } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
@@ -21,6 +21,8 @@ import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
 import { currentUser } from '../../data/mockData';
 import Logo, { LogoIcon } from '../Logo';
 import { logoutAgent } from '../../auth/auth';
+import { casesApi } from '../../api/cases';
+import { adRequestsApi } from '../../api/adRequests';
 
 const navItems = [
   { path: '/dashboard', label: 'Дашборд', icon: <DashboardRoundedIcon /> },
@@ -51,8 +53,22 @@ interface SidebarProps {
 
 export default function Sidebar({ isMobile = false, mobileOpen = false, onClose = () => {} }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [casesUnread, setCasesUnread] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Бейдж непрочитанного на «Заявки»: число заявок (специалистам + реклама) с новыми сообщениями.
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([casesApi.list().catch(() => []), adRequestsApi.list().catch(() => [])])
+      .then(([c, a]) => {
+        if (cancelled) return;
+        const n = (c as { unread?: number }[]).filter(x => (x.unread || 0) > 0).length
+          + (a as { unread?: number }[]).filter(x => (x.unread || 0) > 0).length;
+        setCasesUnread(n);
+      });
+    return () => { cancelled = true; };
+  }, [location.pathname]);
 
   // На мобиле сайдбар всегда развёрнут (он в оверлее-drawer'е), мини-режим только на десктопе.
   const mini = !isMobile && collapsed;
@@ -92,6 +108,7 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
         <List sx={{ flex: 1, px: 1.5, py: 2, gap: 0.5, display: 'flex', flexDirection: 'column' }}>
           {navItems.map((item) => {
             const active = location.pathname === item.path;
+            const badge = item.path === '/cases' ? casesUnread : 0;
             return (
               <ListItem key={item.path} disablePadding>
                 <Tooltip title={mini ? item.label : ''} placement="right">
@@ -122,7 +139,10 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
                       }} />
                     )}
                     <ListItemIcon sx={{ minWidth: mini ? 0 : 36, color: 'inherit' }}>
-                      {item.icon}
+                      <Badge badgeContent={badge} color="error" invisible={!badge} overlap="circular"
+                        sx={{ '& .MuiBadge-badge': { fontSize: 9, height: 16, minWidth: 16, fontWeight: 800 } }}>
+                        {item.icon}
+                      </Badge>
                     </ListItemIcon>
                     <AnimatePresence>
                       {!mini && (
