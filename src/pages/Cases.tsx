@@ -13,7 +13,7 @@ import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { Link } from '@mui/material';
-import { casesApi, type CaseItem, type TaskTypeMeta, type TaskType, STATUS_RU } from '../api/cases';
+import { casesApi, type CaseItem, type TaskTypeMeta, type TaskType, type TaskTrack, STATUS_RU } from '../api/cases';
 import { API_BASE_URL, getToken } from '../api/apiClient';
 import { getCurrentAgent } from '../auth/auth';
 import CaseChat from '../components/CaseChat';
@@ -47,7 +47,8 @@ const trackIcon = (track: string) =>
     ? <AccountBalanceRoundedIcon sx={{ fontSize: 18, color: '#8B5CF6' }} />
     : <GavelRoundedIcon sx={{ fontSize: 18, color: '#C9A84C' }} />;
 
-export default function Cases() {
+// track — ограничить раздел одной дорожкой (legal → «Юристы», mortgage → «Ипотека»).
+export default function Cases({ track }: { track?: TaskTrack } = {}) {
   const [cases, setCases] = useState<CaseItem[]>([]);
   const [types, setTypes] = useState<TaskTypeMeta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,15 +133,25 @@ export default function Cases() {
   const q = search.trim().toLowerCase();
   const CLOSED = ['done', 'cancelled', 'issued', 'rejected'];
   const isCaseClosed = (c: CaseItem) => c.tasks.length > 0 && c.tasks.every(t => CLOSED.includes(t.status));
+  // Типы задач для селектов — ограничены дорожкой раздела (если задана).
+  const formTypes = track ? types.filter(t => t.track === track) : types;
   const filteredCases = cases.filter(c => {
+    const matchTrack = !track || c.tasks.some(t => t.track === track);
     const matchQ = !q || c.client_name.toLowerCase().includes(q)
       || (c.object_address || '').toLowerCase().includes(q)
       || (c.city || '').toLowerCase().includes(q);
     const matchType = typeFilter === 'all' || c.tasks.some(t => t.type === typeFilter);
     const closed = isCaseClosed(c);
     const matchState = stateFilter === 'all' || (stateFilter === 'active' && !closed) || (stateFilter === 'done' && closed);
-    return matchQ && matchType && matchState;
+    return matchTrack && matchQ && matchType && matchState;
   }).sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+
+  const headerTitle = track === 'legal' ? 'Юристы' : track === 'mortgage' ? 'Ипотека' : 'Заявки специалистам';
+  const headerSub = track === 'legal'
+    ? 'Проверка документов, договор, задаток, ДКП, сделка — штатные юристы Welcome 24'
+    : track === 'mortgage'
+      ? 'Подбор и одобрение ипотеки, страхование — ипотечные брокеры Welcome 24'
+      : 'Проверка документов, договор, задаток, ипотека — юристы и брокеры Welcome 24';
 
   return (
     <Box>
@@ -148,10 +159,8 @@ export default function Cases() {
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: '#F1F5F9' }}>Заявки специалистам</Typography>
-          <Typography variant="caption" sx={{ color: '#64748B' }}>
-            Проверка документов, договор, задаток, ипотека — юристы и брокеры Welcome 24
-          </Typography>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: '#F1F5F9' }}>{headerTitle}</Typography>
+          <Typography variant="caption" sx={{ color: '#64748B' }}>{headerSub}</Typography>
         </Box>
         <Button
           variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setOpen(true)}
@@ -173,7 +182,7 @@ export default function Cases() {
           <FormControl size="small" sx={{ minWidth: 160 }}>
             <Select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
               <MenuItem value="all">Все типы</MenuItem>
-              {types.map(t => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
+              {formTypes.map(t => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
             </Select>
           </FormControl>
           <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -280,7 +289,7 @@ export default function Cases() {
                           </Box>
                         ))}
                       </Stack>
-                      {!detail.tasks.some(t => t.type === 'mortgage') && (
+                      {!track && !detail.tasks.some(t => t.type === 'mortgage') && (
                         <Button size="small" startIcon={<AccountBalanceRoundedIcon />} onClick={() => handleAddTask(detail.id, 'mortgage')}
                           sx={{ mt: 1, color: '#8B5CF6', textTransform: 'none' }}>
                           Добавить ипотеку (брокер)
@@ -351,7 +360,7 @@ export default function Cases() {
             <TextField label="Объект / адрес" value={form.objectAddress} onChange={e => setForm({ ...form, objectAddress: e.target.value })} fullWidth size="small" />
             <TextField label="Город" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} fullWidth size="small" />
             <TextField select label="Что нужно?" value={form.taskType} onChange={e => setForm({ ...form, taskType: e.target.value as TaskType })} fullWidth size="small" required>
-              {types.map(t => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
+              {formTypes.map(t => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
             </TextField>
             <TextField label="Комментарий" value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} fullWidth size="small" multiline minRows={2} />
           </Stack>
