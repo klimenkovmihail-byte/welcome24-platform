@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Box, Typography, Card, CardContent, Stack, Button, Chip, alpha } from '@mui/material';
 import { motion } from 'framer-motion';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
 import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
 import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded';
 import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
@@ -64,7 +65,7 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
           )}
           <Box>
             <Typography variant="h5" sx={{ fontWeight: 800, color: '#F1F5F9', display: 'flex', alignItems: 'center', gap: 1 }}>
-              {view === 'ads' ? <CampaignRoundedIcon sx={{ color: '#C9A84C' }} /> : <GavelRoundedIcon sx={{ color: '#C9A84C' }} />}
+              {view === 'ads' ? <CampaignRoundedIcon sx={{ color: '#C9A84C' }} /> : <AssignmentRoundedIcon sx={{ color: '#C9A84C' }} />}
               {view === 'ads' ? 'Реклама объектов' : 'Заявки'}
             </Typography>
             <Typography variant="caption" sx={{ color: '#64748B' }}>

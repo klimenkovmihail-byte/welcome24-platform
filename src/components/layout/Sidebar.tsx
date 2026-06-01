@@ -17,23 +17,23 @@ import SupportAgentRoundedIcon from '@mui/icons-material/SupportAgentRounded';
 import AccountTreeRoundedIcon from '@mui/icons-material/AccountTreeRounded';
 import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
-import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
+import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
 import { currentUser } from '../../data/mockData';
 import Logo, { LogoIcon } from '../Logo';
 import { logoutAgent } from '../../auth/auth';
 
 const navItems = [
   { path: '/dashboard', label: 'Дашборд', icon: <DashboardRoundedIcon /> },
-  { path: '/rating', label: 'Рейтинг', icon: <EmojiEventsRoundedIcon /> },
+  { path: '/cases', label: 'Заявки', icon: <AssignmentRoundedIcon /> },
   { path: '/academy', label: 'Академия', icon: <SchoolRoundedIcon /> },
   { path: '/news', label: 'Новости', icon: <ArticleRoundedIcon /> },
-  { path: '/docs', label: 'База данных', icon: <FolderRoundedIcon /> },
   { path: '/ai', label: 'AI-помощник', icon: <AutoAwesomeRoundedIcon /> },
-  { path: '/cases', label: 'Заявки', icon: <GavelRoundedIcon /> },
   { path: '/team', label: 'MLM', icon: <AccountTreeRoundedIcon /> },
-  { path: '/backoffice', label: 'Команда', icon: <SupportAgentRoundedIcon /> },
-  { path: '/agents', label: 'База агентов', icon: <PeopleRoundedIcon /> },
   { path: '/shares', label: 'Акции', icon: <DiamondRoundedIcon /> },
+  { path: '/docs', label: 'База данных', icon: <FolderRoundedIcon /> },
+  { path: '/agents', label: 'База агентов', icon: <PeopleRoundedIcon /> },
+  { path: '/backoffice', label: 'Команда', icon: <SupportAgentRoundedIcon /> },
+  { path: '/rating', label: 'Рейтинг', icon: <EmojiEventsRoundedIcon /> },
   { path: '/profile', label: 'Профиль', icon: <AccountCircleRoundedIcon /> },
 ];
 
