@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, LinearProgress, Grid, Tabs, Tab, alpha,
   Button, Dialog, DialogContent, IconButton, ToggleButtonGroup, ToggleButton, Divider,
-  Tooltip, Stack, useMediaQuery, useTheme,
+  Tooltip, Stack, useMediaQuery, useTheme, Menu, MenuItem,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import PlayCircleRoundedIcon from '@mui/icons-material/PlayCircleRounded';
@@ -68,28 +68,46 @@ const RU_WEEKDAYS_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс
 
 const today = new Date('2026-05-24');
 
-// ICS generator
-function pad(n: number) { return n.toString().padStart(2, '0'); }
-function toICSDate(date: string, time: string) {
+// ICS generator. Время событий — московское (Europe/Moscow). Без явной TZID
+// календари (особенно Apple/iOS) трактуют floating-time как UTC и сдвигают на
+// 3 часа. Поэтому добавляем VTIMEZONE и привязываем DTSTART/DTEND к TZID.
+function toICSLocal(date: string, time: string) {
+  // 'YYYYMMDDTHHMMSS' без Z — локальное время в указанной TZID.
   return `${date.replace(/-/g, '')}T${time.replace(':', '')}00`;
 }
+// Экранирование по RFC 5545 (запятые/точки с запятой/обратный слэш/переводы строк).
+function icsEscape(s: string) {
+  return String(s || '')
+    .replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+}
 function downloadICS(ev: AcademyEvent) {
-  const start = toICSDate(ev.date, ev.startTime);
-  const end = toICSDate(ev.date, ev.endTime);
-  const dtStamp = `${new Date().toISOString().replace(/[-:.]/g, '').slice(0, 15)}Z`;
+  const start = toICSLocal(ev.date, ev.startTime);
+  const end = toICSLocal(ev.date, ev.endTime);
+  const dtStamp = `${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '').slice(0, 15)}Z`;
   const body = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     'PRODID:-//Welcome 24//Academy//RU',
     'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    // Определение московской таймзоны (UTC+3, без перехода на летнее время).
+    'BEGIN:VTIMEZONE',
+    'TZID:Europe/Moscow',
+    'BEGIN:STANDARD',
+    'DTSTART:19700101T000000',
+    'TZOFFSETFROM:+0300',
+    'TZOFFSETTO:+0300',
+    'TZNAME:MSK',
+    'END:STANDARD',
+    'END:VTIMEZONE',
     'BEGIN:VEVENT',
     `UID:event-${ev.id}@welcome24.ru`,
     `DTSTAMP:${dtStamp}`,
-    `DTSTART:${start}`,
-    `DTEND:${end}`,
-    `SUMMARY:${ev.title}`,
-    `DESCRIPTION:${ev.description.replace(/\n/g, '\\n')}`,
-    `LOCATION:${ev.location}`,
+    `DTSTART;TZID=Europe/Moscow:${start}`,
+    `DTEND;TZID=Europe/Moscow:${end}`,
+    `SUMMARY:${icsEscape(ev.title)}`,
+    `DESCRIPTION:${icsEscape(ev.description)}`,
+    `LOCATION:${icsEscape(ev.location)}`,
     'END:VEVENT',
     'END:VCALENDAR',
   ].join('\r\n');
@@ -102,6 +120,28 @@ function downloadICS(ev: AcademyEvent) {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Прямая ссылка в Google Calendar. Даты Google ждёт в UTC (формат с Z),
+// поэтому переводим московское время (UTC+3) в UTC, вычитая 3 часа.
+function googleCalendarUrl(ev: AcademyEvent): string {
+  const toUTC = (date: string, time: string) => {
+    const [y, mo, d] = date.split('-').map(Number);
+    const [h, mi] = time.split(':').map(Number);
+    // Москва = UTC+3 → UTC = локальное − 3ч. Date.UTC + сдвиг.
+    const dt = new Date(Date.UTC(y, mo - 1, d, h - 3, mi, 0));
+    return dt.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  };
+  const dates = `${toUTC(ev.date, ev.startTime)}/${toUTC(ev.date, ev.endTime)}`;
+  const p = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: ev.title,
+    dates,
+    details: ev.description || '',
+    location: ev.location || '',
+    ctz: 'Europe/Moscow',
+  });
+  return `https://calendar.google.com/calendar/render?${p.toString()}`;
 }
 
 // ----------------- Course card -----------------
@@ -322,6 +362,7 @@ function MonthCalendar({ events, selectedDate, onSelectDate, viewDate, setViewDa
 
 // ----------------- Event card (for selected day or list) -----------------
 function EventCard({ e, compact = false }: { e: AcademyEvent; compact?: boolean }) {
+  const [calAnchor, setCalAnchor] = useState<HTMLElement | null>(null);
   const cfg = formatCfg[e.format];
   const isPast = new Date(`${e.date}T${e.endTime}`).getTime() < today.getTime();
   return (
@@ -349,11 +390,22 @@ function EventCard({ e, compact = false }: { e: AcademyEvent; compact?: boolean 
             )}
           </Box>
           {!isPast && (
-            <Tooltip title="Добавить в свой календарь">
-              <IconButton size="small" onClick={() => downloadICS(e)} sx={{ color: '#C9A84C', '&:hover': { background: 'rgba(201,168,76,0.1)' } }}>
-                <EventNoteRoundedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            <>
+              <Tooltip title="Добавить в календарь">
+                <IconButton size="small" onClick={ev => setCalAnchor(ev.currentTarget)} sx={{ color: '#C9A84C', '&:hover': { background: 'rgba(201,168,76,0.1)' } }}>
+                  <EventNoteRoundedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Menu anchorEl={calAnchor} open={!!calAnchor} onClose={() => setCalAnchor(null)}
+                slotProps={{ paper: { sx: { background: 'linear-gradient(135deg, #0F1629, #0A0E1A)', border: '1px solid rgba(201,168,76,0.15)' } } }}>
+                <MenuItem onClick={() => { window.open(googleCalendarUrl(e), '_blank', 'noopener'); setCalAnchor(null); }} sx={{ fontSize: 14 }}>
+                  Google Календарь
+                </MenuItem>
+                <MenuItem onClick={() => { downloadICS(e); setCalAnchor(null); }} sx={{ fontSize: 14 }}>
+                  Apple / Outlook (.ics)
+                </MenuItem>
+              </Menu>
+            </>
           )}
         </Box>
 
