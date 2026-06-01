@@ -66,7 +66,7 @@ const formatCfg: Record<string, { label: string; color: string }> = {
 const RU_MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const RU_WEEKDAYS_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
-const today = new Date('2026-05-24');
+const today = new Date(); // текущая дата
 
 function pad(n: number) { return n.toString().padStart(2, '0'); }
 
@@ -113,6 +113,15 @@ function downloadICS(ev: AcademyEvent) {
     'END:VEVENT',
     'END:VCALENDAR',
   ].join('\r\n');
+
+  // iOS Safari не качает blob-файлы («Safari не удаётся загрузить файл»).
+  // Для iOS открываем data:-URL в этой же вкладке — система предложит добавить
+  // в Календарь. Для остальных — обычное скачивание .ics через blob.
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (isIos) {
+    window.location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(body);
+    return;
+  }
   const blob = new Blob([body], { type: 'text/calendar;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
