@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Box, Typography, Card, CardContent, Stack, Button, Chip, alpha } from '@mui/material';
 import { motion } from 'framer-motion';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
@@ -12,6 +12,8 @@ import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
 import ConstructionRoundedIcon from '@mui/icons-material/ConstructionRounded';
 import Cases from './Cases';
 import { AdSimpleRequestsTab, AdPackagesTab } from './AdRequests';
+import { casesApi } from '../api/cases';
+import { adRequestsApi } from '../api/adRequests';
 
 type View = null | 'lawyers' | 'mortgage' | 'ads' | 'ads-requests' | 'ads-packages' | 'newbuild';
 
@@ -49,6 +51,20 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
   const initialView: View = initialTab === 1 ? 'ads-requests' : initialTab === 2 ? 'ads-packages' : null;
   const [view, setView] = useState<View>(initialView);
 
+  // Непрочитанные по отделам — чтобы подсветить нужную карточку.
+  const [badges, setBadges] = useState<Record<string, number>>({});
+  const loadBadges = useCallback(() => {
+    Promise.all([casesApi.list().catch(() => []), adRequestsApi.list().catch(() => [])]).then(([cs, ad]) => {
+      const cases = cs as { tasks?: { track: string }[]; unread?: number }[];
+      const lawyers = cases.filter(c => (c.unread || 0) > 0 && (c.tasks || []).some(t => t.track === 'legal')).length;
+      const mortgage = cases.filter(c => (c.unread || 0) > 0 && (c.tasks || []).some(t => t.track === 'mortgage')).length;
+      const ads = (ad as { unread?: number }[]).filter(r => (r.unread || 0) > 0).length;
+      setBadges({ lawyers, mortgage, ads, 'ads-requests': ads });
+    });
+  }, []);
+  // Обновляем при возврате к сетке (прочитал заявку → счётчик пересчитается).
+  useEffect(() => { if (view === null || view === 'ads') loadBadges(); }, [view, loadBadges]);
+
   const back = () => {
     if (view === 'ads-requests' || view === 'ads-packages') setView('ads');
     else setView(null);
@@ -73,7 +89,7 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
             </Typography>
           </Box>
         </Box>
-        <HubGrid cards={cards} onPick={setView} />
+        <HubGrid cards={cards} onPick={setView} badges={badges} />
       </Box>
     );
   }
@@ -91,22 +107,25 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
   );
 }
 
-function HubGrid({ cards, onPick }: { cards: CardMeta[]; onPick: (v: View) => void }) {
+function HubGrid({ cards, onPick, badges = {} }: { cards: CardMeta[]; onPick: (v: View) => void; badges?: Record<string, number> }) {
   return (
     <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' } }}>
-      {cards.map((c, i) => (
+      {cards.map((c, i) => {
+        const badge = badges[c.key] || 0;
+        return (
         <motion.div key={c.key} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}>
           <Card
             onClick={() => onPick(c.key)}
             sx={{
               cursor: 'pointer', height: '100%', position: 'relative',
-              transition: 'all 0.2s', border: '1px solid rgba(201,168,76,0.1)',
+              transition: 'all 0.2s', border: badge > 0 ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(201,168,76,0.1)',
               opacity: c.soon ? 0.75 : 1,
               '&:hover': { borderColor: alpha(c.color, 0.4), transform: 'translateY(-4px)' },
             }}
           >
             <CardContent sx={{ p: 3 }}>
               {c.soon && <Chip label="В разработке" size="small" sx={{ position: 'absolute', top: 14, right: 14, height: 22, fontSize: 11, fontWeight: 700, background: 'rgba(148,163,184,0.15)', color: '#94A3B8' }} />}
+              {badge > 0 && <Box sx={{ position: 'absolute', top: 12, right: 12, minWidth: 24, height: 24, px: 0.6, borderRadius: 12, background: '#EF4444', color: '#fff', fontSize: 12, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(239,68,68,0.4)' }}>{badge}</Box>}
               <Box sx={{
                 width: 56, height: 56, borderRadius: 3, mb: 2,
                 background: alpha(c.color, 0.15), border: `1px solid ${alpha(c.color, 0.3)}`, color: c.color,
@@ -119,7 +138,8 @@ function HubGrid({ cards, onPick }: { cards: CardMeta[]; onPick: (v: View) => vo
             </CardContent>
           </Card>
         </motion.div>
-      ))}
+        );
+      })}
     </Box>
   );
 }

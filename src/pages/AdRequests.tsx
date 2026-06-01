@@ -87,10 +87,11 @@ export function AdSimpleRequestsTab() {
       <Stack spacing={1.2}>
         {items.length === 0 && <Typography sx={{ color: '#64748B', py: 4, textAlign: 'center' }}>Заявок пока нет. Создайте первую.</Typography>}
         {items.map(r => (
-          <Card key={r.id} sx={{ ...cardSx, cursor: 'pointer', '&:hover': { borderColor: 'rgba(201,168,76,0.3)' } }} onClick={() => setDetail(r)}>
+          <Card key={r.id} sx={{ ...cardSx, cursor: 'pointer', border: (r.unread || 0) > 0 ? '1px solid rgba(239,68,68,0.4)' : cardSx.border, '&:hover': { borderColor: 'rgba(201,168,76,0.3)' } }} onClick={() => setDetail(r)}>
             <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
               <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap" useFlexGap>
                 <Chip label={r.kind_label} size="small" sx={{ background: 'rgba(201,168,76,0.15)', color: GOLD, fontWeight: 700 }} />
+                {(r.unread || 0) > 0 && <Chip label={`+${r.unread}`} size="small" sx={{ height: 18, fontSize: 10, fontWeight: 800, background: 'rgba(239,68,68,0.18)', color: '#EF4444' }} />}
                 {r.object_ref && <Typography sx={{ color: '#E2E8F0', fontWeight: 600 }}>{r.object_ref}</Typography>}
                 {r.region && <Typography sx={{ color: '#94A3B8', fontSize: 14 }}>{r.region}</Typography>}
                 <Stack direction="row" spacing={0.5}>{r.platforms.map(p => <Chip key={p} label={PLATFORM_LABEL[p]} size="small" variant="outlined" sx={{ height: 20, fontSize: 11, color: '#94A3B8', borderColor: 'rgba(148,163,184,0.3)' }} />)}</Stack>
