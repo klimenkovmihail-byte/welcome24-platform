@@ -68,6 +68,8 @@ const RU_WEEKDAYS_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс
 
 const today = new Date('2026-05-24');
 
+function pad(n: number) { return n.toString().padStart(2, '0'); }
+
 // ICS generator. Время событий — московское (Europe/Moscow). Без явной TZID
 // календари (особенно Apple/iOS) трактуют floating-time как UTC и сдвигают на
 // 3 часа. Поэтому добавляем VTIMEZONE и привязываем DTSTART/DTEND к TZID.
