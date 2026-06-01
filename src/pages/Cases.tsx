@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, MenuItem, CircularProgress, Alert, Stack, Divider,
-  FormControl, Select, Badge,
+  FormControl, Select, Badge, IconButton,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
@@ -11,8 +11,8 @@ import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
 import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded';
 import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { Link } from '@mui/material';
-import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
 import { casesApi, type CaseItem, type TaskTypeMeta, type TaskType, STATUS_RU } from '../api/cases';
 import { API_BASE_URL, getToken } from '../api/apiClient';
 import { getCurrentAgent } from '../auth/auth';
@@ -94,24 +94,37 @@ export default function Cases() {
   };
 
   const handleAddTask = (caseId: number, taskType: TaskType) => {
-    casesApi.addTask(caseId, taskType).then(load).catch(() => { /* tolerate */ });
+    casesApi.addTask(caseId, taskType).then(c => { setDetail(c); load(); }).catch(() => { /* tolerate */ });
   };
 
   const myId = getCurrentAgent()?.id ?? null;
-  const [chatOpenId, setChatOpenId] = useState<number | null>(null);
-  const [uploadingId, setUploadingId] = useState<number | null>(null);
-  const handleUpload = async (caseId: number, e: React.ChangeEvent<HTMLInputElement>) => {
+  // Большой диалог заявки (как в админке).
+  const [detail, setDetail] = useState<CaseItem | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const openDetail = (caseId: number) => {
+    setDetailLoading(true);
+    casesApi.get(caseId)
+      .then(setDetail)
+      .catch(e => setError(e?.message || 'Не удалось открыть заявку'))
+      .finally(() => setDetailLoading(false));
+    casesApi.markRead(caseId).then(load).catch(() => {});
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingId(caseId);
+    if (!file || !detail) return;
+    setUploading(true);
     try {
       const meta = await uploadCaseFile(file);
-      await casesApi.addAttachment(caseId, meta);
+      const updated = await casesApi.addAttachment(detail.id, meta);
+      setDetail(updated);
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка загрузки');
     } finally {
-      setUploadingId(null);
+      setUploading(false);
       e.target.value = '';
     }
   };
@@ -184,109 +197,149 @@ export default function Cases() {
           <Typography sx={{ color: '#64748B' }}>Ничего не найдено по фильтру.</Typography>
         </CardContent></Card>
       ) : (
-        <Stack spacing={2}>
-          {filteredCases.map((c, i) => (
-            <motion.div key={c.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
-              <Card>
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#F1F5F9' }}>{c.client_name}</Typography>
-                      <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                        {[c.object_address, c.city].filter(Boolean).join(' · ') || 'Объект не указан'}
-                      </Typography>
-                      {c.note && <Typography variant="body2" sx={{ color: '#64748B', mt: 0.5 }}>{c.note}</Typography>}
+        <Stack spacing={1.5}>
+          {filteredCases.map((c) => (
+            <Card key={c.id} onClick={() => openDetail(c.id)}
+              sx={{ cursor: 'pointer', transition: 'border-color 0.15s', '&:hover': { borderColor: 'rgba(201,168,76,0.35)' } }}>
+              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5 }}>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#F1F5F9' }}>{c.client_name}</Typography>
+                      {(c.unread || 0) > 0 && (
+                        <Chip label={`+${c.unread}`} size="small" sx={{ height: 18, fontSize: 10, fontWeight: 800, background: 'rgba(239,68,68,0.18)', color: '#EF4444' }} />
+                      )}
                     </Box>
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Chip label={c.status === 'open' ? 'Открыта' : 'Закрыта'} size="small"
-                        sx={{ background: c.status === 'open' ? 'rgba(34,197,94,0.12)' : 'rgba(100,116,139,0.12)', color: c.status === 'open' ? '#22C55E' : '#64748B', fontWeight: 700 }} />
-                      <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mt: 0.5, fontSize: 11 }}>
-                        {new Date(c.created_at.replace(' ', 'T') + 'Z').toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                      </Typography>
+                    <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block' }}>
+                      {[c.object_address, c.city].filter(Boolean).join(' · ') || 'Объект не указан'}
+                    </Typography>
+                    {/* Задачи — компактные чипы */}
+                    <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap', mt: 1 }}>
+                      {c.tasks.map(t => (
+                        <Chip key={t.id} size="small"
+                          icon={trackIcon(t.track)}
+                          label={`${types.find(x => x.key === t.type)?.label || t.type}: ${STATUS_RU[t.status] || t.status}`}
+                          sx={{ height: 22, fontSize: 11, background: `${statusColor(t.status)}1A`, color: statusColor(t.status), fontWeight: 600, '& .MuiChip-icon': { fontSize: 14 } }} />
+                      ))}
                     </Box>
                   </Box>
-
-                  <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.08)' }} />
-
-                  {/* Задачи внутри заявки */}
-                  <Stack spacing={1}>
-                    {c.tasks.map(t => {
-                      const meta = types.find(x => x.key === t.type);
-                      return (
-                        <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                          {trackIcon(t.track)}
-                          <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 600, flex: '1 1 auto' }}>
-                            {meta?.label || t.type}
-                          </Typography>
-                          <Chip label={STATUS_RU[t.status] || t.status} size="small"
-                            sx={{ background: `${statusColor(t.status)}22`, color: statusColor(t.status), fontWeight: 700 }} />
-                          <Typography variant="caption" sx={{ color: '#64748B', minWidth: 120, textAlign: 'right' }}>
-                            {t.assignee_name ? t.assignee_name : 'ждёт специалиста'}
-                          </Typography>
-                        </Box>
-                      );
-                    })}
-                  </Stack>
-
-                  {/* Вложения */}
-                  <Box sx={{ mt: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="caption" sx={{ color: '#64748B', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>Файлы</Typography>
-                      <Button component="label" size="small" disabled={uploadingId === c.id}
-                        startIcon={uploadingId === c.id ? <CircularProgress size={14} /> : <AttachFileRoundedIcon />}
-                        sx={{ color: '#C9A84C', textTransform: 'none' }}>
-                        Прикрепить
-                        <input type="file" hidden onChange={e => handleUpload(c.id, e)} />
-                      </Button>
-                    </Box>
-                    {c.attachments?.length > 0 && (
-                      <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-                        {c.attachments.map(at => (
-                          <Box key={at.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, borderRadius: 1.5, background: 'rgba(255,255,255,0.03)' }}>
-                            <DescriptionRoundedIcon sx={{ fontSize: 18, color: '#94A3B8' }} />
-                            <Link href={at.url} target="_blank" rel="noopener" sx={{ color: '#E2C97E', flex: 1, fontSize: 13, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
-                              {at.name}
-                            </Link>
-                            <Typography variant="caption" sx={{ color: '#64748B' }}>{at.uploader_name}</Typography>
-                          </Box>
-                        ))}
-                      </Stack>
-                    )}
+                  <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                    <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
+                      {new Date(c.created_at.replace(' ', 'T') + 'Z').toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                    </Typography>
+                    <Button size="small" sx={{ display: 'block', ml: 'auto', mt: 0.5, color: '#94A3B8', textTransform: 'none' }}>Открыть →</Button>
                   </Box>
-
-                  {/* Обсуждение (чат заявки) */}
-                  <Box sx={{ mt: 2 }}>
-                    <Badge badgeContent={chatOpenId === c.id ? 0 : (c.unread || 0)} color="error" sx={{ '& .MuiBadge-badge': { fontWeight: 800 } }}>
-                      <Button size="small" startIcon={<ChatBubbleOutlineRoundedIcon />}
-                        onClick={() => { const opening = chatOpenId !== c.id; setChatOpenId(opening ? c.id : null); if (opening) casesApi.markRead(c.id).then(load).catch(() => {}); }}
-                        sx={{ color: (c.unread && chatOpenId !== c.id) ? '#EF4444' : '#C9A84C', textTransform: 'none', fontWeight: (c.unread && chatOpenId !== c.id) ? 700 : 400 }}>
-                        {chatOpenId === c.id ? 'Скрыть обсуждение' : (c.unread ? `Новое сообщение (${c.unread})` : 'Обсуждение со специалистом')}
-                      </Button>
-                    </Badge>
-                    {chatOpenId === c.id && (
-                      <Box sx={{ mt: 1 }}>
-                        <CaseChat caseId={c.id} myId={myId} />
-                        <Box sx={{ mt: 2 }}>
-                          <Typography variant="caption" sx={{ color: '#64748B', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em', display: 'block', mb: 1 }}>История</Typography>
-                          <CaseTimeline caseId={c.id} />
-                        </Box>
-                      </Box>
-                    )}
-                  </Box>
-
-                  {/* Добавить ипотеку, если её ещё нет */}
-                  {!c.tasks.some(t => t.type === 'mortgage') && (
-                    <Button size="small" startIcon={<AccountBalanceRoundedIcon />} onClick={() => handleAddTask(c.id, 'mortgage')}
-                      sx={{ mt: 1.5, color: '#8B5CF6', textTransform: 'none', display: 'block' }}>
-                      Добавить ипотеку (брокер)
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
+                </Box>
+              </CardContent>
+            </Card>
           ))}
         </Stack>
       )}
+
+      {/* Большой диалог заявки */}
+      <Dialog open={!!detail || detailLoading} onClose={() => { setDetail(null); load(); }} fullWidth maxWidth="md"
+        slotProps={{ paper: { sx: { background: 'linear-gradient(135deg, #0F1629, #0A0E1A)', border: '1px solid rgba(201,168,76,0.15)', height: { md: '88vh' } } } }}>
+        {detailLoading || !detail ? (
+          <Box sx={{ p: 6, textAlign: 'center' }}><CircularProgress sx={{ color: '#C9A84C' }} /></Box>
+        ) : (
+          <>
+            <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: '#F1F5F9' }}>{detail.client_name}</Typography>
+                <Typography variant="caption" sx={{ color: '#64748B' }}>
+                  {[detail.object_address, detail.city].filter(Boolean).join(' · ') || 'Объект не указан'}
+                </Typography>
+              </Box>
+              <IconButton onClick={() => { setDetail(null); load(); }} sx={{ color: '#64748B' }}><CloseRoundedIcon /></IconButton>
+            </DialogTitle>
+            <DialogContent dividers sx={{ borderColor: 'rgba(201,168,76,0.08)', p: 0, overflow: 'hidden', height: { md: 'calc(88vh - 80px)' } }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.2fr 1fr' }, height: '100%' }}>
+                {/* ЛЕВАЯ — детали/задачи/файлы/история */}
+                <Box sx={{ overflowY: 'auto', p: 3, borderRight: { md: '1px solid rgba(201,168,76,0.08)' } }}>
+                  <Stack spacing={2.5}>
+                    {detail.note && (
+                      <Box>
+                        <Typography variant="caption" sx={{ color: '#64748B', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>Моё описание</Typography>
+                        <Typography variant="body2" sx={{ color: '#E2E8F0', whiteSpace: 'pre-wrap', mt: 0.5 }}>{detail.note}</Typography>
+                      </Box>
+                    )}
+
+                    {/* Задачи */}
+                    <Box>
+                      <Typography variant="caption" sx={{ color: '#64748B', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>Задачи</Typography>
+                      <Stack spacing={1} sx={{ mt: 1 }}>
+                        {detail.tasks.map(t => (
+                          <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', p: 1.2, borderRadius: 1.5, background: 'rgba(255,255,255,0.02)' }}>
+                            {trackIcon(t.track)}
+                            <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 600, flex: '1 1 auto' }}>{types.find(x => x.key === t.type)?.label || t.type}</Typography>
+                            <Chip label={STATUS_RU[t.status] || t.status} size="small"
+                              sx={{ background: `${statusColor(t.status)}22`, color: statusColor(t.status), fontWeight: 700 }} />
+                            <Typography variant="caption" sx={{ color: '#64748B', minWidth: 100, textAlign: 'right' }}>
+                              {t.assignee_name ? t.assignee_name : 'ждёт специалиста'}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </Stack>
+                      {!detail.tasks.some(t => t.type === 'mortgage') && (
+                        <Button size="small" startIcon={<AccountBalanceRoundedIcon />} onClick={() => handleAddTask(detail.id, 'mortgage')}
+                          sx={{ mt: 1, color: '#8B5CF6', textTransform: 'none' }}>
+                          Добавить ипотеку (брокер)
+                        </Button>
+                      )}
+                    </Box>
+
+                    <Divider sx={{ borderColor: 'rgba(201,168,76,0.08)' }} />
+
+                    {/* Файлы */}
+                    <Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="caption" sx={{ color: '#64748B', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>Файлы</Typography>
+                        <Button component="label" size="small" disabled={uploading}
+                          startIcon={uploading ? <CircularProgress size={14} /> : <AttachFileRoundedIcon />}
+                          sx={{ color: '#C9A84C', textTransform: 'none' }}>
+                          Прикрепить
+                          <input type="file" hidden onChange={handleUpload} />
+                        </Button>
+                      </Box>
+                      {detail.attachments?.length === 0 ? (
+                        <Typography variant="caption" sx={{ color: '#64748B' }}>Файлов пока нет.</Typography>
+                      ) : (
+                        <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                          {detail.attachments.map(at => (
+                            <Box key={at.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, borderRadius: 1.5, background: 'rgba(255,255,255,0.03)' }}>
+                              <DescriptionRoundedIcon sx={{ fontSize: 18, color: '#94A3B8' }} />
+                              <Link href={at.url} target="_blank" rel="noopener" sx={{ color: '#E2C97E', flex: 1, fontSize: 13, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
+                                {at.name}
+                              </Link>
+                              <Typography variant="caption" sx={{ color: '#64748B' }}>{at.uploader_name}</Typography>
+                            </Box>
+                          ))}
+                        </Stack>
+                      )}
+                    </Box>
+
+                    <Divider sx={{ borderColor: 'rgba(201,168,76,0.08)' }} />
+
+                    {/* История */}
+                    <Box>
+                      <Typography variant="caption" sx={{ color: '#64748B', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em', display: 'block', mb: 1 }}>История</Typography>
+                      <CaseTimeline caseId={detail.id} />
+                    </Box>
+                  </Stack>
+                </Box>
+
+                {/* ПРАВАЯ — чат во всю высоту */}
+                <Box sx={{ display: 'flex', flexDirection: 'column', p: 2, minHeight: 0 }}>
+                  <Typography variant="caption" sx={{ color: '#64748B', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em', display: 'block', mb: 1 }}>Обсуждение со специалистом</Typography>
+                  <Box sx={{ flex: 1, minHeight: 0 }}>
+                    <CaseChat caseId={detail.id} myId={myId} fillHeight />
+                  </Box>
+                </Box>
+              </Box>
+            </DialogContent>
+          </>
+        )}
+      </Dialog>
 
       {/* Диалог новой заявки */}
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm"
