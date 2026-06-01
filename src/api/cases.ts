@@ -87,6 +87,7 @@ export const casesApi = {
     api.post<CaseMessage>(`/api/cases/${caseId}/messages`, payload),
   markRead: (caseId: number, lastId?: number) =>
     api.post<{ ok: boolean }>(`/api/cases/${caseId}/read`, lastId ? { lastId } : {}),
+  events: (caseId: number) => api.get<CaseEvent[]>(`/api/cases/${caseId}/events`),
 
   // Специалист/админ.
   queue: (track?: TaskTrack) =>
@@ -108,4 +109,24 @@ export interface QueueTask {
   city: string;
   agent_id?: number;
   created_at?: string;
+}
+
+export interface CaseEvent {
+  id: number;
+  kind: string;
+  text: string;
+  actor_name: string | null;
+  created_at: string;
+}
+
+export interface CaseMessage {
+  id: number;
+  case_id: number;
+  sender_id: number | null;
+  sender_name: string | null;
+  sender_role: string | null;
+  body: string;
+  attachment_url: string | null;
+  attachment_name: string | null;
+  created_at: string;
 }
