@@ -57,17 +57,20 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Бейдж непрочитанного на «Заявки»: число заявок (специалистам + реклама) с новыми сообщениями.
+  // Бейдж непрочитанного на «Заявки»: число заявок (специалистам + реклама) с новыми
+  // сообщениями. Поллинг каждые 20с — появляется без перезагрузки страницы.
   useEffect(() => {
-    let cancelled = false;
-    Promise.all([casesApi.list().catch(() => []), adRequestsApi.list().catch(() => [])])
-      .then(([c, a]) => {
-        if (cancelled) return;
-        const n = (c as { unread?: number }[]).filter(x => (x.unread || 0) > 0).length
-          + (a as { unread?: number }[]).filter(x => (x.unread || 0) > 0).length;
-        setCasesUnread(n);
-      });
-    return () => { cancelled = true; };
+    const load = () => {
+      Promise.all([casesApi.list().catch(() => []), adRequestsApi.list().catch(() => [])])
+        .then(([c, a]) => {
+          const n = (c as { unread?: number }[]).filter(x => (x.unread || 0) > 0).length
+            + (a as { unread?: number }[]).filter(x => (x.unread || 0) > 0).length;
+          setCasesUnread(n);
+        });
+    };
+    load();
+    const iv = setInterval(load, 20000);
+    return () => clearInterval(iv);
   }, [location.pathname]);
 
   // На мобиле сайдбар всегда развёрнут (он в оверлее-drawer'е), мини-режим только на десктопе.

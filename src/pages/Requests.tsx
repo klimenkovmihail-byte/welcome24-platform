@@ -62,8 +62,13 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
       setBadges({ lawyers, mortgage, ads, 'ads-requests': ads });
     });
   }, []);
-  // Обновляем при возврате к сетке (прочитал заявку → счётчик пересчитается).
-  useEffect(() => { if (view === null || view === 'ads') loadBadges(); }, [view, loadBadges]);
+  // Обновляем при возврате к сетке + поллинг каждые 20с (новые заявки видны без F5).
+  useEffect(() => {
+    if (view !== null && view !== 'ads') return;
+    loadBadges();
+    const iv = setInterval(loadBadges, 20000);
+    return () => clearInterval(iv);
+  }, [view, loadBadges]);
 
   const back = () => {
     if (view === 'ads-requests' || view === 'ads-packages') setView('ads');
