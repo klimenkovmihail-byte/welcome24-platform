@@ -429,7 +429,6 @@ function SocialForm({ onSubmit, loading }: SubProps) {
             <MenuItem value="instagram">Instagram</MenuItem>
             <MenuItem value="telegram">Telegram</MenuItem>
             <MenuItem value="vk">ВКонтакте</MenuItem>
-            <MenuItem value="threads">Threads</MenuItem>
           </Select>
         </FormControl>
       </Box>
