@@ -41,7 +41,7 @@ export const adRequestsApi = {
   create: (body: { kind: AdKind; objectRef?: string; region?: string; platforms?: AdPlatform[]; comment?: string }) =>
     api.post<AdRequest>('/api/ad-requests', body),
   messages: (id: number, after = 0) => api.get<AdMessage[]>(`/api/ad-requests/${id}/messages?after=${after}`),
-  sendMessage: (id: number, payload: { body?: string }) => api.post<AdMessage>(`/api/ad-requests/${id}/messages`, payload),
+  sendMessage: (id: number, payload: { body?: string; attachmentUrl?: string; attachmentName?: string }) => api.post<AdMessage>(`/api/ad-requests/${id}/messages`, payload),
   markRead: (id: number, lastId?: number) => api.post<{ ok: boolean }>(`/api/ad-requests/${id}/read`, lastId ? { lastId } : {}),
   events: (id: number) => api.get<AdEvent[]>(`/api/ad-requests/${id}/events`),
 };
