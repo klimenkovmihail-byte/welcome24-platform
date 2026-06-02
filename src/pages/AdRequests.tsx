@@ -32,6 +32,11 @@ function fmtDate(s?: string | null): string {
   const d = new Date(s.replace(' ', 'T') + 'Z');
   return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
+function fmtDateTime(s?: string | null): string {
+  if (!s) return '—';
+  const d = new Date(s.replace(' ', 'T') + 'Z');
+  return isNaN(d.getTime()) ? '—' : d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
 function statusColor(s: string): string {
   return s === 'done' ? '#22C55E' : s === 'cancelled' ? '#EF4444' : s === 'in_progress' ? GOLD : '#64748B';
 }
@@ -96,6 +101,7 @@ export function AdSimpleRequestsTab() {
                 {r.region && <Typography sx={{ color: '#94A3B8', fontSize: 14 }}>{r.region}</Typography>}
                 <Stack direction="row" spacing={0.5}>{r.platforms.map(p => <Chip key={p} label={PLATFORM_LABEL[p]} size="small" variant="outlined" sx={{ height: 20, fontSize: 11, color: '#94A3B8', borderColor: 'rgba(148,163,184,0.3)' }} />)}</Stack>
                 <Box sx={{ flex: 1 }} />
+                <Typography sx={{ color: '#CBD5E1', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{fmtDateTime(r.created_at)}</Typography>
                 {r.assignee_name && <Typography sx={{ color: '#64748B', fontSize: 12 }}>{r.assignee_name}</Typography>}
                 <Chip label={AD_STATUS_RU[r.status]} size="small" sx={{ background: statusColor(r.status) + '22', color: statusColor(r.status), fontWeight: 700 }} />
               </Stack>
@@ -117,8 +123,6 @@ function CreateDialog({ meta, onClose, onCreated, setError }: { meta: AdMeta; on
   const [platforms, setPlatforms] = useState<AdPlatform[]>([]);
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
-  const [needDate, setNeedDate] = useState('');
-  const [needTime, setNeedTime] = useState('');
 
   const needObject = kind === 'quota' || kind === 'fix';
   const needRegion = kind === 'connect';
@@ -128,7 +132,7 @@ function CreateDialog({ meta, onClose, onCreated, setError }: { meta: AdMeta; on
     if (needObject && !objectRef.trim()) { setError('Укажите номер объекта'); return; }
     if (!platforms.length) { setError('Выберите хотя бы одну площадку'); return; }
     setSaving(true);
-    adRequestsApi.create({ kind, objectRef, region, platforms, comment, needDate: needDate || undefined, needTime: needTime || undefined })
+    adRequestsApi.create({ kind, objectRef, region, platforms, comment })
       .then(onCreated).catch(e => setError(e?.message || 'Ошибка')).finally(() => setSaving(false));
   };
 
@@ -158,15 +162,6 @@ function CreateDialog({ meta, onClose, onCreated, setError }: { meta: AdMeta; on
                 <FormControlLabel key={p} control={<Checkbox size="small" checked={platforms.includes(p)} onChange={() => togglePlatform(p)} sx={{ color: '#64748B', '&.Mui-checked': { color: GOLD } }} />}
                   label={PLATFORM_LABEL[p]} sx={{ color: '#E2E8F0', mr: 1 }} />
               ))}
-            </Stack>
-          </Box>
-          <Box>
-            <Typography sx={{ color: '#94A3B8', fontSize: 13, mb: 0.5 }}>Желаемые дата и время (необязательно)</Typography>
-            <Stack direction="row" spacing={1.5}>
-              <TextField size="small" type="date" value={needDate} onChange={e => setNeedDate(e.target.value)}
-                slotProps={{ inputLabel: { shrink: true } }} sx={{ flex: 1, '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
-              <TextField size="small" type="time" value={needTime} onChange={e => setNeedTime(e.target.value)}
-                slotProps={{ inputLabel: { shrink: true } }} sx={{ flex: 1, '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
             </Stack>
           </Box>
           <TextField size="small" label="Комментарий" value={comment} onChange={e => setComment(e.target.value)} multiline minRows={2}
@@ -222,7 +217,7 @@ function RequestDetail({ request, onClose }: { request: AdRequest; onClose: () =
         <Stack spacing={0.5} sx={{ mb: 2 }}>
           {request.object_ref && <Info label="Объект" value={request.object_ref} />}
           {request.region && <Info label="Регион" value={request.region} />}
-          {(request.need_date || request.need_time) && <Info label="Желаемо" value={[request.need_date, request.need_time].filter(Boolean).join(' ')} />}
+          <Info label="Подана" value={fmtDateTime(request.created_at)} />
           {request.platforms.length > 0 && <Info label="Площадки" value={request.platforms.map(p => PLATFORM_LABEL[p]).join(', ')} />}
           {request.comment && <Info label="Комментарий" value={request.comment} />}
           <Info label="Исполнитель" value={request.assignee_name || 'ещё не взяли в работу'} />

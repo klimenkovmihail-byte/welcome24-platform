@@ -13,7 +13,6 @@ export interface AdRequest {
   kind: AdKind; kind_label: string;
   object_ref: string; region: string; platforms: AdPlatform[]; comment: string;
   status: AdStatus; assignee_id: number | null; assignee_name: string | null;
-  need_date?: string | null; need_time?: string | null;
   created_at: string; updated_at: string; unread?: number;
   attachments: { id: number; name: string; url: string }[];
 }
@@ -39,7 +38,7 @@ export const adRequestsApi = {
   meta: () => api.get<AdMeta>('/api/ad-requests/meta'),
   list: () => api.get<AdRequest[]>('/api/ad-requests'),
   get: (id: number) => api.get<AdRequest>(`/api/ad-requests/${id}`),
-  create: (body: { kind: AdKind; objectRef?: string; region?: string; platforms?: AdPlatform[]; comment?: string; needDate?: string; needTime?: string }) =>
+  create: (body: { kind: AdKind; objectRef?: string; region?: string; platforms?: AdPlatform[]; comment?: string }) =>
     api.post<AdRequest>('/api/ad-requests', body),
   messages: (id: number, after = 0) => api.get<AdMessage[]>(`/api/ad-requests/${id}/messages?after=${after}`),
   sendMessage: (id: number, payload: { body?: string }) => api.post<AdMessage>(`/api/ad-requests/${id}/messages`, payload),
