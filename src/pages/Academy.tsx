@@ -440,6 +440,14 @@ function EventCard({ e, compact = false }: { e: AcademyEvent; compact?: boolean 
         <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mt: 1, fontSize: 11 }}>
           🎤 {e.speaker}
         </Typography>
+
+        {!isPast && e.link && (
+          <Button size="small" variant="contained" fullWidth component="a" href={e.link} target="_blank" rel="noopener noreferrer"
+            startIcon={<OndemandVideoRoundedIcon fontSize="small" />}
+            sx={{ mt: 1.2, background: cfg.color, color: '#0A0E1A', fontWeight: 700, textTransform: 'none', '&:hover': { background: cfg.color, filter: 'brightness(1.1)' } }}>
+            Перейти на трансляцию
+          </Button>
+        )}
       </Box>
     </motion.div>
   );

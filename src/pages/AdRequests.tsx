@@ -117,6 +117,8 @@ function CreateDialog({ meta, onClose, onCreated, setError }: { meta: AdMeta; on
   const [platforms, setPlatforms] = useState<AdPlatform[]>([]);
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
+  const [needDate, setNeedDate] = useState('');
+  const [needTime, setNeedTime] = useState('');
 
   const needObject = kind === 'quota' || kind === 'fix';
   const needRegion = kind === 'connect';
@@ -126,7 +128,7 @@ function CreateDialog({ meta, onClose, onCreated, setError }: { meta: AdMeta; on
     if (needObject && !objectRef.trim()) { setError('Укажите номер объекта'); return; }
     if (!platforms.length) { setError('Выберите хотя бы одну площадку'); return; }
     setSaving(true);
-    adRequestsApi.create({ kind, objectRef, region, platforms, comment })
+    adRequestsApi.create({ kind, objectRef, region, platforms, comment, needDate: needDate || undefined, needTime: needTime || undefined })
       .then(onCreated).catch(e => setError(e?.message || 'Ошибка')).finally(() => setSaving(false));
   };
 
@@ -156,6 +158,15 @@ function CreateDialog({ meta, onClose, onCreated, setError }: { meta: AdMeta; on
                 <FormControlLabel key={p} control={<Checkbox size="small" checked={platforms.includes(p)} onChange={() => togglePlatform(p)} sx={{ color: '#64748B', '&.Mui-checked': { color: GOLD } }} />}
                   label={PLATFORM_LABEL[p]} sx={{ color: '#E2E8F0', mr: 1 }} />
               ))}
+            </Stack>
+          </Box>
+          <Box>
+            <Typography sx={{ color: '#94A3B8', fontSize: 13, mb: 0.5 }}>Желаемые дата и время (необязательно)</Typography>
+            <Stack direction="row" spacing={1.5}>
+              <TextField size="small" type="date" value={needDate} onChange={e => setNeedDate(e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }} sx={{ flex: 1, '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
+              <TextField size="small" type="time" value={needTime} onChange={e => setNeedTime(e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }} sx={{ flex: 1, '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
             </Stack>
           </Box>
           <TextField size="small" label="Комментарий" value={comment} onChange={e => setComment(e.target.value)} multiline minRows={2}
@@ -211,6 +222,7 @@ function RequestDetail({ request, onClose }: { request: AdRequest; onClose: () =
         <Stack spacing={0.5} sx={{ mb: 2 }}>
           {request.object_ref && <Info label="Объект" value={request.object_ref} />}
           {request.region && <Info label="Регион" value={request.region} />}
+          {(request.need_date || request.need_time) && <Info label="Желаемо" value={[request.need_date, request.need_time].filter(Boolean).join(' ')} />}
           {request.platforms.length > 0 && <Info label="Площадки" value={request.platforms.map(p => PLATFORM_LABEL[p]).join(', ')} />}
           {request.comment && <Info label="Комментарий" value={request.comment} />}
           <Info label="Исполнитель" value={request.assignee_name || 'ещё не взяли в работу'} />
