@@ -301,6 +301,8 @@ function ToolForm({ tool, onBack, onUsageChange }: FormProps) {
               background: 'rgba(15,22,41,0.6)',
               border: '1px solid rgba(201,168,76,0.1)',
               whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
+              wordBreak: 'break-word',
               fontFamily: 'inherit',
               fontSize: 14,
               lineHeight: 1.7,
@@ -1033,7 +1035,7 @@ function ChatTool({ tool, onBack, onUsageChange }: ChatProps) {
         </Card>
 
         {/* Активный чат */}
-        <Box>
+        <Box sx={{ minWidth: 0 }}>
           <Card sx={{ mb: 2 }}>
             <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
               <Box ref={scrollRef} sx={{
@@ -1058,7 +1060,7 @@ function ChatTool({ tool, onBack, onUsageChange }: ChatProps) {
                 {messages.map(m => (
                   <Box key={m.id} sx={{
                     alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                    maxWidth: '88%',
+                    maxWidth: '88%', minWidth: 0,
                     p: 1.8, borderRadius: 2.5,
                     background: m.role === 'user' ? alpha('#C9A84C', 0.12) : 'rgba(15,22,41,0.6)',
                     border: `1px solid ${m.role === 'user' ? 'rgba(201,168,76,0.2)' : alpha(meta.color, 0.15)}`,
@@ -1070,7 +1072,7 @@ function ChatTool({ tool, onBack, onUsageChange }: ChatProps) {
                     }}>
                       {m.role === 'user' ? 'Ты' : meta.title}
                     </Typography>
-                    <Typography variant="body2" sx={{ color: '#F1F5F9', whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: 14 }}>
+                    <Typography variant="body2" sx={{ color: '#F1F5F9', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word', lineHeight: 1.6, fontSize: 14 }}>
                       {m.content}
                     </Typography>
                   </Box>
