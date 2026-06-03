@@ -161,18 +161,30 @@ function CreateDialog({ meta, onClose, onCreated, setError }: { meta: AdMeta; on
   const [region, setRegion] = useState('');
   const [platforms, setPlatforms] = useState<AdPlatform[]>([]);
   const [comment, setComment] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
 
   const needObject = kind === 'quota' || kind === 'fix';
   const needRegion = kind === 'connect';
   const togglePlatform = (p: AdPlatform) => setPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
 
-  const submit = () => {
+  const submit = async () => {
     if (needObject && !objectRef.trim()) { setError('Укажите номер объекта'); return; }
     if (!platforms.length) { setError('Выберите хотя бы одну площадку'); return; }
     setSaving(true);
-    adRequestsApi.create({ kind, objectRef, region, platforms, comment })
-      .then(onCreated).catch(e => setError(e?.message || 'Ошибка')).finally(() => setSaving(false));
+    try {
+      const created = await adRequestsApi.create({ kind, objectRef, region, platforms, comment });
+      // Прикрепляем выбранные файлы в тред заявки (чек/скрин/документ).
+      for (const f of files) {
+        try { const up = await uploadFile(f); await adRequestsApi.sendMessage(created.id, { attachmentUrl: up.url, attachmentName: up.name }); }
+        catch { /* один файл не загрузился — заявка всё равно создана */ }
+      }
+      onCreated();
+    } catch (e) {
+      setError((e as Error)?.message || 'Ошибка');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -207,11 +219,29 @@ function CreateDialog({ meta, onClose, onCreated, setError }: { meta: AdMeta; on
             placeholder="Напр.: квартира в городе, продажа — поднять в топ на неделю"
             slotProps={{ inputLabel: { shrink: true, sx: { color: '#94A3B8' } } }}
             sx={{ '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
+          <Box>
+            <Button component="label" size="small" startIcon={<AttachFileRoundedIcon />} sx={{ color: GOLD, textTransform: 'none' }}>
+              Прикрепить файлы
+              <input type="file" hidden multiple onChange={e => setFiles(prev => [...prev, ...Array.from(e.target.files || [])])} />
+            </Button>
+            {files.length > 0 && (
+              <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                {files.map((f, i) => (
+                  <Stack key={i} direction="row" alignItems="center" spacing={1}>
+                    <Typography variant="caption" sx={{ color: '#94A3B8', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</Typography>
+                    <Button size="small" onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))} sx={{ minWidth: 0, color: '#EF4444', p: 0.3 }}>✕</Button>
+                  </Stack>
+                ))}
+              </Stack>
+            )}
+          </Box>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} sx={{ color: '#94A3B8' }}>Отмена</Button>
-        <Button onClick={submit} disabled={saving} variant="contained" sx={{ background: GOLD, color: '#0A0E1A', fontWeight: 700 }}>Отправить</Button>
+        <Button onClick={submit} disabled={saving} variant="contained" sx={{ background: GOLD, color: '#0A0E1A', fontWeight: 700 }}>
+          {saving ? 'Отправка…' : 'Отправить'}
+        </Button>
       </DialogActions>
     </Dialog>
   );

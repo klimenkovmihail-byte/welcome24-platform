@@ -63,6 +63,7 @@ export default function Cases({ track }: { track?: TaskTrack } = {}) {
   const [form, setForm] = useState<{ clientName: string; objectAddress: string; city: string; note: string; taskType: TaskType | '' }>(
     { clientName: '', objectAddress: '', city: '', note: '', taskType: '' },
   );
+  const [newFiles, setNewFiles] = useState<File[]>([]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -75,23 +76,31 @@ export default function Cases({ track }: { track?: TaskTrack } = {}) {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { casesApi.types().then(setTypes).catch(() => setTypes([])); }, []);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!form.clientName.trim() || !form.taskType) return;
     setSaving(true);
-    casesApi.create({
-      clientName: form.clientName.trim(),
-      objectAddress: form.objectAddress.trim() || undefined,
-      city: form.city.trim() || undefined,
-      note: form.note.trim() || undefined,
-      taskType: form.taskType as TaskType,
-    })
-      .then(() => {
-        setOpen(false);
-        setForm({ clientName: '', objectAddress: '', city: '', note: '', taskType: '' });
-        load();
-      })
-      .catch(e => setError(e?.message || 'Не удалось создать заявку'))
-      .finally(() => setSaving(false));
+    try {
+      const created = await casesApi.create({
+        clientName: form.clientName.trim(),
+        objectAddress: form.objectAddress.trim() || undefined,
+        city: form.city.trim() || undefined,
+        note: form.note.trim() || undefined,
+        taskType: form.taskType as TaskType,
+      });
+      // Прикрепляем документы, выбранные при создании.
+      for (const f of newFiles) {
+        try { const up = await uploadCaseFile(f); await casesApi.addAttachment(created.id, { name: up.name, url: up.url, size: up.size }); }
+        catch { /* один файл не загрузился — заявка всё равно создана */ }
+      }
+      setOpen(false);
+      setForm({ clientName: '', objectAddress: '', city: '', note: '', taskType: '' });
+      setNewFiles([]);
+      load();
+    } catch (e) {
+      setError((e as Error)?.message || 'Не удалось создать заявку');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleAddTask = (caseId: number, taskType: TaskType) => {
@@ -363,10 +372,26 @@ export default function Cases({ track }: { track?: TaskTrack } = {}) {
               {formTypes.map(t => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
             </TextField>
             <TextField label="Комментарий" value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} fullWidth size="small" multiline minRows={2} />
+            <Box>
+              <Button component="label" size="small" sx={{ color: '#C9A84C', textTransform: 'none' }}>
+                Прикрепить документы
+                <input type="file" hidden multiple onChange={e => setNewFiles(prev => [...prev, ...Array.from(e.target.files || [])])} />
+              </Button>
+              {newFiles.length > 0 && (
+                <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                  {newFiles.map((f, i) => (
+                    <Stack key={i} direction="row" alignItems="center" spacing={1}>
+                      <Typography variant="caption" sx={{ color: '#94A3B8', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</Typography>
+                      <Button size="small" onClick={() => setNewFiles(prev => prev.filter((_, j) => j !== i))} sx={{ minWidth: 0, color: '#EF4444', p: 0.3 }}>✕</Button>
+                    </Stack>
+                  ))}
+                </Stack>
+              )}
+            </Box>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setOpen(false)} sx={{ color: '#64748B' }}>Отмена</Button>
+          <Button onClick={() => { setOpen(false); setNewFiles([]); }} sx={{ color: '#64748B' }}>Отмена</Button>
           <Button variant="contained" disabled={saving || !form.clientName.trim() || !form.taskType} onClick={handleCreate}
             sx={{ background: 'linear-gradient(135deg, #C9A84C, #E2C97E)', color: '#0A0E1A', fontWeight: 700 }}>
             {saving ? <CircularProgress size={18} sx={{ color: '#0A0E1A' }} /> : 'Создать'}
