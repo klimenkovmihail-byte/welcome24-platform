@@ -13,6 +13,31 @@ import ConstructionRoundedIcon from '@mui/icons-material/ConstructionRounded';
 import Cases from './Cases';
 import { AdSimpleRequestsTab, AdPackagesTab } from './AdRequests';
 import { useRequestsData } from '../hooks/useRequestsData';
+import { STATUS_RU, type CaseItem } from '../api/cases';
+import { AD_STATUS_RU, type AdRequest } from '../api/adRequests';
+
+// Относительное время для списка обращений.
+function fmtWhen(iso?: string): string {
+  if (!iso) return '';
+  const d = new Date(iso).getTime();
+  if (!d) return '';
+  const mins = Math.floor((Date.now() - d) / 60000);
+  if (mins < 1) return 'только что';
+  if (mins < 60) return `${mins} мин назад`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} ч назад`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days} дн назад`;
+  return new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  new: '#94A3B8', consultation: '#94A3B8',
+  in_progress: '#4361EE', approval: '#4361EE', contract: '#4361EE', deposit: '#4361EE', dkp: '#4361EE', deal: '#4361EE', check: '#4361EE',
+  approved: '#22C55E', done: '#22C55E', issued: '#22C55E', act: '#22C55E',
+  cancelled: '#EF4444', rejected: '#EF4444',
+};
+const trackName = (t: string) => t === 'legal' ? 'Юрист' : t === 'mortgage' ? 'Ипотека' : t;
 
 type View = null | 'lawyers' | 'mortgage' | 'ads' | 'ads-requests' | 'ads-packages' | 'newbuild';
 
@@ -83,6 +108,10 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
             </Typography>
           </Box>
         </Box>
+        {view === null && <MyRequests cases={cases} adRequests={adRequests} onOpen={setView} />}
+        {view === null && (cases.length > 0 || adRequests.length > 0) && (
+          <Typography variant="subtitle2" sx={{ color: '#94A3B8', fontWeight: 700, mb: 1.5 }}>Создать новое обращение</Typography>
+        )}
         <HubGrid cards={cards} onPick={setView} badges={badges} />
       </Box>
     );
@@ -134,6 +163,61 @@ function HubGrid({ cards, onPick, badges = {} }: { cards: CardMeta[]; onPick: (v
         </motion.div>
         );
       })}
+    </Box>
+  );
+}
+
+// Единый список «Мои обращения» — все дорожки (юрист/ипотека/реклама) одним списком
+// со статусом и непрочитанными. Клик ведёт в нужный раздел.
+function MyRequests({ cases, adRequests, onOpen }: { cases: CaseItem[]; adRequests: AdRequest[]; onOpen: (v: View) => void }) {
+  const rows = [
+    ...cases.map(c => ({
+      key: 'c' + c.id, kind: 'case' as const, updated: c.updated_at, unread: c.unread || 0,
+      title: c.client_name || 'Заявка', sub: c.object_address || c.city || '',
+      chips: (c.tasks || []).map(t => ({ label: `${trackName(t.track)}: ${STATUS_RU[t.status] || t.status}`, color: STATUS_COLOR[t.status] || '#94A3B8' })),
+      view: ((c.tasks || []).some(t => t.track === 'legal') ? 'lawyers' : 'mortgage') as View,
+    })),
+    ...adRequests.map(a => ({
+      key: 'a' + a.id, kind: 'ad' as const, updated: a.updated_at, unread: a.unread || 0,
+      title: a.kind_label || 'Заявка в отдел рекламы', sub: [a.object_ref, a.region].filter(Boolean).join(' · '),
+      chips: [{ label: `Реклама: ${AD_STATUS_RU[a.status] || a.status}`, color: STATUS_COLOR[a.status] || '#94A3B8' }],
+      view: 'ads-requests' as View,
+    })),
+  ].sort((x, y) => (y.updated || '').localeCompare(x.updated || ''));
+
+  if (rows.length === 0) return null;
+
+  return (
+    <Box sx={{ mb: 4 }}>
+      <Typography variant="subtitle2" sx={{ color: '#94A3B8', fontWeight: 700, mb: 1.5 }}>Мои обращения ({rows.length})</Typography>
+      <Stack spacing={1.2}>
+        {rows.map(r => (
+          <Card key={r.key} onClick={() => onOpen(r.view)} sx={{
+            cursor: 'pointer', border: r.unread > 0 ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(201,168,76,0.1)',
+            transition: 'all .2s', '&:hover': { borderColor: 'rgba(201,168,76,0.4)', transform: 'translateY(-2px)' },
+          }}>
+            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 }, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box sx={{ flexShrink: 0, width: 40, height: 40, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: r.kind === 'ad' ? 'rgba(201,168,76,0.12)' : 'rgba(67,97,238,0.12)', color: r.kind === 'ad' ? '#C9A84C' : '#4361EE' }}>
+                {r.kind === 'ad' ? <CampaignRoundedIcon /> : <GavelRoundedIcon />}
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: '#F1F5F9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.title}</Typography>
+                {r.sub && <Typography variant="caption" sx={{ color: '#64748B', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.sub}</Typography>}
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                  {r.chips.map((ch, i) => (
+                    <Chip key={i} label={ch.label} size="small" sx={{ height: 20, fontSize: 10, fontWeight: 700, background: `${ch.color}22`, color: ch.color }} />
+                  ))}
+                </Box>
+              </Box>
+              <Box sx={{ flexShrink: 0, textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
+                {r.unread > 0 && <Box sx={{ minWidth: 22, height: 22, px: 0.6, borderRadius: 11, background: '#EF4444', color: '#fff', fontSize: 12, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{r.unread}</Box>}
+                <Typography variant="caption" sx={{ color: '#475569', whiteSpace: 'nowrap' }}>{fmtWhen(r.updated)}</Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        ))}
+      </Stack>
     </Box>
   );
 }

@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react';
-import { casesApi } from '../api/cases';
-import { adRequestsApi } from '../api/adRequests';
+import { casesApi, type CaseItem } from '../api/cases';
+import { adRequestsApi, type AdRequest } from '../api/adRequests';
 
 // Singleton-поллер заявок: и Sidebar, и страница «Заявки» раньше независимо
 // дёргали casesApi.list()+adRequestsApi.list() каждые 20с (двойная нагрузка).
 // Теперь — ОДИН цикл на всё приложение, с паузой при скрытой вкладке.
 
-type Caze = { tasks?: { track: string }[]; unread?: number };
-type AdReq = { unread?: number };
-export interface RequestsData { cases: Caze[]; adRequests: AdReq[] }
+export interface RequestsData { cases: CaseItem[]; adRequests: AdRequest[] }
 
 const INTERVAL = 20000;
 let cache: RequestsData = { cases: [], adRequests: [] };
@@ -21,10 +19,10 @@ async function fetchOnce() {
   inFlight = true;
   try {
     const [c, a] = await Promise.all([
-      casesApi.list().catch(() => []),
-      adRequestsApi.list().catch(() => []),
+      casesApi.list().catch(() => [] as CaseItem[]),
+      adRequestsApi.list().catch(() => [] as AdRequest[]),
     ]);
-    cache = { cases: c as Caze[], adRequests: a as AdReq[] };
+    cache = { cases: c, adRequests: a };
     subscribers.forEach(cb => cb(cache));
   } finally {
     inFlight = false;
