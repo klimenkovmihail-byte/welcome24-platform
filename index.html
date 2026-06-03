@@ -26,27 +26,77 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" />
     <title>Welcome 24 — Цифровая платформа для предпринимателей в недвижимости</title>
     <style>
-      /* App-shell: лого + спиннер, пока грузится JS. React заменит #root при гидрации. */
+      /* App-shell в стиле логина: тёмный фон + созвездия + золотая WELCOME 24.
+         React заменит #root при гидрации (canvas-цикл сам остановится). */
       @keyframes w24spin { to { transform: rotate(360deg); } }
       #app-shell {
-        position: fixed; inset: 0; z-index: 1;
-        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
-        background: #080C18;
+        position: fixed; inset: 0; z-index: 1; overflow: hidden;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        padding: 0 24px; text-align: center;
+        background:
+          radial-gradient(ellipse at 15% 30%, rgba(201,168,76,0.12) 0%, transparent 45%),
+          radial-gradient(ellipse at 85% 70%, rgba(67,97,238,0.14) 0%, transparent 50%),
+          radial-gradient(ellipse at 50% 100%, rgba(123,47,190,0.08) 0%, transparent 60%),
+          #050811;
       }
-      #app-shell .ring {
-        width: 34px; height: 34px; border-radius: 50%;
-        border: 3px solid rgba(201, 168, 76, 0.2); border-top-color: #C9A84C;
-        animation: w24spin 0.8s linear infinite;
+      #as-grid {
+        position: absolute; inset: 0; pointer-events: none;
+        background-image:
+          linear-gradient(rgba(201,168,76,0.10) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(201,168,76,0.10) 1px, transparent 1px);
+        background-size: 80px 80px;
+        -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 90%);
+        mask-image: radial-gradient(ellipse at center, black 30%, transparent 90%);
       }
+      #as-mesh { position: absolute; inset: 0; pointer-events: none; }
+      #as-logo {
+        width: min(280px, 72vw); aspect-ratio: 3760 / 1280; z-index: 1;
+        background: linear-gradient(135deg, #FCE9A6 0%, #F0D277 28%, #E5C25A 52%, #D4AF37 78%, #C9A227 100%);
+        -webkit-mask: url(/logo.svg) center / contain no-repeat;
+        mask: url(/logo.svg) center / contain no-repeat;
+        filter: drop-shadow(0 8px 32px rgba(201,168,76,0.3));
+      }
+      #as-t1 { z-index: 1; margin-top: 14px; color: #E2C97E; font: 700 17px Inter, system-ui, sans-serif; letter-spacing: .03em; text-shadow: 0 2px 12px rgba(201,168,76,.4); }
+      #as-t2 { z-index: 1; margin-top: 4px; color: #94A3B8; font: 500 14px Inter, system-ui, sans-serif; }
+      #as-ring { z-index: 1; margin-top: 28px; width: 28px; height: 28px; border-radius: 50%; border: 3px solid rgba(201,168,76,.2); border-top-color: #C9A84C; animation: w24spin .8s linear infinite; }
     </style>
   </head>
   <body>
     <div id="root">
       <div id="app-shell">
-        <img src="/favicon.svg" alt="Welcome 24" width="56" height="56" style="opacity:0.9" />
-        <div class="ring"></div>
+        <canvas id="as-mesh"></canvas>
+        <div id="as-grid"></div>
+        <div id="as-logo" role="img" aria-label="Welcome 24"></div>
+        <div id="as-t1">Цифровая платформа</div>
+        <div id="as-t2">для предпринимателей в недвижимости</div>
+        <div id="as-ring"></div>
       </div>
     </div>
+    <script>
+      // Лёгкие «созвездия» для экрана загрузки (как на логине). Без зависимостей.
+      // Цикл сам останавливается, когда React заменит #root (canvas отсоединится).
+      (function () {
+        var c = document.getElementById('as-mesh'); if (!c) return;
+        var ctx = c.getContext('2d'); if (!ctx) return;
+        var dpr = window.devicePixelRatio || 1, W, H, nodes;
+        function resize() { W = innerWidth; H = innerHeight; c.width = W * dpr; c.height = H * dpr; c.style.width = W + 'px'; c.style.height = H + 'px'; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+        resize();
+        var COUNT = innerWidth < 768 ? 28 : 48;
+        nodes = Array.from({ length: COUNT }, function () { return { x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - .5) * .3, vy: (Math.random() - .5) * .3, r: 1.4 + Math.random() * 1.9 }; });
+        function tick() {
+          if (!c.isConnected) return; // React убрал app-shell — стоп
+          ctx.clearRect(0, 0, W, H);
+          for (var k = 0; k < nodes.length; k++) { var n = nodes[k]; n.x += n.vx; n.y += n.vy; if (n.x < 0 || n.x > W) n.vx *= -1; if (n.y < 0 || n.y > H) n.vy *= -1; }
+          ctx.lineWidth = 1.1;
+          for (var i = 0; i < nodes.length; i++) for (var j = i + 1; j < nodes.length; j++) { var dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y, d = Math.hypot(dx, dy); if (d < 170) { ctx.strokeStyle = 'rgba(201,168,76,' + (1 - d / 170) * .5 + ')'; ctx.beginPath(); ctx.moveTo(nodes[i].x, nodes[i].y); ctx.lineTo(nodes[j].x, nodes[j].y); ctx.stroke(); } }
+          for (var m = 0; m < nodes.length; m++) { var p = nodes[m]; ctx.fillStyle = 'rgba(226,201,126,.95)'; ctx.shadowColor = 'rgba(201,168,76,1)'; ctx.shadowBlur = 12; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); }
+          ctx.shadowBlur = 0;
+          requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+        addEventListener('resize', resize);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
