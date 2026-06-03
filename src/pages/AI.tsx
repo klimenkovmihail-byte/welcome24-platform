@@ -339,6 +339,13 @@ function ListingForm({ onSubmit, loading }: SubProps) {
   });
 
   const set = (k: keyof typeof data, v: string) => setData(d => ({ ...d, [k]: v }));
+  // Поля зависят от типа объекта: «этаж» только у квартир/апартаментов/коммерции,
+  // «этажей» — у всего кроме участка, «комнат» — не для участка.
+  const pt = data.propertyType;
+  const isLand = pt === 'земельный участок';
+  const showFloor = pt === 'квартира' || pt === 'апартаменты' || pt === 'коммерческая';
+  const showStoreys = !isLand;
+  const showRooms = !isLand;
   const canSubmit = !!data.propertyType && (!!data.area || !!data.rooms);
 
   return (
@@ -355,11 +362,11 @@ function ListingForm({ onSubmit, loading }: SubProps) {
             <MenuItem value="земельный участок">Земельный участок</MenuItem>
           </Select>
         </FormControl>
-        <TextField size="small" label="Комнат" value={data.rooms} onChange={e => set('rooms', e.target.value)} placeholder="2" />
-        <TextField size="small" label="Площадь, м²" value={data.area} onChange={e => set('area', e.target.value)} placeholder="65" />
+        {showRooms && <TextField size="small" label="Комнат" value={data.rooms} onChange={e => set('rooms', e.target.value)} placeholder="2" />}
+        <TextField size="small" label={isLand ? 'Площадь (соток или м²)' : 'Площадь, м²'} value={data.area} onChange={e => set('area', e.target.value)} placeholder={isLand ? '10 соток' : '65'} />
         <TextField size="small" label="Цена" value={data.price} onChange={e => set('price', e.target.value)} placeholder="например: 12 500 000 ₽" />
-        <TextField size="small" label="Этаж" value={data.floor} onChange={e => set('floor', e.target.value)} placeholder="5" />
-        <TextField size="small" label="Этажей в доме" value={data.totalFloors} onChange={e => set('totalFloors', e.target.value)} placeholder="9" />
+        {showFloor && <TextField size="small" label="Этаж" value={data.floor} onChange={e => set('floor', e.target.value)} placeholder="5" />}
+        {showStoreys && <TextField size="small" label="Этажей в доме" value={data.totalFloors} onChange={e => set('totalFloors', e.target.value)} placeholder="9" />}
         <TextField size="small" label="Район / ЖК" value={data.district} onChange={e => set('district', e.target.value)} />
         <TextField size="small" label="Адрес" value={data.address} onChange={e => set('address', e.target.value)} />
       </Box>
