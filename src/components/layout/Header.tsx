@@ -143,8 +143,12 @@ export default function Header({ currentPath, isMobile = false, onMenuClick }: H
   return (
     <Box sx={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      px: { xs: 2, md: 4 }, py: { xs: 1.5, md: 2.5 },
-      background: 'linear-gradient(90deg, rgba(13,22,40,0.95) 0%, rgba(8,12,24,0.98) 100%)',
+      px: { xs: 2, md: 4 },
+      // Верхний отступ учитывает «чёлку»/статус-бар iOS (safe-area), чтобы шапка
+      // закрашивала эту зону в тёмный, а контент не лез под часы.
+      pt: { xs: 'calc(env(safe-area-inset-top) + 12px)', md: 'calc(env(safe-area-inset-top) + 20px)' },
+      pb: { xs: 1.5, md: 2.5 },
+      background: 'linear-gradient(90deg, rgba(13,22,40,0.97) 0%, rgba(8,12,24,0.99) 100%)',
       borderBottom: '1px solid rgba(201,168,76,0.08)',
       backdropFilter: 'blur(20px)',
       position: 'sticky', top: 0, zIndex: 100,
