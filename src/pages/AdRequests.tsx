@@ -84,6 +84,8 @@ export function AdSimpleRequestsTab() {
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [detail, setDetail] = useState<AdRequest | null>(null);
+  const [q, setQ] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | AdStatus>('all');
 
   const load = useCallback(() => {
     setLoading(true);
@@ -101,9 +103,33 @@ export function AdSimpleRequestsTab() {
       <Button startIcon={<AddRoundedIcon />} variant="contained" onClick={() => setCreateOpen(true)}
         sx={{ mb: 2, background: GOLD, color: '#0A0E1A', fontWeight: 700, '&:hover': { background: '#E2C97E' } }}>Новая заявка</Button>
 
+      {items.length > 0 && (
+        <Stack direction="row" spacing={1.5} sx={{ mb: 2, flexWrap: 'wrap' }} useFlexGap>
+          <TextField size="small" placeholder="Поиск по объекту / региону" value={q} onChange={e => setQ(e.target.value)} sx={{ minWidth: 220, flex: 1 }} />
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Статус</InputLabel>
+            <Select label="Статус" value={statusFilter} onChange={e => setStatusFilter(e.target.value as 'all' | AdStatus)}>
+              <MenuItem value="all">Все статусы</MenuItem>
+              <MenuItem value="new">Новые</MenuItem>
+              <MenuItem value="in_progress">В работе</MenuItem>
+              <MenuItem value="done">Готово</MenuItem>
+              <MenuItem value="cancelled">Отменена</MenuItem>
+            </Select>
+          </FormControl>
+        </Stack>
+      )}
+
       <Stack spacing={1.2}>
-        {items.length === 0 && <Typography sx={{ color: '#64748B', py: 4, textAlign: 'center' }}>Заявок пока нет. Создайте первую.</Typography>}
-        {items.map(r => (
+        {(() => {
+          const term = q.trim().toLowerCase();
+          const filtered = items.filter(r =>
+            (statusFilter === 'all' || r.status === statusFilter) &&
+            (!term || (r.object_ref || '').toLowerCase().includes(term) || (r.region || '').toLowerCase().includes(term)
+              || (r.kind_label || '').toLowerCase().includes(term) || (r.comment || '').toLowerCase().includes(term))
+          );
+          if (items.length === 0) return <Typography sx={{ color: '#64748B', py: 4, textAlign: 'center' }}>Заявок пока нет. Создайте первую.</Typography>;
+          if (filtered.length === 0) return <Typography sx={{ color: '#64748B', py: 4, textAlign: 'center' }}>Ничего не найдено по фильтру.</Typography>;
+          return filtered.map(r => (
           <Card key={r.id} sx={{ ...cardSx, cursor: 'pointer', border: (r.unread || 0) > 0 ? '1px solid rgba(239,68,68,0.4)' : cardSx.border, '&:hover': { borderColor: 'rgba(201,168,76,0.3)' } }} onClick={() => setDetail(r)}>
             <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
               <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap" useFlexGap>
@@ -119,7 +145,8 @@ export function AdSimpleRequestsTab() {
               </Stack>
             </CardContent>
           </Card>
-        ))}
+          ));
+        })()}
       </Stack>
 
       {createOpen && meta && <CreateDialog meta={meta} onClose={() => setCreateOpen(false)} onCreated={() => { setCreateOpen(false); load(); }} setError={setError} />}
