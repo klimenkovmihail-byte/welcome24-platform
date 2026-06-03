@@ -5,6 +5,7 @@ import {
   CircularProgress, Alert,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PageSkeleton } from '../components/States';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import PhoneRoundedIcon from '@mui/icons-material/PhoneRounded';
 import TelegramIcon from '@mui/icons-material/Telegram';
@@ -260,9 +261,7 @@ export default function Agents() {
       </Typography>
 
       {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-          <CircularProgress sx={{ color: '#C9A84C' }} />
-        </Box>
+        <PageSkeleton />
       )}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>

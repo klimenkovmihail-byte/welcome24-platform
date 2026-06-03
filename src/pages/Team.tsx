@@ -16,6 +16,7 @@ import { teamApi, type TeamMember, type TeamLevelStats, type MarketingPlanLevel,
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 import { Tabs, Tab } from '@mui/material';
 import { CircularProgress, Alert, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
+import { PageSkeleton } from '../components/States';
 
 const MONTHS = [
   { value: '01', label: 'Январь' }, { value: '02', label: 'Февраль' }, { value: '03', label: 'Март' },
@@ -280,11 +281,7 @@ export default function Team() {
         </Typography>
       </Box>
 
-      {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-          <CircularProgress sx={{ color: '#C9A84C' }} />
-        </Box>
-      )}
+      {loading && <PageSkeleton />}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
       )}

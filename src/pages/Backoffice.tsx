@@ -3,6 +3,7 @@ import {
   Box, Card, CardContent, Typography, Avatar, Grid, alpha,
   IconButton, Tooltip, CircularProgress, Alert,
 } from '@mui/material';
+import { PageSkeleton } from '../components/States';
 import { motion } from 'framer-motion';
 import PhoneRoundedIcon from '@mui/icons-material/PhoneRounded';
 import EmailRoundedIcon from '@mui/icons-material/EmailRounded';
@@ -48,7 +49,7 @@ export default function Backoffice() {
   }, []);
 
   if (loading) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress sx={{ color: '#C9A84C' }} /></Box>;
+    return <PageSkeleton />;
   }
   if (error) {
     return <Alert severity="error">{error}</Alert>;

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Box, Card, CardContent, Typography, Avatar, Chip, ToggleButton, ToggleButtonGroup, alpha, Menu, MenuItem, Divider, CircularProgress, Alert } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PageSkeleton } from '../components/States';
 import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded';
 import { ratingApi, type RatingAgent } from '../api/rating';
 import { getCurrentAgent } from '../auth/auth';
@@ -187,11 +188,7 @@ export default function Rating() {
   return (
     <Box>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-          <CircularProgress sx={{ color: '#C9A84C' }} />
-        </Box>
-      )}
+      {loading && <PageSkeleton />}
       {/* Filters */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>

@@ -9,6 +9,7 @@ import {
   Box, Typography, IconButton, TextField, InputAdornment, Chip,
   Alert, CircularProgress,
 } from '@mui/material';
+import { PageSkeleton } from '../components/States';
 import { motion } from 'framer-motion';
 import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
 import FolderOpenRoundedIcon from '@mui/icons-material/FolderOpenRounded';
@@ -180,7 +181,7 @@ export default function Docs() {
         {/* Main grid */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress sx={{ color: '#C9A84C' }} /></Box>
+            <PageSkeleton />
           ) : visibleItems.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 6, color: '#64748B' }}>
               <FolderOpenRoundedIcon sx={{ fontSize: 48, color: '#334155', mb: 1 }} />
