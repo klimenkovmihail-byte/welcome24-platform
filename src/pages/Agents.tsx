@@ -7,6 +7,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { PageSkeleton } from '../components/States';
 import SmartAvatar from '../components/SmartAvatar';
+import { useAgents } from '../api/queries';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import PhoneRoundedIcon from '@mui/icons-material/PhoneRounded';
 import TelegramIcon from '@mui/icons-material/Telegram';
@@ -132,9 +133,16 @@ function SocialsRow({ agent, size = 'small' }: SocialsRowProps) {
 }
 
 export default function Agents() {
-  const [agentsBase, setAgentsBase] = useState<BaseRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Список агентов через react-query (кэш на возврат). Себя скрываем — «база остальных».
+  const agentsQ = useAgents({ status: 'active', role: 'agent' });
+  const agentsBase = useMemo<BaseRecord[]>(() => {
+    const list = agentsQ.data ?? [];
+    const meId = typeof getCurrentAgent()?.id === 'number' ? (getCurrentAgent()!.id as number) : null;
+    const visible = meId != null ? list.filter(a => a.id !== meId) : list;
+    return visible.map(toBaseRecord);
+  }, [agentsQ.data]);
+  const loading = agentsQ.isLoading;
+  const error = agentsQ.error as Error | null;
 
   const [search, setSearch] = useState('');
   const [city, setCity] = useState('Все города');
@@ -151,23 +159,6 @@ export default function Agents() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [justSent, setJustSent] = useState(false);
 
-  // На старте — список агентов с бэка.
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    agentsApi.list({ status: 'active', role: 'agent' })
-      .then(list => {
-        if (cancelled) return;
-        // Скрываем самого пользователя из базы — он видит её как «база остальных агентов».
-        const me = getCurrentAgent();
-        const meId = typeof me?.id === 'number' ? me.id : null;
-        const visible = meId != null ? list.filter(a => a.id !== meId) : list;
-        setAgentsBase(visible.map(toBaseRecord));
-      })
-      .catch(err => { if (!cancelled) setError(err?.message || 'Ошибка загрузки агентов'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
 
   // При открытии карточки — подтянуть одобренные отзывы.
   useEffect(() => {
@@ -265,7 +256,7 @@ export default function Agents() {
         <PageSkeleton />
       )}
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <Alert severity="error" sx={{ mb: 2 }}>{error.message}</Alert>
       )}
       {!loading && !error && agentsBase.length === 0 && (
         <Typography variant="body2" sx={{ color: '#64748B', textAlign: 'center', py: 4 }}>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Box, Card, CardContent, Typography, Avatar, Chip, ToggleButton, ToggleButtonGroup, alpha, Menu, MenuItem, Divider, CircularProgress, Alert } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PageSkeleton } from '../components/States';
+import { useRating } from '../api/queries';
 import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded';
 import { ratingApi, type RatingAgent } from '../api/rating';
 import { getCurrentAgent } from '../auth/auth';
@@ -127,21 +128,16 @@ export default function Rating() {
   const [year, setYear] = useState<number>(now.getFullYear());
   const [month, setMonth] = useState<MonthFilter>(null);
 
-  const [agents, setAgents] = useState<RatingAgent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    const opts: { year?: string; month?: string; limit?: number } = { year: String(year), limit: 100 };
-    if (month !== null) opts.month = String(month).padStart(2, '0');
-    ratingApi.get(opts)
-      .then(r => { if (!cancelled) setAgents(r.agents); })
-      .catch(err => { if (!cancelled) setError(err?.message || 'Ошибка загрузки рейтинга'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+  // Рейтинг через react-query (кэш по фильтру год/месяц).
+  const ratingOpts = useMemo(() => {
+    const o: { year?: string; month?: string; limit?: number } = { year: String(year), limit: 100 };
+    if (month !== null) o.month = String(month).padStart(2, '0');
+    return o;
   }, [year, month]);
+  const ratingQ = useRating(ratingOpts);
+  const agents: RatingAgent[] = ratingQ.data?.agents ?? [];
+  const loading = ratingQ.isLoading;
+  const error = ratingQ.error as Error | null;
 
   const me = getCurrentAgent();
   const meId = typeof me?.id === 'number' ? me.id : null;
@@ -187,7 +183,7 @@ export default function Rating() {
 
   return (
     <Box>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error.message}</Alert>}
       {loading && <PageSkeleton />}
       {/* Filters */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>

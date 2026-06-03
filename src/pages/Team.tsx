@@ -17,6 +17,7 @@ import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 import { Tabs, Tab } from '@mui/material';
 import { CircularProgress, Alert, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
 import { PageSkeleton } from '../components/States';
+import { useTeam } from '../api/queries';
 
 const MONTHS = [
   { value: '01', label: 'Январь' }, { value: '02', label: 'Февраль' }, { value: '03', label: 'Март' },
@@ -68,35 +69,25 @@ const levelColors: Record<number, string> = {
 };
 
 export default function Team() {
-  const [teamAgents, setTeamAgents] = useState<TeamMember[]>([]);
-  const [levels, setLevels] = useState<TeamLevelStats[]>([]);
-  const [marketingPlan, setMarketingPlan] = useState<MarketingPlanLevel[]>([]);
-  const [totals, setTotals] = useState({ agents: 0, active: 0, deals: 0, vkd: 0, income: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   // Фильтр периода: «всё время» / конкретный год / год+месяц
   const [filterYear, setFilterYear] = useState<string>(String(CURRENT_YEAR));
   const [filterMonth, setFilterMonth] = useState<string>('all');
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    const opts: { year?: string; month?: string } = {};
-    if (filterYear !== 'all') opts.year = filterYear;
-    if (filterMonth !== 'all' && filterYear !== 'all') opts.month = filterMonth;
-    teamApi.get(opts)
-      .then(r => {
-        if (cancelled) return;
-        setTeamAgents(r.agents);
-        setLevels(r.levels);
-        setMarketingPlan(r.marketingPlan);
-        setTotals(r.totals);
-      })
-      .catch(err => { if (!cancelled) setError(err?.message || 'Ошибка загрузки команды'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+  // Команда через react-query (кэш по фильтру; данные team делятся с Дашбордом).
+  const teamOpts = useMemo(() => {
+    const o: { year?: string; month?: string } = {};
+    if (filterYear !== 'all') o.year = filterYear;
+    if (filterMonth !== 'all' && filterYear !== 'all') o.month = filterMonth;
+    return o;
   }, [filterYear, filterMonth]);
+  const teamQ = useTeam(teamOpts);
+  const teamAgents: TeamMember[] = teamQ.data?.agents ?? [];
+  const levels: TeamLevelStats[] = teamQ.data?.levels ?? [];
+  const marketingPlan: MarketingPlanLevel[] = teamQ.data?.marketingPlan ?? [];
+  const totals = teamQ.data?.totals ?? { agents: 0, active: 0, deals: 0, vkd: 0, income: 0 };
+  const loading = teamQ.isLoading;
+  const error = teamQ.error as Error | null;
+
 
   const periodLabel = filterYear === 'all'
     ? 'за всё время'
@@ -283,7 +274,7 @@ export default function Team() {
 
       {loading && <PageSkeleton />}
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <Alert severity="error" sx={{ mb: 2 }}>{error.message}</Alert>
       )}
 
       {/* ===== Hero — passive income summary ===== */}
