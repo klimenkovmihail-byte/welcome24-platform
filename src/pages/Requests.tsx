@@ -113,11 +113,14 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
             </Typography>
           </Box>
         </Box>
-        {view === null && <MyRequests cases={cases} adRequests={adRequests} onOpen={openItem} />}
-        {view === null && (cases.length > 0 || adRequests.length > 0) && (
-          <Typography variant="subtitle2" sx={{ color: '#94A3B8', fontWeight: 700, mb: 1.5 }}>Создать новое обращение</Typography>
-        )}
+        {/* Отделы (создать обращение) — наверху */}
         <HubGrid cards={cards} onPick={openSection} badges={badges} />
+        {/* Активные обращения — под отделами */}
+        {view === null && (
+          <Box sx={{ mt: 4 }}>
+            <MyRequests cases={cases} adRequests={adRequests} onOpen={openItem} />
+          </Box>
+        )}
       </Box>
     );
   }
