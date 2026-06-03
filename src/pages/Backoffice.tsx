@@ -4,6 +4,7 @@ import {
   IconButton, Tooltip, CircularProgress, Alert,
 } from '@mui/material';
 import { PageSkeleton } from '../components/States';
+import SmartAvatar from '../components/SmartAvatar';
 import { motion } from 'framer-motion';
 import PhoneRoundedIcon from '@mui/icons-material/PhoneRounded';
 import EmailRoundedIcon from '@mui/icons-material/EmailRounded';
@@ -112,19 +113,18 @@ export default function Backoffice() {
                   <CardContent sx={{ p: 3, pl: 3.5, position: 'relative', zIndex: 1 }}>
                     {/* Аватар + имя + должность */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, mb: 2 }}>
-                      <Avatar
-                        src={m.photo || undefined}
+                      <SmartAvatar
+                        src={m.photo}
+                        name={m.name}
+                        size={108}
                         sx={{
-                          width: 108, height: 108, fontSize: 34, fontWeight: 800,
-                          background: m.photo ? '#1A2340' : `linear-gradient(135deg, ${alpha(color, 0.55)}, ${alpha(color, 0.18)})`,
+                          background: `linear-gradient(135deg, ${alpha(color, 0.55)}, ${alpha(color, 0.18)})`,
                           color: '#F1F5F9',
                           border: `3px solid ${alpha(color, 0.55)}`,
                           boxShadow: `0 6px 18px ${alpha(color, 0.25)}`,
                           flexShrink: 0,
                         }}
-                      >
-                        {!m.photo && initials}
-                      </Avatar>
+                      />
                       <Box sx={{ minWidth: 0, flex: 1 }}>
                         <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#F1F5F9', lineHeight: 1.25, mb: 0.7 }}>
                           {m.name}

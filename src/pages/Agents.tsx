@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PageSkeleton } from '../components/States';
+import SmartAvatar from '../components/SmartAvatar';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import PhoneRoundedIcon from '@mui/icons-material/PhoneRounded';
 import TelegramIcon from '@mui/icons-material/Telegram';
@@ -290,21 +291,17 @@ export default function Agents() {
                     <CardContent sx={{ p: 3 }}>
                       {/* Avatar / Photo */}
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                        <Avatar
-                          src={agent.photo || undefined}
+                        <SmartAvatar
+                          src={agent.photo}
+                          name={agent.name}
+                          size={88}
                           sx={{
-                            width: 88, height: 88,
-                            fontSize: 26, fontWeight: 800,
-                            background: agent.photo
-                              ? '#1A2340'
-                              : 'linear-gradient(135deg, rgba(201,168,76,0.4), rgba(201,168,76,0.15))',
+                            background: 'linear-gradient(135deg, rgba(201,168,76,0.4), rgba(201,168,76,0.15))',
                             color: '#F1F5F9',
                             border: '3px solid rgba(201,168,76,0.3)',
                             mb: 2,
                           }}
-                        >
-                          {!agent.photo && initials}
-                        </Avatar>
+                        />
                         <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#F1F5F9', lineHeight: 1.3 }}>{agent.name}</Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, color: '#64748B' }}>
                           <LocationOnRoundedIcon sx={{ fontSize: 14 }} />
@@ -393,19 +390,16 @@ export default function Agents() {
                   <CloseRoundedIcon />
                 </IconButton>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
-                  <Avatar
-                    src={openAgent.photo || undefined}
+                  <SmartAvatar
+                    src={openAgent.photo}
+                    name={openAgent.name}
+                    size={128}
                     sx={{
-                      width: 128, height: 128, fontSize: 38, fontWeight: 800,
-                      background: openAgent.photo
-                        ? '#1A2340'
-                        : 'linear-gradient(135deg, rgba(201,168,76,0.5), rgba(201,168,76,0.15))',
+                      background: 'linear-gradient(135deg, rgba(201,168,76,0.5), rgba(201,168,76,0.15))',
                       border: '4px solid rgba(201,168,76,0.3)',
                       flexShrink: 0,
                     }}
-                  >
-                    {!openAgent.photo && initials}
-                  </Avatar>
+                  />
                   <Box sx={{ flex: 1, minWidth: 240 }}>
                     <Typography variant="h5" sx={{ fontWeight: 800, color: '#F1F5F9' }}>{openAgent.name}</Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, color: '#94A3B8', mt: 0.5 }}>

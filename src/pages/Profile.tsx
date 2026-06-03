@@ -5,6 +5,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { motion } from 'framer-motion';
+import SmartAvatar from '../components/SmartAvatar';
 import LocationOnRoundedIcon from '@mui/icons-material/LocationOnRounded';
 import EmailRoundedIcon from '@mui/icons-material/EmailRounded';
 import PhoneRoundedIcon from '@mui/icons-material/PhoneRounded';
@@ -397,9 +398,7 @@ export default function Profile() {
               <Box sx={{ height: 80, background: 'linear-gradient(135deg, rgba(201,168,76,0.3) 0%, rgba(67,97,238,0.2) 100%)', borderRadius: '16px 16px 0 0', position: 'relative' }}>
                 <Box sx={{ position: 'absolute', bottom: -40, left: '50%', transform: 'translateX(-50%)' }}>
                   <Box sx={{ position: 'relative' }}>
-                    <Avatar src={currentUser.photo || undefined} sx={{ width: 80, height: 80, fontSize: 26, fontWeight: 900, background: currentUser.photo ? '#0F1629' : 'linear-gradient(135deg, #C9A84C, #E2C97E)', color: '#0A0E1A', border: '4px solid #0F1629', boxShadow: '0 8px 32px rgba(201,168,76,0.4)' }}>
-                      {!currentUser.photo && (currentUser.name || '').split(' ').map(n => n[0]).slice(0,2).join('')}
-                    </Avatar>
+                    <SmartAvatar src={currentUser.photo} name={currentUser.name} size={80} sx={{ background: 'linear-gradient(135deg, #C9A84C, #E2C97E)', color: '#0A0E1A', border: '4px solid #0F1629', boxShadow: '0 8px 32px rgba(201,168,76,0.4)' }} />
                     <Tooltip title="Загрузить фото">
                       <IconButton
                         size="small"
