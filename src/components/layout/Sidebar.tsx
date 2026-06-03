@@ -20,8 +20,7 @@ import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
 import Logo, { LogoIcon } from '../Logo';
 import { logoutAgent, getCurrentAgent } from '../../auth/auth';
-import { casesApi } from '../../api/cases';
-import { adRequestsApi } from '../../api/adRequests';
+import { useRequestsData } from '../../hooks/useRequestsData';
 
 const navItems = [
   { path: '/dashboard', label: 'Дашборд', icon: <DashboardRoundedIcon /> },
@@ -52,7 +51,6 @@ interface SidebarProps {
 
 export default function Sidebar({ isMobile = false, mobileOpen = false, onClose = () => {} }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
-  const [casesUnread, setCasesUnread] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -61,21 +59,11 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
   const userName = agent?.name || 'Агент';
   const userLevel = Number(agent?.level) || 1;
 
-  // Бейдж непрочитанного на «Заявки»: число заявок (специалистам + реклама) с новыми
-  // сообщениями. Поллинг каждые 20с — появляется без перезагрузки страницы.
-  useEffect(() => {
-    const load = () => {
-      Promise.all([casesApi.list().catch(() => []), adRequestsApi.list().catch(() => [])])
-        .then(([c, a]) => {
-          const n = (c as { unread?: number }[]).filter(x => (x.unread || 0) > 0).length
-            + (a as { unread?: number }[]).filter(x => (x.unread || 0) > 0).length;
-          setCasesUnread(n);
-        });
-    };
-    load();
-    const iv = setInterval(load, 20000);
-    return () => clearInterval(iv);
-  }, [location.pathname]);
+  // Бейдж непрочитанного на «Заявки» — из общего singleton-поллера (один цикл на всё
+  // приложение, пауза при скрытой вкладке).
+  const { cases, adRequests } = useRequestsData();
+  const casesUnread = cases.filter(x => (x.unread || 0) > 0).length
+    + adRequests.filter(x => (x.unread || 0) > 0).length;
 
   // На мобиле сайдбар всегда развёрнут (он в оверлее-drawer'е), мини-режим только на десктопе.
   const mini = !isMobile && collapsed;

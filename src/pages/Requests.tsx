@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { Box, Typography, Card, CardContent, Stack, Button, Chip, alpha } from '@mui/material';
 import { motion } from 'framer-motion';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
@@ -12,8 +12,7 @@ import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
 import ConstructionRoundedIcon from '@mui/icons-material/ConstructionRounded';
 import Cases from './Cases';
 import { AdSimpleRequestsTab, AdPackagesTab } from './AdRequests';
-import { casesApi } from '../api/cases';
-import { adRequestsApi } from '../api/adRequests';
+import { useRequestsData } from '../hooks/useRequestsData';
 
 type View = null | 'lawyers' | 'mortgage' | 'ads' | 'ads-requests' | 'ads-packages' | 'newbuild';
 
@@ -51,24 +50,14 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
   const initialView: View = initialTab === 1 ? 'ads-requests' : initialTab === 2 ? 'ads-packages' : null;
   const [view, setView] = useState<View>(initialView);
 
-  // Непрочитанные по отделам — чтобы подсветить нужную карточку.
-  const [badges, setBadges] = useState<Record<string, number>>({});
-  const loadBadges = useCallback(() => {
-    Promise.all([casesApi.list().catch(() => []), adRequestsApi.list().catch(() => [])]).then(([cs, ad]) => {
-      const cases = cs as { tasks?: { track: string }[]; unread?: number }[];
-      const lawyers = cases.filter(c => (c.unread || 0) > 0 && (c.tasks || []).some(t => t.track === 'legal')).length;
-      const mortgage = cases.filter(c => (c.unread || 0) > 0 && (c.tasks || []).some(t => t.track === 'mortgage')).length;
-      const ads = (ad as { unread?: number }[]).filter(r => (r.unread || 0) > 0).length;
-      setBadges({ lawyers, mortgage, ads, 'ads-requests': ads });
-    });
-  }, []);
-  // Обновляем при возврате к сетке + поллинг каждые 20с (новые заявки видны без F5).
-  useEffect(() => {
-    if (view !== null && view !== 'ads') return;
-    loadBadges();
-    const iv = setInterval(loadBadges, 20000);
-    return () => clearInterval(iv);
-  }, [view, loadBadges]);
+  // Непрочитанные по отделам — из общего singleton-поллера (без своего таймера).
+  const { cases, adRequests } = useRequestsData();
+  const badges = useMemo<Record<string, number>>(() => {
+    const lawyers = cases.filter(c => (c.unread || 0) > 0 && (c.tasks || []).some(t => t.track === 'legal')).length;
+    const mortgage = cases.filter(c => (c.unread || 0) > 0 && (c.tasks || []).some(t => t.track === 'mortgage')).length;
+    const ads = adRequests.filter(r => (r.unread || 0) > 0).length;
+    return { lawyers, mortgage, ads, 'ads-requests': ads };
+  }, [cases, adRequests]);
 
   const back = () => {
     if (view === 'ads-requests' || view === 'ads-packages') setView('ads');

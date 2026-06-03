@@ -704,11 +704,10 @@ export default function Team() {
                 <Typography key={h} variant="caption" sx={{ color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 11 }}>{h}</Typography>
               ))}
             </Box>
-            <AnimatePresence>
-              {agentStats.map((a, i) => {
+              {agentStats.map((a) => {
                 const color = levelColors[a.teamLevel];
                 return (
-                  <motion.div key={a.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}>
+                  <div key={a.id}>
                     <Box sx={{
                       display: 'grid', gridTemplateColumns: '52px 230px 150px 120px 120px 84px 110px 92px', minWidth: 958,
                       alignItems: 'center', px: 3, py: 1.5,
@@ -746,10 +745,9 @@ export default function Team() {
                         {new Date(a.joinDate).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                       </Typography>
                     </Box>
-                  </motion.div>
+                  </div>
                 );
               })}
-            </AnimatePresence>
             </Box>
           </CardContent>
         </Card>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useDeferredValue } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, Avatar, Grid, TextField, InputAdornment,
   Select, MenuItem, alpha, IconButton, Tooltip, Dialog, DialogContent, Divider, Button, Rating,
@@ -184,13 +184,21 @@ export default function Agents() {
     [agentsBase],
   );
 
-  const filtered = agentsBase.filter(a =>
-    (a.name.toLowerCase().includes(search.toLowerCase()) || a.city.toLowerCase().includes(search.toLowerCase())) &&
-    (city === 'Все города' || a.city === city) &&
-    (direction === 'Все направления' || [...a.primaryDir, ...a.secondaryDir].includes(direction))
-  );
+  // useDeferredValue: ввод в поиск не блокирует рендер большого списка.
+  const deferredSearch = useDeferredValue(search);
+  const filtered = useMemo(() => {
+    const q = deferredSearch.toLowerCase();
+    return agentsBase.filter(a =>
+      (a.name.toLowerCase().includes(q) || a.city.toLowerCase().includes(q)) &&
+      (city === 'Все города' || a.city === city) &&
+      (direction === 'Все направления' || [...a.primaryDir, ...a.secondaryDir].includes(direction))
+    );
+  }, [agentsBase, deferredSearch, city, direction]);
 
-  const openAgent = openId !== null ? agentsBase.find(a => a.id === openId) || null : null;
+  const openAgent = useMemo(
+    () => (openId !== null ? agentsBase.find(a => a.id === openId) || null : null),
+    [openId, agentsBase],
+  );
   const openAgentReviews = openReviews;
   const avgRating = openAgent
     ? (openAgentReviews.length
@@ -266,13 +274,12 @@ export default function Agents() {
       )}
 
       <Grid container spacing={3}>
-        <AnimatePresence>
-          {filtered.map((agent) => {
+        {filtered.map((agent) => {
             const initials = agent.name.split(' ').map(n => n[0]).join('').slice(0, 2);
             const totalReviews = agent.reviewsCount;
             return (
               <Grid size={{ xs: 12, sm: 6, lg: 4, xl: 3 }} key={agent.id}>
-                <motion.div layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} whileHover={{ y: -4 }}>
+                <motion.div whileHover={{ y: -4 }}>
                   <Card
                     onClick={() => setOpenId(agent.id)}
                     sx={{
@@ -361,7 +368,6 @@ export default function Agents() {
               </Grid>
             );
           })}
-        </AnimatePresence>
       </Grid>
 
       {/* === Agent detail dialog === */}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Box, Card, CardContent, Typography, LinearProgress, Chip, Grid, Divider, ToggleButtonGroup, ToggleButton, MenuItem, Select, FormControl, InputLabel, Tooltip } from '@mui/material';
 import { motion } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartTooltip, ResponsiveContainer } from 'recharts';
@@ -13,6 +13,7 @@ import { dealsApi } from '../api/deals';
 import { teamApi, type TeamLevelStats, type MarketingPlanLevel } from '../api/team';
 import { sharesApi } from '../api/shares';
 import { getCurrentAgent } from '../auth/auth';
+import { ErrorState, PageSkeleton } from '../components/States';
 import type { Deal, ShareQuote, SharePacket } from '../types/api';
 
 // Считает мой пассивный доход с команды по MLM-плану — идентично логике
@@ -150,17 +151,22 @@ export default function Dashboard() {
   const [teamAllTime, setTeamAllTime] = useState({ agents: 0, vkd: 0, passiveIncome: 0 });
   const [myShares, setMyShares] = useState<SharePacket[]>([]);
   const [shareQuotes, setShareQuotes] = useState<ShareQuote[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     let cancelled = false;
     const me = getCurrentAgent();
     const meId = typeof me?.id === 'number' ? me.id : undefined;
-    const emptyTeam = { totals: { agents: 0, active: 0, deals: 0, vkd: 0, income: 0 }, levels: [], marketingPlan: [] };
+    setLoading(true);
+    setError(null);
+    // Без per-call .catch: apiClient сам ретраит cold-start, а реальный сбой
+    // должен показать ошибку с «Повторить», а не тихие нули.
     Promise.all([
-      dealsApi.list({ agentId: meId }).catch(() => []),
-      teamApi.get().catch(() => emptyTeam as unknown as Awaited<ReturnType<typeof teamApi.get>>),
-      sharesApi.myPackets().catch(() => []),
-      sharesApi.quotes().catch(() => []),
+      dealsApi.list({ agentId: meId }),
+      teamApi.get(),
+      sharesApi.myPackets(),
+      sharesApi.quotes(),
     ]).then(([deals, teamAll, packets, quotes]) => {
       if (cancelled) return;
       setMyDeals(deals);
@@ -171,9 +177,14 @@ export default function Dashboard() {
       });
       setMyShares(packets);
       setShareQuotes(quotes);
+    }).catch((e) => {
+      if (!cancelled) setError(e?.message || 'Ошибка загрузки');
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
     });
     return () => { cancelled = true; };
   }, []);
+  useEffect(() => load(), [load]);
 
   // === Вычисления ===
   const currentYear = String(new Date().getFullYear());
@@ -248,6 +259,9 @@ export default function Dashboard() {
   const periodLabel = filterMonth === 'all'
     ? `${filterYear} год`
     : `${MONTH_NAMES[parseInt(filterMonth, 10) - 1]} ${filterYear}`;
+
+  if (loading) return <PageSkeleton />;
+  if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
     <Box>

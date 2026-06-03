@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, Grid, Divider,
   ToggleButtonGroup, ToggleButton, Avatar, Tooltip, IconButton,
@@ -14,6 +14,7 @@ import RedeemRoundedIcon from '@mui/icons-material/RedeemRounded';
 import ShoppingCartRoundedIcon from '@mui/icons-material/ShoppingCartRounded';
 import SellRoundedIcon from '@mui/icons-material/SellRounded';
 import { sharesApi } from '../api/shares';
+import { ErrorState, PageSkeleton } from '../components/States';
 import type { ShareQuote, SharePacket } from '../types/api';
 
 const fmt = (n: number) => n.toLocaleString('ru-RU');
@@ -56,13 +57,20 @@ export default function Shares() {
   // С бэка: котировки и мои пакеты.
   const [shareHistory, setShareHistory] = useState<ShareQuote[]>([]);
   const [myShares, setMyShares] = useState<SharePacket[]>([]);
-  useEffect(() => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
     let cancelled = false;
+    setLoading(true);
+    setError(null);
     Promise.all([sharesApi.quotes(), sharesApi.myPackets()])
       .then(([q, p]) => { if (!cancelled) { setShareHistory(q); setMyShares(p); } })
-      .catch(() => { /* tolerate */ });
+      .catch((e) => { if (!cancelled) setError(e?.message || 'Ошибка загрузки'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
+  useEffect(() => load(), [load]);
 
   // Текущая цена = последняя котировка (или 0 если их нет).
   const currentSharePrice = shareHistory.length ? shareHistory[shareHistory.length - 1].price : 0;
@@ -116,6 +124,9 @@ export default function Shares() {
   const yoyPct = yearAgoQuote && yearAgoQuote.price > 0
     ? ((currentSharePrice - yearAgoQuote.price) / yearAgoQuote.price) * 100
     : 0;
+
+  if (loading) return <PageSkeleton />;
+  if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
     <Box>
