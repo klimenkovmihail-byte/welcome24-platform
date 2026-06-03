@@ -1,9 +1,35 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { ThemeProvider, CssBaseline } from '@mui/material';
+import { ThemeProvider, CssBaseline, Box, CircularProgress } from '@mui/material';
 import { theme } from './theme/theme';
 import { tryImpersonationFromUrl, fetchMe, getCurrentAgent } from './auth/auth';
 import { getToken } from './api/apiClient';
+import Layout from './components/layout/Layout';
+import Login from './pages/Login';
+import ErrorBoundary from './components/ErrorBoundary';
+
+// Страницы грузятся лениво — каждая в своём чанке (recharts/тяжёлые экраны
+// больше не тянутся в стартовый бандл).
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Rating = lazy(() => import('./pages/Rating'));
+const Academy = lazy(() => import('./pages/Academy'));
+const News = lazy(() => import('./pages/News'));
+const Team = lazy(() => import('./pages/Team'));
+const Backoffice = lazy(() => import('./pages/Backoffice'));
+const Agents = lazy(() => import('./pages/Agents'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Shares = lazy(() => import('./pages/Shares'));
+const Docs = lazy(() => import('./pages/Docs'));
+const AI = lazy(() => import('./pages/AI'));
+const Requests = lazy(() => import('./pages/Requests'));
+
+function PageLoader() {
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+      <CircularProgress sx={{ color: '#C9A84C' }} />
+    </Box>
+  );
+}
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -12,66 +38,50 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   }
   return <>{children}</>;
 }
-import Layout from './components/layout/Layout';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Rating from './pages/Rating';
-import Academy from './pages/Academy';
-import News from './pages/News';
-import Team from './pages/Team';
-import Backoffice from './pages/Backoffice';
-import Agents from './pages/Agents';
-import Profile from './pages/Profile';
-import Shares from './pages/Shares';
-import Docs from './pages/Docs';
-import AI from './pages/AI';
-import Requests from './pages/Requests';
 
 export default function App() {
   useEffect(() => {
     // СНАЧАЛА — обработать impersonateToken из URL (подменить токен на агентский).
     // ПОТОМ — валидация через /api/auth/me (вернёт уже агента, а не админа).
     tryImpersonationFromUrl();
-    fetchMe().then(() => {
-      // Триггерим reload только если impersonateToken только что был обработан,
-      // чтобы все страницы перерисовались под нового пользователя.
-      if (new URLSearchParams(window.location.search).has('impersonateToken')) {
-        // URL уже очищен, здесь ничего не делаем — это запасной guard.
-      }
-    });
+    fetchMe();
   }, []);
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/*" element={
-            <PrivateRoute>
-              <Layout>
-                <Routes>
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/rating" element={<Rating />} />
-                  <Route path="/academy" element={<Academy />} />
-                  <Route path="/news" element={<News />} />
-                  <Route path="/team" element={<Team />} />
-                  <Route path="/backoffice" element={<Backoffice />} />
-                  <Route path="/agents" element={<Agents />} />
-                  <Route path="/shares" element={<Shares />} />
-                  <Route path="/docs" element={<Docs />} />
-                  <Route path="/ai" element={<AI />} />
-                  <Route path="/cases" element={<Requests />} />
-                  <Route path="/ad-requests" element={<Requests initialTab={1} />} />
-                  <Route path="/ad-packages" element={<Requests initialTab={2} />} />
-                  <Route path="/profile" element={<Profile />} />
-                </Routes>
-              </Layout>
-            </PrivateRoute>
-          } />
-        </Routes>
-      </BrowserRouter>
+      <ErrorBoundary>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/*" element={
+              <PrivateRoute>
+                <Layout>
+                  <Suspense fallback={<PageLoader />}>
+                    <Routes>
+                      <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/rating" element={<Rating />} />
+                      <Route path="/academy" element={<Academy />} />
+                      <Route path="/news" element={<News />} />
+                      <Route path="/team" element={<Team />} />
+                      <Route path="/backoffice" element={<Backoffice />} />
+                      <Route path="/agents" element={<Agents />} />
+                      <Route path="/shares" element={<Shares />} />
+                      <Route path="/docs" element={<Docs />} />
+                      <Route path="/ai" element={<AI />} />
+                      <Route path="/cases" element={<Requests />} />
+                      <Route path="/ad-requests" element={<Requests initialTab={1} />} />
+                      <Route path="/ad-packages" element={<Requests initialTab={2} />} />
+                      <Route path="/profile" element={<Profile />} />
+                    </Routes>
+                  </Suspense>
+                </Layout>
+              </PrivateRoute>
+            } />
+          </Routes>
+        </BrowserRouter>
+      </ErrorBoundary>
     </ThemeProvider>
   );
 }

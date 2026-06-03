@@ -79,6 +79,11 @@ export default function Header({ currentPath, isMobile = false, onMenuClick }: H
   const user = getCurrentAgent();
   // For demo: show "Admin panel" button if no user logged in too (CEO testing flow)
   const isAdmin = !user || user.role === 'admin';
+  const initials = (user?.name || '').trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase() || '—';
+  // Дашборд показывает сегодняшнюю дату (раньше была захардкожена).
+  const subtitle = currentPath === '/dashboard'
+    ? (() => { const d = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); return d.charAt(0).toUpperCase() + d.slice(1); })()
+    : page.subtitle;
 
   const [notifAnchor, setNotifAnchor] = useState<HTMLElement | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
@@ -159,7 +164,7 @@ export default function Header({ currentPath, isMobile = false, onMenuClick }: H
             {page.title}
           </Typography>
           <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 500, display: { xs: 'none', sm: 'block' } }}>
-            {page.subtitle}
+            {subtitle}
           </Typography>
         </motion.div>
       </Box>
@@ -308,7 +313,7 @@ export default function Header({ currentPath, isMobile = false, onMenuClick }: H
             color: '#0A0E1A',
             border: '2px solid rgba(201,168,76,0.3)',
           }}>
-            КМ
+            {initials}
           </Avatar>
         </Box>
 

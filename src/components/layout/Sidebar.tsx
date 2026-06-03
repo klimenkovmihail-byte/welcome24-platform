@@ -18,9 +18,8 @@ import AccountTreeRoundedIcon from '@mui/icons-material/AccountTreeRounded';
 import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
-import { currentUser } from '../../data/mockData';
 import Logo, { LogoIcon } from '../Logo';
-import { logoutAgent } from '../../auth/auth';
+import { logoutAgent, getCurrentAgent } from '../../auth/auth';
 import { casesApi } from '../../api/cases';
 import { adRequestsApi } from '../../api/adRequests';
 
@@ -56,6 +55,11 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
   const [casesUnread, setCasesUnread] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Текущий агент из сессии (раньше тут был demo-объект из mockData → у всех висел Клименков).
+  const agent = getCurrentAgent();
+  const userName = agent?.name || 'Агент';
+  const userLevel = Number(agent?.level) || 1;
 
   // Бейдж непрочитанного на «Заявки»: число заявок (специалистам + реклама) с новыми
   // сообщениями. Поллинг каждые 20с — появляется без перезагрузки страницы.
@@ -178,26 +182,26 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
             }} onClick={() => handleNav('/profile')}>
               <Avatar sx={{
                 width: 36, height: 36, fontSize: 14, fontWeight: 700,
-                background: `linear-gradient(135deg, ${getLevelColor(currentUser.level)}, ${alpha(getLevelColor(currentUser.level), 0.6)})`,
+                background: `linear-gradient(135deg, ${getLevelColor(userLevel)}, ${alpha(getLevelColor(userLevel), 0.6)})`,
                 color: '#0A0E1A',
               }}>
-                {currentUser.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                {userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
               </Avatar>
               <Box sx={{ flex: 1, overflow: 'hidden' }}>
                 <Typography variant="caption" sx={{ fontWeight: 700, color: '#F1F5F9', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {currentUser.name.split(' ')[0]} {currentUser.name.split(' ')[1]}
+                  {userName.split(' ')[0]} {userName.split(' ')[1]}
                 </Typography>
-                <Chip label={`Уровень ${currentUser.level}`} size="small" sx={{ height: 16, fontSize: 10, fontWeight: 700, background: alpha(getLevelColor(currentUser.level), 0.2), color: getLevelColor(currentUser.level), '& .MuiChip-label': { px: 1 } }} />
+                <Chip label={`Уровень ${userLevel}`} size="small" sx={{ height: 16, fontSize: 10, fontWeight: 700, background: alpha(getLevelColor(userLevel), 0.2), color: getLevelColor(userLevel), '& .MuiChip-label': { px: 1 } }} />
               </Box>
             </Box>
           ) : (
             <Tooltip title="Профиль" placement="right">
               <Avatar onClick={() => handleNav('/profile')} sx={{
                 width: 40, height: 40, fontSize: 14, fontWeight: 700, mx: 'auto', cursor: 'pointer',
-                background: `linear-gradient(135deg, ${getLevelColor(currentUser.level)}, ${alpha(getLevelColor(currentUser.level), 0.6)})`,
+                background: `linear-gradient(135deg, ${getLevelColor(userLevel)}, ${alpha(getLevelColor(userLevel), 0.6)})`,
                 color: '#0A0E1A',
               }}>
-                {currentUser.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                {userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
               </Avatar>
             </Tooltip>
           )}

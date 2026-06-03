@@ -56,31 +56,40 @@ async function request<T>(method: string, path: string, body?: Json): Promise<T>
   if (body !== undefined) headers['Content-Type'] = 'application/json';
 
   // Авто-ретрай только для безопасных GET (повтор POST/PATCH мог бы создать дубль).
-  // Render при деплое/просыпании на ~30-60с отдаёт сетевую ошибку или 502/503/504 —
-  // тихо повторяем, чтобы пользователь не видел «не удаётся подключиться».
+  // Render на free/starter засыпает и просыпается ~30-60с, отдавая сетевую ошибку,
+  // зависание или 502/503/504. Повторяем с экспоненциальным backoff, а каждую
+  // попытку ограничиваем таймаутом (иначе зависший сокет висел бы «вечно»).
   const canRetry = method === 'GET';
-  const maxAttempts = canRetry ? 3 : 1;
+  const maxAttempts = canRetry ? 5 : 1;        // ~суммарно покрывает холодный старт
+  const ATTEMPT_TIMEOUT = 15000;               // мс на одну попытку
+  const backoff = (n: number) => Math.min(800 * 2 ** (n - 1), 4000);
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     let res: Response;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT);
     try {
       res = await fetch(`${API_BASE_URL}${path}`, {
         method,
         headers,
         body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
       });
     } catch (e: unknown) {
-      if (attempt < maxAttempts) { await sleep(700 * attempt); continue; }
+      // Сетевой сбой ИЛИ таймаут (abort) — если есть попытки, повторяем.
+      if (canRetry && attempt < maxAttempts) { await sleep(backoff(attempt)); continue; }
       throw new ApiError(
         'Не удаётся подключиться к серверу. Проверь что бэкенд запущен на ' + API_BASE_URL,
         0,
         e,
       );
+    } finally {
+      clearTimeout(timer);
     }
 
     // Сервер перезапускается/просыпается — повторяем.
     if (canRetry && [502, 503, 504].includes(res.status) && attempt < maxAttempts) {
-      await sleep(700 * attempt);
+      await sleep(backoff(attempt));
       continue;
     }
 
