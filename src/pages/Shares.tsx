@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, Grid, Divider,
   ToggleButtonGroup, ToggleButton, Avatar, Tooltip, IconButton,
@@ -13,7 +13,7 @@ import DiamondRoundedIcon from '@mui/icons-material/DiamondRounded';
 import RedeemRoundedIcon from '@mui/icons-material/RedeemRounded';
 import ShoppingCartRoundedIcon from '@mui/icons-material/ShoppingCartRounded';
 import SellRoundedIcon from '@mui/icons-material/SellRounded';
-import { sharesApi } from '../api/shares';
+import { useShareQuotes, useSharePackets } from '../api/queries';
 import { ErrorState, PageSkeleton } from '../components/States';
 import type { ShareQuote, SharePacket } from '../types/api';
 
@@ -54,23 +54,14 @@ export default function Shares() {
   const [range, setRange] = useState<RangeKey>('all');
   const [packetsPage, setPacketsPage] = useState(0);
 
-  // С бэка: котировки и мои пакеты.
-  const [shareHistory, setShareHistory] = useState<ShareQuote[]>([]);
-  const [myShares, setMyShares] = useState<SharePacket[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    Promise.all([sharesApi.quotes(), sharesApi.myPackets()])
-      .then(([q, p]) => { if (!cancelled) { setShareHistory(q); setMyShares(p); } })
-      .catch((e) => { if (!cancelled) setError(e?.message || 'Ошибка загрузки'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
-  useEffect(() => load(), [load]);
+  // С бэка через react-query (кэш/дедуп — котировки и пакеты переиспользуются с Дашбордом).
+  const quotesQ = useShareQuotes();
+  const packetsQ = useSharePackets();
+  const shareHistory: ShareQuote[] = quotesQ.data ?? [];
+  const myShares: SharePacket[] = packetsQ.data ?? [];
+  const loading = quotesQ.isLoading || packetsQ.isLoading;
+  const error = (quotesQ.error || packetsQ.error) as Error | null;
+  const retry = () => { quotesQ.refetch(); packetsQ.refetch(); };
 
   // Текущая цена = последняя котировка (или 0 если их нет).
   const currentSharePrice = shareHistory.length ? shareHistory[shareHistory.length - 1].price : 0;
@@ -126,7 +117,7 @@ export default function Shares() {
     : 0;
 
   if (loading) return <PageSkeleton />;
-  if (error) return <ErrorState message={error} onRetry={load} />;
+  if (error) return <ErrorState message={error.message} onRetry={retry} />;
 
   return (
     <Box>

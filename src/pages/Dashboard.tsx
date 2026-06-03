@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Box, Card, CardContent, Typography, LinearProgress, Chip, Grid, Divider, ToggleButtonGroup, ToggleButton, MenuItem, Select, FormControl, InputLabel, Tooltip } from '@mui/material';
 import { motion } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartTooltip, ResponsiveContainer } from 'recharts';
@@ -9,9 +9,8 @@ import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import { useNavigate } from 'react-router-dom';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import { achievements } from '../data/mockData';
-import { dealsApi } from '../api/deals';
-import { teamApi, type TeamLevelStats, type MarketingPlanLevel } from '../api/team';
-import { sharesApi } from '../api/shares';
+import { useDeals, useTeam, useSharePackets, useShareQuotes } from '../api/queries';
+import type { TeamLevelStats, MarketingPlanLevel } from '../api/team';
 import { getCurrentAgent } from '../auth/auth';
 import { ErrorState, PageSkeleton } from '../components/States';
 import type { Deal, ShareQuote, SharePacket } from '../types/api';
@@ -145,46 +144,29 @@ export default function Dashboard() {
     .slice(0, 3);
   const earnedCount = achievements.filter(a => a.earned).length;
 
-  // === Мои данные с бэка ===
-  const [myDeals, setMyDeals] = useState<Deal[]>([]);
-  // За всё время — итого людей в структуре и кумулятивный пассивный доход
-  const [teamAllTime, setTeamAllTime] = useState({ agents: 0, vkd: 0, passiveIncome: 0 });
-  const [myShares, setMyShares] = useState<SharePacket[]>([]);
-  const [shareQuotes, setShareQuotes] = useState<ShareQuote[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // === Мои данные с бэка через react-query (кэш/дедуп между страницами) ===
+  const meId = (() => { const id = getCurrentAgent()?.id; return typeof id === 'number' ? id : undefined; })();
+  const dealsQ = useDeals(meId);
+  const teamQ = useTeam();
+  const packetsQ = useSharePackets();
+  const quotesQ = useShareQuotes();
 
-  const load = useCallback(() => {
-    let cancelled = false;
-    const me = getCurrentAgent();
-    const meId = typeof me?.id === 'number' ? me.id : undefined;
-    setLoading(true);
-    setError(null);
-    // Без per-call .catch: apiClient сам ретраит cold-start, а реальный сбой
-    // должен показать ошибку с «Повторить», а не тихие нули.
-    Promise.all([
-      dealsApi.list({ agentId: meId }),
-      teamApi.get(),
-      sharesApi.myPackets(),
-      sharesApi.quotes(),
-    ]).then(([deals, teamAll, packets, quotes]) => {
-      if (cancelled) return;
-      setMyDeals(deals);
-      setTeamAllTime({
-        agents: teamAll.totals?.agents || 0,
-        vkd: teamAll.totals?.vkd || 0,
-        passiveIncome: computePassiveIncome(teamAll.levels || [], teamAll.marketingPlan || []),
-      });
-      setMyShares(packets);
-      setShareQuotes(quotes);
-    }).catch((e) => {
-      if (!cancelled) setError(e?.message || 'Ошибка загрузки');
-    }).finally(() => {
-      if (!cancelled) setLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, []);
-  useEffect(() => load(), [load]);
+  const myDeals: Deal[] = dealsQ.data ?? [];
+  const myShares: SharePacket[] = packetsQ.data ?? [];
+  const shareQuotes: ShareQuote[] = quotesQ.data ?? [];
+  // За всё время — итого людей в структуре и кумулятивный пассивный доход
+  const teamAllTime = useMemo(() => {
+    const t = teamQ.data;
+    return {
+      agents: t?.totals?.agents || 0,
+      vkd: t?.totals?.vkd || 0,
+      passiveIncome: t ? computePassiveIncome(t.levels || [], t.marketingPlan || []) : 0,
+    };
+  }, [teamQ.data]);
+
+  const loading = dealsQ.isLoading || teamQ.isLoading || packetsQ.isLoading || quotesQ.isLoading;
+  const error = (dealsQ.error || teamQ.error || packetsQ.error || quotesQ.error) as Error | null;
+  const retry = () => { dealsQ.refetch(); teamQ.refetch(); packetsQ.refetch(); quotesQ.refetch(); };
 
   // === Вычисления ===
   const currentYear = String(new Date().getFullYear());
@@ -261,7 +243,7 @@ export default function Dashboard() {
     : `${MONTH_NAMES[parseInt(filterMonth, 10) - 1]} ${filterYear}`;
 
   if (loading) return <PageSkeleton />;
-  if (error) return <ErrorState message={error} onRetry={load} />;
+  if (error) return <ErrorState message={error.message} onRetry={retry} />;
 
   return (
     <Box>

@@ -1,16 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useBackoffice } from '../api/queries';
 import {
   Box, Card, CardContent, Typography, Avatar, Grid, alpha,
   IconButton, Tooltip, CircularProgress, Alert,
 } from '@mui/material';
-import { PageSkeleton } from '../components/States';
+import { ErrorState, PageSkeleton } from '../components/States';
 import SmartAvatar from '../components/SmartAvatar';
 import { motion } from 'framer-motion';
 import PhoneRoundedIcon from '@mui/icons-material/PhoneRounded';
 import EmailRoundedIcon from '@mui/icons-material/EmailRounded';
 import TelegramIcon from '@mui/icons-material/Telegram';
 import SupportAgentRoundedIcon from '@mui/icons-material/SupportAgentRounded';
-import { backofficeApi, type BackOfficeMember } from '../api/backoffice';
 import { settingsApi } from '../api/settings';
 
 const DEFAULT_INTRO = 'К этим людям ты можешь обращаться по специальным вопросам — бухгалтерия, юристы, HR, маркетинг, IT.';
@@ -31,29 +31,17 @@ const roleColors: Record<string, string> = {
 const defaultColor = '#94A3B8';
 
 export default function Backoffice() {
-  const [team, setTeam] = useState<BackOfficeMember[]>([]);
-  const [intro, setIntro] = useState(DEFAULT_INTRO);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const teamQ = useBackoffice();
+  const settingsQ = useQuery({ queryKey: ['settings'], queryFn: () => settingsApi.get() });
+  const team = teamQ.data ?? [];
+  const intro = (settingsQ.data?.backoffice_intro?.trim()) || DEFAULT_INTRO;
+  const error = teamQ.error as Error | null;
 
-  useEffect(() => {
-    Promise.all([
-      backofficeApi.list(),
-      settingsApi.get().catch(() => ({} as Record<string, string>)),
-    ])
-      .then(([list, settings]) => {
-        setTeam(list);
-        if (settings.backoffice_intro?.trim()) setIntro(settings.backoffice_intro);
-      })
-      .catch(err => setError(err?.message || 'Не удалось загрузить команду'))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
+  if (teamQ.isLoading) {
     return <PageSkeleton />;
   }
   if (error) {
-    return <Alert severity="error">{error}</Alert>;
+    return <ErrorState message={error.message} onRetry={() => teamQ.refetch()} />;
   }
   if (team.length === 0) {
     return (
