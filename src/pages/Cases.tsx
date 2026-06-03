@@ -48,7 +48,7 @@ const trackIcon = (track: string) =>
     : <GavelRoundedIcon sx={{ fontSize: 18, color: '#C9A84C' }} />;
 
 // track — ограничить раздел одной дорожкой (legal → «Юристы», mortgage → «Ипотека»).
-export default function Cases({ track }: { track?: TaskTrack } = {}) {
+export default function Cases({ track, initialOpenId }: { track?: TaskTrack; initialOpenId?: number } = {}) {
   const [cases, setCases] = useState<CaseItem[]>([]);
   const [types, setTypes] = useState<TaskTypeMeta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,6 +121,12 @@ export default function Cases({ track }: { track?: TaskTrack } = {}) {
       .finally(() => setDetailLoading(false));
     casesApi.markRead(caseId).then(load).catch(() => {});
   };
+
+  // Авто-открытие конкретной заявки при переходе из «Мои обращения».
+  useEffect(() => {
+    if (initialOpenId) openDetail(initialOpenId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialOpenId]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

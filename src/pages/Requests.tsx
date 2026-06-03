@@ -74,6 +74,10 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
   // Deep-link из пушей: /ad-requests → заявки рекламы, /ad-packages → сбор пакета.
   const initialView: View = initialTab === 1 ? 'ads-requests' : initialTab === 2 ? 'ads-packages' : null;
   const [view, setView] = useState<View>(initialView);
+  // Какую заявку авто-открыть после перехода из «Мои обращения».
+  const [openTarget, setOpenTarget] = useState<{ kind: 'case' | 'ad'; id: number } | null>(null);
+  const openSection = (v: View) => { setOpenTarget(null); setView(v); };
+  const openItem = (v: View, kind: 'case' | 'ad', id: number) => { setOpenTarget({ kind, id }); setView(v); };
 
   // Непрочитанные по отделам — из общего singleton-поллера (без своего таймера).
   const { cases, adRequests } = useRequestsData();
@@ -85,6 +89,7 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
   }, [cases, adRequests]);
 
   const back = () => {
+    setOpenTarget(null);
     if (view === 'ads-requests' || view === 'ads-packages') setView('ads');
     else setView(null);
   };
@@ -108,11 +113,11 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
             </Typography>
           </Box>
         </Box>
-        {view === null && <MyRequests cases={cases} adRequests={adRequests} onOpen={setView} />}
+        {view === null && <MyRequests cases={cases} adRequests={adRequests} onOpen={openItem} />}
         {view === null && (cases.length > 0 || adRequests.length > 0) && (
           <Typography variant="subtitle2" sx={{ color: '#94A3B8', fontWeight: 700, mb: 1.5 }}>Создать новое обращение</Typography>
         )}
-        <HubGrid cards={cards} onPick={setView} badges={badges} />
+        <HubGrid cards={cards} onPick={openSection} badges={badges} />
       </Box>
     );
   }
@@ -121,9 +126,9 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
   return (
     <Box>
       <Button onClick={back} startIcon={<ArrowBackRoundedIcon />} sx={{ color: '#94A3B8', textTransform: 'none', mb: 1 }}>Назад</Button>
-      {view === 'lawyers' && <Cases track="legal" />}
-      {view === 'mortgage' && <Cases track="mortgage" />}
-      {view === 'ads-requests' && <AdSimpleRequestsTab />}
+      {view === 'lawyers' && <Cases track="legal" initialOpenId={openTarget?.kind === 'case' ? openTarget.id : undefined} />}
+      {view === 'mortgage' && <Cases track="mortgage" initialOpenId={openTarget?.kind === 'case' ? openTarget.id : undefined} />}
+      {view === 'ads-requests' && <AdSimpleRequestsTab initialOpenId={openTarget?.kind === 'ad' ? openTarget.id : undefined} />}
       {view === 'ads-packages' && <AdPackagesTab />}
       {view === 'newbuild' && <NewbuildStub />}
     </Box>
@@ -169,16 +174,17 @@ function HubGrid({ cards, onPick, badges = {} }: { cards: CardMeta[]; onPick: (v
 
 // Единый список «Мои обращения» — все дорожки (юрист/ипотека/реклама) одним списком
 // со статусом и непрочитанными. Клик ведёт в нужный раздел.
-function MyRequests({ cases, adRequests, onOpen }: { cases: CaseItem[]; adRequests: AdRequest[]; onOpen: (v: View) => void }) {
+function MyRequests({ cases, adRequests, onOpen }: { cases: CaseItem[]; adRequests: AdRequest[]; onOpen: (v: View, kind: 'case' | 'ad', id: number) => void }) {
   const rows = [
-    ...cases.map(c => ({
-      key: 'c' + c.id, kind: 'case' as const, updated: c.updated_at, unread: c.unread || 0,
+    // Только активные обращения — завершённые/закрытые не засоряют список.
+    ...cases.filter(c => c.status !== 'closed').map(c => ({
+      key: 'c' + c.id, id: c.id, kind: 'case' as const, updated: c.updated_at, unread: c.unread || 0,
       title: c.client_name || 'Заявка', sub: c.object_address || c.city || '',
       chips: (c.tasks || []).map(t => ({ label: `${trackName(t.track)}: ${STATUS_RU[t.status] || t.status}`, color: STATUS_COLOR[t.status] || '#94A3B8' })),
       view: ((c.tasks || []).some(t => t.track === 'legal') ? 'lawyers' : 'mortgage') as View,
     })),
-    ...adRequests.map(a => ({
-      key: 'a' + a.id, kind: 'ad' as const, updated: a.updated_at, unread: a.unread || 0,
+    ...adRequests.filter(a => a.status !== 'done' && a.status !== 'cancelled').map(a => ({
+      key: 'a' + a.id, id: a.id, kind: 'ad' as const, updated: a.updated_at, unread: a.unread || 0,
       title: a.kind_label || 'Заявка в отдел рекламы', sub: [a.object_ref, a.region].filter(Boolean).join(' · '),
       chips: [{ label: `Реклама: ${AD_STATUS_RU[a.status] || a.status}`, color: STATUS_COLOR[a.status] || '#94A3B8' }],
       view: 'ads-requests' as View,
@@ -189,10 +195,10 @@ function MyRequests({ cases, adRequests, onOpen }: { cases: CaseItem[]; adReques
 
   return (
     <Box sx={{ mb: 4 }}>
-      <Typography variant="subtitle2" sx={{ color: '#94A3B8', fontWeight: 700, mb: 1.5 }}>Мои обращения ({rows.length})</Typography>
+      <Typography variant="subtitle2" sx={{ color: '#94A3B8', fontWeight: 700, mb: 1.5 }}>Активные обращения ({rows.length})</Typography>
       <Stack spacing={1.2}>
         {rows.map(r => (
-          <Card key={r.key} onClick={() => onOpen(r.view)} sx={{
+          <Card key={r.key} onClick={() => onOpen(r.view, r.kind, r.id)} sx={{
             cursor: 'pointer', border: r.unread > 0 ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(201,168,76,0.1)',
             transition: 'all .2s', '&:hover': { borderColor: 'rgba(201,168,76,0.4)', transform: 'translateY(-2px)' },
           }}>

@@ -77,7 +77,7 @@ export default function AdRequests() {
 }
 
 /* ============ МОИ ЗАЯВКИ ============ */
-export function AdSimpleRequestsTab() {
+export function AdSimpleRequestsTab({ initialOpenId }: { initialOpenId?: number } = {}) {
   const [items, setItems] = useState<AdRequest[]>([]);
   const [meta, setMeta] = useState<AdMeta | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,6 +94,10 @@ export function AdSimpleRequestsTab() {
       .finally(() => setLoading(false));
   }, []);
   useEffect(() => { load(); }, [load]);
+  // Авто-открытие конкретной заявки при переходе из «Мои обращения».
+  useEffect(() => {
+    if (initialOpenId) adRequestsApi.get(initialOpenId).then(setDetail).catch(() => {});
+  }, [initialOpenId]);
 
   if (loading) return <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress sx={{ color: GOLD }} /></Box>;
 
