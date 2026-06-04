@@ -133,6 +133,7 @@ export default function Profile() {
   const [form, setForm] = useState({
     name: '', email: '', phone: '', city: '',
     specialization: '',
+    experienceYears: '',
     bio: '',
     photo: '' as string | null,
     telegram: '', telegramChannel: '', instagram: '', vk: '', max: '',
@@ -187,6 +188,8 @@ export default function Profile() {
       phone: currentUser.phone || '',
       city: currentUser.city || '',
       specialization: (currentUser.specialization || []).join(', '),
+      experienceYears: String((currentUser as { experience_years?: number; experienceYears?: number }).experience_years
+        ?? (currentUser as { experienceYears?: number }).experienceYears ?? ''),
       bio: (currentUser as { bio?: string }).bio || '',
       photo: (currentUser as { photo?: string | null }).photo || '',
       telegram: currentUser.socials?.telegram || '',
@@ -274,6 +277,7 @@ export default function Profile() {
         city: form.city,
         photo: form.photo || null,
         bio: form.bio,
+        experienceYears: Math.max(0, parseInt(form.experienceYears, 10) || 0),
         specialization: form.specialization.split(',').map(s => s.trim()).filter(Boolean),
         socials: {
           telegram: form.telegram || undefined,
@@ -866,6 +870,10 @@ export default function Profile() {
               <TextField fullWidth size="small" label="Телефон" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
             </Box>
             <TextField fullWidth size="small" label="Город" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
+            <TextField fullWidth size="small" type="number" label="Опыт работы (лет)" value={form.experienceYears}
+              onChange={e => setForm(f => ({ ...f, experienceYears: e.target.value }))}
+              slotProps={{ htmlInput: { min: 0, max: 60 } }}
+              helperText="Виден в Базе агентов" />
             <TextField fullWidth size="small" label="Специализация (через запятую)" value={form.specialization} onChange={e => setForm(f => ({ ...f, specialization: e.target.value }))} />
 
             <Divider sx={{ borderColor: 'rgba(201,168,76,0.1)', my: 1 }}>
