@@ -59,8 +59,12 @@ async function request<T>(method: string, path: string, body?: Json): Promise<T>
   // Render на free/starter засыпает и просыпается ~30-60с, отдавая сетевую ошибку,
   // зависание или 502/503/504. Повторяем с экспоненциальным backoff, а каждую
   // попытку ограничиваем таймаутом (иначе зависший сокет висел бы «вечно»).
-  const canRetry = method === 'GET';
-  const maxAttempts = canRetry ? 5 : 1;        // ~суммарно покрывает холодный старт
+  // Сетевой сбой/таймаут (запрос НЕ дошёл до сервера) ретраим для ЛЮБОГО метода —
+  // это безопасно (сервер ничего не обработал) и нужно для холодного старта Render,
+  // иначе первый POST (логин) падает «не удаётся подключиться». А вот HTTP 5xx
+  // (сервер мог обработать) ретраим только для идемпотентного GET — без дублей POST.
+  const retry5xx = method === 'GET';
+  const maxAttempts = 5;
   const ATTEMPT_TIMEOUT = 15000;               // мс на одну попытку
   const backoff = (n: number) => Math.min(800 * 2 ** (n - 1), 4000);
 
@@ -76,8 +80,8 @@ async function request<T>(method: string, path: string, body?: Json): Promise<T>
         signal: controller.signal,
       });
     } catch (e: unknown) {
-      // Сетевой сбой ИЛИ таймаут (abort) — если есть попытки, повторяем.
-      if (canRetry && attempt < maxAttempts) { await sleep(backoff(attempt)); continue; }
+      // Сетевой сбой ИЛИ таймаут (abort) — запрос не завершился, повторяем (любой метод).
+      if (attempt < maxAttempts) { await sleep(backoff(attempt)); continue; }
       throw new ApiError(
         'Не удаётся подключиться к серверу. Проверь что бэкенд запущен на ' + API_BASE_URL,
         0,
@@ -87,8 +91,8 @@ async function request<T>(method: string, path: string, body?: Json): Promise<T>
       clearTimeout(timer);
     }
 
-    // Сервер перезапускается/просыпается — повторяем.
-    if (canRetry && [502, 503, 504].includes(res.status) && attempt < maxAttempts) {
+    // Сервер перезапускается/просыпается — повторяем (только идемпотентный GET).
+    if (retry5xx && [502, 503, 504].includes(res.status) && attempt < maxAttempts) {
       await sleep(backoff(attempt));
       continue;
     }
