@@ -36,7 +36,7 @@ export const PLATFORM_LABEL: Record<string, string> = {
 
 export const adRequestsApi = {
   meta: () => api.get<AdMeta>('/api/ad-requests/meta'),
-  list: () => api.get<AdRequest[]>('/api/ad-requests'),
+  list: () => api.get<AdRequest[]>('/api/ad-requests?mine=1'),
   get: (id: number) => api.get<AdRequest>(`/api/ad-requests/${id}`),
   create: (body: { kind: AdKind; objectRef?: string; region?: string; platforms?: AdPlatform[]; comment?: string }) =>
     api.post<AdRequest>('/api/ad-requests', body),

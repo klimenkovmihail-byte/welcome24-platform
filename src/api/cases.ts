@@ -69,8 +69,8 @@ export const NEXT_STATUSES: Record<TaskTrack, string[]> = {
 };
 
 export const casesApi = {
-  // Агент: мои заявки (админ — все).
-  list: () => api.get<CaseItem[]>('/api/cases'),
+  // Агент: мои заявки (в портале всегда только свои — ?mine=1).
+  list: () => api.get<CaseItem[]>('/api/cases?mine=1'),
   get: (id: number) => api.get<CaseItem>(`/api/cases/${id}`),
   create: (body: { clientName: string; objectAddress?: string; city?: string; note?: string; taskType: TaskType }) =>
     api.post<CaseItem>('/api/cases', body),
