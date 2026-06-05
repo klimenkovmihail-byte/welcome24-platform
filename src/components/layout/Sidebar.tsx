@@ -69,7 +69,10 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
   const mini = !isMobile && collapsed;
 
   const handleNav = (path: string) => {
-    navigate(path);
+    // Повторный клик по активному пункту — «настоящая» навигация (новый location.key),
+    // чтобы экран сбрасывался на обзор (напр. «Заявки» → карточки разделов, #5).
+    if (path === location.pathname) navigate(path, { state: { reclick: Date.now() } });
+    else navigate(path);
     if (isMobile) onClose();
   };
 

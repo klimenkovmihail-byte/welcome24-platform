@@ -143,7 +143,7 @@ export function AdSimpleRequestsTab({ initialOpenId }: { initialOpenId?: number 
                 {r.region && <Typography sx={{ color: '#94A3B8', fontSize: 14 }}>{r.region}</Typography>}
                 <Stack direction="row" spacing={0.5}>{r.platforms.map(p => <Chip key={p} label={PLATFORM_LABEL[p]} size="small" variant="outlined" sx={{ height: 20, fontSize: 11, color: '#94A3B8', borderColor: 'rgba(148,163,184,0.3)' }} />)}</Stack>
                 <Box sx={{ flex: 1 }} />
-                <Typography sx={{ color: '#CBD5E1', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{fmtDateTime(r.created_at)}</Typography>
+                <Typography sx={{ color: '#CBD5E1', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{fmtDateTime(r.updated_at || r.created_at)}</Typography>
                 {r.assignee_name && <Typography sx={{ color: '#64748B', fontSize: 12 }}>{r.assignee_name}</Typography>}
                 <Chip label={AD_STATUS_RU[r.status]} size="small" sx={{ background: statusColor(r.status) + '22', color: statusColor(r.status), fontWeight: 700 }} />
               </Stack>
@@ -317,7 +317,7 @@ function RequestDetail({ request, onClose }: { request: AdRequest; onClose: () =
         {events.length > 0 && (
           <Box sx={{ mb: 2 }}>
             <Typography sx={{ color: '#64748B', fontSize: 12, mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>История</Typography>
-            {events.map(e => <Typography key={e.id} sx={{ color: '#94A3B8', fontSize: 12.5 }}><span style={{ color: '#475569' }}>{fmtDate(e.created_at)}</span> · {e.text}</Typography>)}
+            {events.map(e => <Typography key={e.id} sx={{ color: '#94A3B8', fontSize: 12.5 }}><span style={{ color: '#475569' }}>{fmtDateTime(e.created_at)}</span> · {e.text}{e.actor_name ? <span style={{ color: GOLD, fontWeight: 600 }}> — {e.actor_name}</span> : null}</Typography>)}
           </Box>
         )}
         <Divider sx={{ borderColor: 'rgba(148,163,184,0.1)', mb: 1 }} />

@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Box, Typography, Card, CardContent, Stack, Button, Chip, alpha } from '@mui/material';
 import { motion } from 'framer-motion';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
@@ -76,6 +77,11 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
   const [view, setView] = useState<View>(initialView);
   // Какую заявку авто-открыть после перехода из «Мои обращения».
   const [openTarget, setOpenTarget] = useState<{ kind: 'case' | 'ad'; id: number } | null>(null);
+
+  // Клик по «Заявки» в меню (новая навигация) → сброс на обзор карточек,
+  // а не «застревание» в подразделе (#5). Сброс по смене location.key.
+  const location = useLocation();
+  useEffect(() => { setView(initialView); setOpenTarget(null); }, [location.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const openSection = (v: View) => { setOpenTarget(null); setView(v); };
   const openItem = (v: View, kind: 'case' | 'ad', id: number) => { setOpenTarget({ kind, id }); setView(v); };
 
