@@ -77,22 +77,31 @@ export default function AdRequests() {
 }
 
 /* ============ МОИ ЗАЯВКИ ============ */
-export function AdSimpleRequestsTab({ initialOpenId }: { initialOpenId?: number } = {}) {
+// Типы заявок по рекламе ОБЪЕКТОВ (отдельно от «прикрепления к площадкам»).
+const OBJECT_KINDS: AdKind[] = ['quota', 'fix'];
+
+export function AdSimpleRequestsTab({ initialOpenId, kinds = OBJECT_KINDS, createKinds, autoCreateKind }: {
+  initialOpenId?: number;
+  kinds?: AdKind[];           // какие типы показывать в списке
+  createKinds?: AdKind[];     // какие типы доступны в «Новой заявке» (по умолчанию = kinds)
+  autoCreateKind?: AdKind;    // сразу открыть окно новой заявки с этим типом
+} = {}) {
   const [items, setItems] = useState<AdRequest[]>([]);
   const [meta, setMeta] = useState<AdMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(!!autoCreateKind);
   const [detail, setDetail] = useState<AdRequest | null>(null);
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | AdStatus>('all');
+  const kindsKey = kinds.join(',');
 
   const load = useCallback(() => {
     setLoading(true);
-    Promise.all([adRequestsApi.list().catch(() => []), adRequestsApi.meta().catch(() => null)])
+    Promise.all([adRequestsApi.list(kindsKey.split(',') as AdKind[]).catch(() => []), adRequestsApi.meta().catch(() => null)])
       .then(([l, m]) => { setItems(l); setMeta(m); })
       .finally(() => setLoading(false));
-  }, []);
+  }, [kindsKey]);
   useEffect(() => { load(); }, [load]);
   // Авто-открытие конкретной заявки при переходе из «Мои обращения».
   useEffect(() => {
@@ -153,14 +162,15 @@ export function AdSimpleRequestsTab({ initialOpenId }: { initialOpenId?: number 
         })()}
       </Stack>
 
-      {createOpen && meta && <CreateDialog meta={meta} onClose={() => setCreateOpen(false)} onCreated={() => { setCreateOpen(false); load(); }} setError={setError} />}
+      {createOpen && meta && <CreateDialog meta={meta} allowedKinds={createKinds || kinds} presetKind={autoCreateKind} onClose={() => setCreateOpen(false)} onCreated={() => { setCreateOpen(false); load(); }} setError={setError} />}
       {detail && <RequestDetail request={detail} onClose={() => setDetail(null)} />}
     </Box>
   );
 }
 
-function CreateDialog({ meta, onClose, onCreated, setError }: { meta: AdMeta; onClose: () => void; onCreated: () => void; setError: (e: string) => void }) {
-  const [kind, setKind] = useState<AdKind>('quota');
+function CreateDialog({ meta, allowedKinds, presetKind, onClose, onCreated, setError }: { meta: AdMeta; allowedKinds?: AdKind[]; presetKind?: AdKind; onClose: () => void; onCreated: () => void; setError: (e: string) => void }) {
+  const kindOptions = meta.kinds.filter(k => !allowedKinds || allowedKinds.includes(k.key));
+  const [kind, setKind] = useState<AdKind>(presetKind || kindOptions[0]?.key || 'quota');
   const [objectRef, setObjectRef] = useState('');
   const [region, setRegion] = useState('');
   const [platforms, setPlatforms] = useState<AdPlatform[]>([]);
@@ -199,7 +209,7 @@ function CreateDialog({ meta, onClose, onCreated, setError }: { meta: AdMeta; on
           <FormControl fullWidth size="small">
             <InputLabel sx={{ color: '#94A3B8' }}>Тип заявки</InputLabel>
             <Select label="Тип заявки" value={kind} onChange={e => setKind(e.target.value as AdKind)} sx={{ color: '#E2E8F0' }}>
-              {meta.kinds.map(k => <MenuItem key={k.key} value={k.key}>{k.label}</MenuItem>)}
+              {kindOptions.map(k => <MenuItem key={k.key} value={k.key}>{k.label}</MenuItem>)}
             </Select>
           </FormControl>
           {needObject && (

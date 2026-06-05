@@ -40,10 +40,11 @@ const STATUS_COLOR: Record<string, string> = {
 };
 const trackName = (t: string) => t === 'legal' ? 'Юрист' : t === 'mortgage' ? 'Ипотека' : t;
 
-type View = null | 'lawyers' | 'mortgage' | 'ads' | 'ads-requests' | 'ads-packages' | 'newbuild';
+type View = null | 'lawyers' | 'mortgage' | 'ads' | 'ads-requests' | 'ads-packages' | 'ads-connect' | 'newbuild';
+type AdPreset = 'quota' | 'fix';
 
 interface CardMeta {
-  key: Exclude<View, null>;
+  key: string;
   label: string;
   description: string;
   icon: React.ReactNode;
@@ -63,12 +64,20 @@ const SECTIONS: CardMeta[] = [
     description: 'Фиксация клиента у застройщика, уникализация лида, взаиморасчёты по ЖК. Раздел в разработке.' },
 ];
 
-// Внутри «Рекламы» — два направления.
+// Внутри «Рекламы» — плитки по типам заявок (разделено: реклама объектов vs прикрепление).
 const AD_SECTIONS: CardMeta[] = [
-  { key: 'ads-requests', label: 'Заявки в отдел рекламы', color: '#C9A84C', icon: <ReceiptLongRoundedIcon sx={{ fontSize: 32 }} />,
-    description: 'Покупка разовой квоты, подключение к площадкам, работа с ошибками в объектах. Отдел берёт в работу.' },
-  { key: 'ads-packages', label: 'Сбор пакета', color: '#F59E0B', icon: <Inventory2RoundedIcon sx={{ fontSize: 32 }} />,
-    description: 'Подай заявку в общий пакет размещения на площадку — количество по категориям, сумма считается автоматически.' },
+  { key: 'go-quota', label: 'Разовое размещение объекта', color: '#C9A84C', icon: <ReceiptLongRoundedIcon sx={{ fontSize: 32 }} />,
+    description: 'Заказ и оплата размещения конкретного объекта на площадке.' },
+  { key: 'go-from-package', label: 'Реклама объекта из пакета', color: '#F59E0B', soon: true, icon: <Inventory2RoundedIcon sx={{ fontSize: 32 }} />,
+    description: 'Списать квоту из действующего пакета на объект — бесплатно. Скоро.' },
+  { key: 'go-fix', label: 'Ошибка при выгрузке', color: '#EF4444', icon: <ConstructionRoundedIcon sx={{ fontSize: 32 }} />,
+    description: 'Объект не выгрузился или ошибка в объявлении — отдел разберётся.' },
+  { key: 'go-active', label: 'Действующий пакет', color: '#22C55E', soon: true, icon: <Inventory2RoundedIcon sx={{ fontSize: 32 }} />,
+    description: 'Сколько квот куплено, списано и осталось по площадкам. Скоро.' },
+  { key: 'go-packages', label: 'Сбор пакета', color: '#F59E0B', icon: <Inventory2RoundedIcon sx={{ fontSize: 32 }} />,
+    description: 'Подай заявку в общий пакет размещения — количество по категориям, сумма считается автоматически.' },
+  { key: 'go-connect', label: 'Прикрепление к площадкам', color: '#4361EE', icon: <CampaignRoundedIcon sx={{ fontSize: 32 }} />,
+    description: 'Подключение твоих объектов к Авито / ЦИАН / ДомКлик.' },
 ];
 
 export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
@@ -77,13 +86,25 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
   const [view, setView] = useState<View>(initialView);
   // Какую заявку авто-открыть после перехода из «Мои обращения».
   const [openTarget, setOpenTarget] = useState<{ kind: 'case' | 'ad'; id: number } | null>(null);
+  // Пресет типа для авто-открытия окна новой заявки (клик по плитке 1/3).
+  const [adPreset, setAdPreset] = useState<AdPreset | null>(null);
+
+  // Клик по плитке внутри «Рекламы».
+  const pickAd = (key: string) => {
+    setOpenTarget(null); setAdPreset(null);
+    if (key === 'go-quota') { setAdPreset('quota'); setView('ads-requests'); }
+    else if (key === 'go-fix') { setAdPreset('fix'); setView('ads-requests'); }
+    else if (key === 'go-packages') setView('ads-packages');
+    else if (key === 'go-connect') setView('ads-connect');
+    // go-from-package / go-active — «скоро», клик ничего не делает (фаза B).
+  };
 
   // Клик по «Заявки» в меню (новая навигация) → сброс на обзор карточек,
   // а не «застревание» в подразделе (#5). Сброс по смене location.key.
   const location = useLocation();
   useEffect(() => { setView(initialView); setOpenTarget(null); }, [location.key]); // eslint-disable-line react-hooks/exhaustive-deps
-  const openSection = (v: View) => { setOpenTarget(null); setView(v); };
-  const openItem = (v: View, kind: 'case' | 'ad', id: number) => { setOpenTarget({ kind, id }); setView(v); };
+  const openSection = (v: View) => { setOpenTarget(null); setAdPreset(null); setView(v); };
+  const openItem = (v: View, kind: 'case' | 'ad', id: number) => { setAdPreset(null); setOpenTarget({ kind, id }); setView(v); };
 
   // Непрочитанные по отделам — из общего singleton-поллера (без своего таймера).
   const { cases, adRequests } = useRequestsData();
@@ -95,8 +116,8 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
   }, [cases, adRequests]);
 
   const back = () => {
-    setOpenTarget(null);
-    if (view === 'ads-requests' || view === 'ads-packages') setView('ads');
+    setOpenTarget(null); setAdPreset(null);
+    if (view === 'ads-requests' || view === 'ads-packages' || view === 'ads-connect') setView('ads');
     else setView(null);
   };
 
@@ -120,7 +141,7 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
           </Box>
         </Box>
         {/* Отделы (создать обращение) — наверху */}
-        <HubGrid cards={cards} onPick={openSection} badges={badges} />
+        <HubGrid cards={cards} onPick={view === 'ads' ? pickAd : (k) => openSection(k as View)} badges={badges} />
         {/* Активные обращения — под отделами */}
         {view === null && (
           <Box sx={{ mt: 4 }}>
@@ -137,14 +158,15 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
       <Button onClick={back} startIcon={<ArrowBackRoundedIcon />} sx={{ color: '#94A3B8', textTransform: 'none', mb: 1 }}>Назад</Button>
       {view === 'lawyers' && <Cases track="legal" initialOpenId={openTarget?.kind === 'case' ? openTarget.id : undefined} />}
       {view === 'mortgage' && <Cases track="mortgage" initialOpenId={openTarget?.kind === 'case' ? openTarget.id : undefined} />}
-      {view === 'ads-requests' && <AdSimpleRequestsTab initialOpenId={openTarget?.kind === 'ad' ? openTarget.id : undefined} />}
+      {view === 'ads-requests' && <AdSimpleRequestsTab key={`adreq-${adPreset ?? 'list'}`} autoCreateKind={adPreset ?? undefined} initialOpenId={openTarget?.kind === 'ad' ? openTarget.id : undefined} />}
+      {view === 'ads-connect' && <AdSimpleRequestsTab kinds={['connect']} createKinds={['connect']} initialOpenId={openTarget?.kind === 'ad' ? openTarget.id : undefined} />}
       {view === 'ads-packages' && <AdPackagesTab />}
       {view === 'newbuild' && <NewbuildStub />}
     </Box>
   );
 }
 
-function HubGrid({ cards, onPick, badges = {} }: { cards: CardMeta[]; onPick: (v: View) => void; badges?: Record<string, number> }) {
+function HubGrid({ cards, onPick, badges = {} }: { cards: CardMeta[]; onPick: (key: string) => void; badges?: Record<string, number> }) {
   return (
     <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' } }}>
       {cards.map((c, i) => {
@@ -196,7 +218,7 @@ function MyRequests({ cases, adRequests, onOpen }: { cases: CaseItem[]; adReques
       key: 'a' + a.id, id: a.id, kind: 'ad' as const, updated: a.updated_at, unread: a.unread || 0,
       title: a.kind_label || 'Заявка в отдел рекламы', sub: [a.object_ref, a.region].filter(Boolean).join(' · '),
       chips: [{ label: `Реклама: ${AD_STATUS_RU[a.status] || a.status}`, color: STATUS_COLOR[a.status] || '#94A3B8' }],
-      view: 'ads-requests' as View,
+      view: (a.kind === 'connect' ? 'ads-connect' : 'ads-requests') as View,
     })),
   ].sort((x, y) => (y.updated || '').localeCompare(x.updated || ''));
 
