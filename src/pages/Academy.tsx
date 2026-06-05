@@ -818,7 +818,17 @@ function AcademyImpl() {
 
       {/* ===== Course dialog ===== */}
       <Dialog open={!!openCourse} onClose={() => setOpenCourse(null)} maxWidth="md" fullWidth fullScreen={compactDialog}
-        slotProps={{ paper: { sx: { background: 'linear-gradient(135deg, #0F1629 0%, #0A0E1A 100%)', border: '1px solid rgba(201,168,76,0.15)', borderRadius: 3 } } }}
+        slotProps={{ paper: { sx: {
+          background: 'linear-gradient(135deg, #0F1629 0%, #0A0E1A 100%)',
+          border: '1px solid rgba(201,168,76,0.15)', borderRadius: 3,
+          // На fullScreen (моб./низкий экран) учитываем «чёлку»/статус-бар iOS:
+          // без этого крестик и заголовок уезжают под часы и не нажимаются.
+          ...(compactDialog && {
+            borderRadius: 0, border: 'none',
+            pt: 'env(safe-area-inset-top)',
+            pb: 'env(safe-area-inset-bottom)',
+          }),
+        } } }}
       >
         {openCourse && (() => {
           const catColor = courseCategoryColors[openCourse.category] || '#64748B';
@@ -1050,7 +1060,15 @@ function AcademyImpl() {
 
       {/* ===== Webinar recording dialog ===== */}
       <Dialog open={!!openWebinar} onClose={() => setOpenWebinar(null)} maxWidth="md" fullWidth fullScreen={compactDialog}
-        slotProps={{ paper: { sx: { background: 'linear-gradient(135deg, #0F1629 0%, #0A0E1A 100%)', border: '1px solid rgba(201,168,76,0.15)', borderRadius: 3 } } }}
+        slotProps={{ paper: { sx: {
+          background: 'linear-gradient(135deg, #0F1629 0%, #0A0E1A 100%)',
+          border: '1px solid rgba(201,168,76,0.15)', borderRadius: 3,
+          ...(compactDialog && {
+            borderRadius: 0, border: 'none',
+            pt: 'env(safe-area-inset-top)',
+            pb: 'env(safe-area-inset-bottom)',
+          }),
+        } } }}
       >
         {openWebinar && (() => {
           const c = webinarTopicColors[openWebinar.topic] || '#64748B';
