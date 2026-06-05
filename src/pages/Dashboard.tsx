@@ -8,8 +8,15 @@ import DiamondRoundedIcon from '@mui/icons-material/DiamondRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import { useNavigate } from 'react-router-dom';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
-import { achievements } from '../data/mockData';
-import { useDeals, useTeam, useSharePackets, useShareQuotes } from '../api/queries';
+import type { Achievement } from '../data/mockData';
+import { api } from '../api/apiClient';
+
+// Достижения считаются на бэке (helpers/achievements.js) — endpoint /api/achievements/me.
+// Раньше дашборд показывал хардкод из mockData (не обновлялся при новых ачивках).
+type RawAchMe = { id: string; title: string; description: string; icon: string;
+  tier: 'bronze' | 'silver' | 'gold' | 'platinum'; isYearly: boolean; period: string;
+  earned: boolean; earnedAt: string | null };
+import { useDeals, useTeam, useSharePackets, useShareQuotes, useSettings } from '../api/queries';
 import type { TeamLevelStats, MarketingPlanLevel } from '../api/team';
 import { getCurrentAgent } from '../auth/auth';
 import { ErrorState, PageSkeleton } from '../components/States';
@@ -30,18 +37,19 @@ function computePassiveIncome(levels: TeamLevelStats[], plan: MarketingPlanLevel
   }, 0);
 }
 
-// Пороги для уровней комиссии (по правилам Welcome 24)
-const LEVEL1_THRESHOLD = 2_000_000; // ВКД для перехода 80% → 90%
-const LEVEL2_THRESHOLD = 5_000_000; // ВКД для перехода 90% → 95%
+// Пороги для уровней комиссии — фолбэк на правила Welcome 24, но реальные значения
+// берём из настроек компании (useSettings), чтобы совпадать с бэком и админкой.
+const LEVEL1_FALLBACK = 2_000_000; // ВКД для перехода 80% → 90%
+const LEVEL2_FALLBACK = 5_000_000; // ВКД для перехода 90% → 95%
 
-function commissionByVkd(totalVkd: number): { level: 1 | 2 | 3; commission: 80 | 90 | 95; nextThreshold: number; nextCommission: 80 | 90 | 95; toNext: number } {
-  if (totalVkd >= LEVEL2_THRESHOLD) {
-    return { level: 3, commission: 95, nextThreshold: LEVEL2_THRESHOLD, nextCommission: 95, toNext: 0 };
+function commissionByVkd(totalVkd: number, l1 = LEVEL1_FALLBACK, l2 = LEVEL2_FALLBACK): { level: 1 | 2 | 3; commission: 80 | 90 | 95; nextThreshold: number; nextCommission: 80 | 90 | 95; toNext: number } {
+  if (totalVkd >= l2) {
+    return { level: 3, commission: 95, nextThreshold: l2, nextCommission: 95, toNext: 0 };
   }
-  if (totalVkd >= LEVEL1_THRESHOLD) {
-    return { level: 2, commission: 90, nextThreshold: LEVEL2_THRESHOLD, nextCommission: 95, toNext: LEVEL2_THRESHOLD - totalVkd };
+  if (totalVkd >= l1) {
+    return { level: 2, commission: 90, nextThreshold: l2, nextCommission: 95, toNext: l2 - totalVkd };
   }
-  return { level: 1, commission: 80, nextThreshold: LEVEL1_THRESHOLD, nextCommission: 90, toNext: LEVEL1_THRESHOLD - totalVkd };
+  return { level: 1, commission: 80, nextThreshold: l1, nextCommission: 90, toNext: l1 - totalVkd };
 }
 
 function getGreeting(hour: number): { text: string; emoji: string } {
@@ -138,6 +146,24 @@ const DEAL_TYPE_RU: Record<Deal['type'], string> = {
 export default function Dashboard() {
   const navigate = useNavigate();
   const greeting = getGreeting(new Date().getHours());
+
+  // Реальные достижения агента с бэка (с зафиксированными датами).
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    api.get<RawAchMe[]>('/api/achievements/me')
+      .then(rows => {
+        if (cancelled) return;
+        setAchievements(rows.map(r => ({
+          id: r.id, title: r.title, description: r.description, icon: r.icon,
+          tier: r.tier, earned: r.earned, date: r.earnedAt || '',
+          period: r.period, isYearly: r.isYearly,
+        })));
+      })
+      .catch(() => { /* пустой список при ошибке */ });
+    return () => { cancelled = true; };
+  }, []);
+
   const recentAchievements = achievements
     .filter(a => a.earned)
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
@@ -150,6 +176,10 @@ export default function Dashboard() {
   const teamQ = useTeam();
   const packetsQ = useSharePackets();
   const quotesQ = useShareQuotes();
+  const settingsQ = useSettings();
+  // Пороги уровней — из настроек компании (единый источник с бэком), фолбэк 2млн/5млн.
+  const lvl1 = Number(settingsQ.data?.level1_threshold) || LEVEL1_FALLBACK;
+  const lvl2 = Number(settingsQ.data?.level2_threshold) || LEVEL2_FALLBACK;
 
   const myDeals: Deal[] = dealsQ.data ?? [];
   const myShares: SharePacket[] = packetsQ.data ?? [];
@@ -175,7 +205,7 @@ export default function Dashboard() {
   const yearTotalIncome = dealsThisYear.reduce((s, d) => s + d.income, 0);
   const yearTotalDeals  = dealsThisYear.length;
 
-  const commission = useMemo(() => commissionByVkd(yearTotalVkd), [yearTotalVkd]);
+  const commission = useMemo(() => commissionByVkd(yearTotalVkd, lvl1, lvl2), [yearTotalVkd, lvl1, lvl2]);
   const progressToNext = commission.toNext > 0
     ? Math.min(100, (yearTotalVkd / commission.nextThreshold) * 100)
     : 100;
