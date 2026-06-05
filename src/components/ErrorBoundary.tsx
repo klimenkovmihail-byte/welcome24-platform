@@ -26,9 +26,19 @@ export default class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: { componentStack?: string }) {
     // Логируем в консоль чтобы было видно в DevTools.
     console.error('[ErrorBoundary] caught:', error, info);
+    // Частая причина после деплоя — устаревший кэш чанков (старый index.html ↔ новые
+    // бандлы): даёт рантайм-ошибки вида «reading 'length'» из рассинхрона модулей.
+    // Один раз за сессию делаем ЖЁСТКУЮ перезагрузку — свежие чанки чинят такие падения.
+    // sessionStorage-гард не даёт зациклиться, если это реальный баг.
+    try {
+      if (!sessionStorage.getItem('eb_reloaded')) {
+        sessionStorage.setItem('eb_reloaded', '1');
+        window.location.reload();
+      }
+    } catch { /* sessionStorage недоступен — пропускаем */ }
   }
 
-  reset = () => this.setState({ hasError: false, error: null });
+  reset = () => { window.location.reload(); };
 
   render() {
     if (this.state.hasError) {
@@ -44,7 +54,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             </Typography>
           </Alert>
           <Button variant="contained" startIcon={<RefreshRoundedIcon />} onClick={this.reset}>
-            Попробовать снова
+            Обновить страницу
           </Button>
         </Box>
       );
