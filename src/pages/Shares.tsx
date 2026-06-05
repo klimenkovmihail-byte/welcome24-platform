@@ -86,20 +86,27 @@ export default function Shares() {
   //  • Otherwise: take (a) last quote strictly BEFORE cutoff as starting anchor,
   //                     (b) all quotes within the period,
   //                     (c) virtual "today" point with the latest known price (if не совпадает с последней котировкой).
-  const today = useMemo(() => new Date('2026-05-24'), []); // reference: today's date in app
+  // Реальная сегодняшняя дата. Раньше была захардкожена ('2026-05-24') — из-за этого
+  // виртуальная точка «сегодня» клеилась в конец графика с устаревшей датой и при новой
+  // котировке май оказывался ПОСЛЕ июня. Берём фактический день.
+  const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
+  // Сортируем по дате и схлопываем дубли дат — защита от точек не по порядку
+  // (виртуальная «сегодня», котировка задним числом и т.п.).
+  const sortDedup = (arr: { date: string; price: number }[]) => {
+    const sorted = [...arr].sort((a, b) => a.date.localeCompare(b.date));
+    return sorted.filter((p, i) => i === 0 || p.date !== sorted[i - 1].date);
+  };
   const chartData = useMemo(() => {
+    const todayPoint = { date: today.toISOString().slice(0, 10), price: currentSharePrice };
     if (range === 'all') {
-      return [...shareHistory, { date: today.toISOString().slice(0, 10), price: currentSharePrice }]
-        .filter((p, i, arr) => i === 0 || p.date !== arr[i - 1].date);
+      return sortDedup([...shareHistory, todayPoint]);
     }
     const months = range === '1m' ? 1 : range === '3m' ? 3 : range === '6m' ? 6 : 12;
     const cutoff = new Date(today.getFullYear(), today.getMonth() - months, today.getDate());
     const inRange = shareHistory.filter(p => new Date(p.date) >= cutoff);
     const lastBefore = [...shareHistory].reverse().find(p => new Date(p.date) < cutoff);
-    const todayPoint = { date: today.toISOString().slice(0, 10), price: currentSharePrice };
     const arr = lastBefore ? [lastBefore, ...inRange, todayPoint] : [...inRange, todayPoint];
-    // Dedup if last quote equals today
-    return arr.filter((p, i) => i === 0 || p.date !== arr[i - 1].date);
+    return sortDedup(arr);
   }, [range, today, shareHistory, currentSharePrice]);
 
   // Period change: from first to last point in chartData
