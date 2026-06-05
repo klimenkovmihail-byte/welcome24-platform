@@ -81,33 +81,32 @@ export default function Shares() {
     return { total, cost, value, growth, growthPct, isMostlyGifted, currentPrice: currentSharePrice };
   }, [myShares, currentSharePrice]);
 
-  // Smart period filter:
-  //  • If range === 'all'  → all quotes
-  //  • Otherwise: take (a) last quote strictly BEFORE cutoff as starting anchor,
-  //                     (b) all quotes within the period,
-  //                     (c) virtual "today" point with the latest known price (if не совпадает с последней котировкой).
-  // Реальная сегодняшняя дата. Раньше была захардкожена ('2026-05-24') — из-за этого
-  // виртуальная точка «сегодня» клеилась в конец графика с устаревшей датой и при новой
-  // котировке май оказывался ПОСЛЕ июня. Берём фактический день.
+  // Период:
+  //  • 'all'  → все реальные котировки
+  //  • иначе  → якорь (последняя котировка ДО окна) + котировки внутри окна
+  // Раньше добавляли виртуальную точку «сегодня» с текущей ценой — но её цена всегда
+  // равна последней котировке, поэтому при свежей котировке появлялась ВТОРАЯ
+  // одинаковая отметка (напр. 7777 на 4 и 5 июня). Убрали — на графике только реальные
+  // котировки, текущая цена показана отдельной карточкой выше.
   const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
-  // Сортируем по дате и схлопываем дубли дат — защита от точек не по порядку
-  // (виртуальная «сегодня», котировка задним числом и т.п.).
+  // Сортируем по дате и схлопываем дубли дат — защита от котировок не по порядку
+  // (задним числом и т.п.).
   const sortDedup = (arr: { date: string; price: number }[]) => {
     const sorted = [...arr].sort((a, b) => a.date.localeCompare(b.date));
     return sorted.filter((p, i) => i === 0 || p.date !== sorted[i - 1].date);
   };
   const chartData = useMemo(() => {
-    const todayPoint = { date: today.toISOString().slice(0, 10), price: currentSharePrice };
     if (range === 'all') {
-      return sortDedup([...shareHistory, todayPoint]);
+      return sortDedup(shareHistory);
     }
     const months = range === '1m' ? 1 : range === '3m' ? 3 : range === '6m' ? 6 : 12;
     const cutoff = new Date(today.getFullYear(), today.getMonth() - months, today.getDate());
     const inRange = shareHistory.filter(p => new Date(p.date) >= cutoff);
     const lastBefore = [...shareHistory].reverse().find(p => new Date(p.date) < cutoff);
-    const arr = lastBefore ? [lastBefore, ...inRange, todayPoint] : [...inRange, todayPoint];
-    return sortDedup(arr);
-  }, [range, today, shareHistory, currentSharePrice]);
+    const arr = lastBefore ? [lastBefore, ...inRange] : inRange;
+    // Если в окне ничего нет — показываем последнюю известную котировку, чтобы график не был пустым.
+    return sortDedup(arr.length ? arr : shareHistory.slice(-1));
+  }, [range, today, shareHistory]);
 
   // Period change: from first to last point in chartData
   const firstPrice = chartData[0]?.price ?? currentSharePrice;
