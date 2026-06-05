@@ -12,7 +12,7 @@ import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
 import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
 import ConstructionRoundedIcon from '@mui/icons-material/ConstructionRounded';
 import Cases from './Cases';
-import { AdSimpleRequestsTab, AdPackagesTab } from './AdRequests';
+import { AdSimpleRequestsTab, AdPackagesTab, AdActivePackages } from './AdRequests';
 import { useRequestsData } from '../hooks/useRequestsData';
 import { STATUS_RU, type CaseItem } from '../api/cases';
 import { AD_STATUS_RU, type AdRequest } from '../api/adRequests';
@@ -40,7 +40,7 @@ const STATUS_COLOR: Record<string, string> = {
 };
 const trackName = (t: string) => t === 'legal' ? 'Юрист' : t === 'mortgage' ? 'Ипотека' : t;
 
-type View = null | 'lawyers' | 'mortgage' | 'ads' | 'ads-requests' | 'ads-packages' | 'ads-connect' | 'newbuild';
+type View = null | 'lawyers' | 'mortgage' | 'ads' | 'ads-requests' | 'ads-packages' | 'ads-connect' | 'ads-active' | 'newbuild';
 type AdPreset = 'quota' | 'fix';
 
 interface CardMeta {
@@ -72,8 +72,8 @@ const AD_SECTIONS: CardMeta[] = [
     description: 'Списать квоту из действующего пакета на объект — бесплатно. Скоро.' },
   { key: 'go-fix', label: 'Ошибка при выгрузке', color: '#EF4444', icon: <ConstructionRoundedIcon sx={{ fontSize: 32 }} />,
     description: 'Объект не выгрузился или ошибка в объявлении — отдел разберётся.' },
-  { key: 'go-active', label: 'Действующий пакет', color: '#22C55E', soon: true, icon: <Inventory2RoundedIcon sx={{ fontSize: 32 }} />,
-    description: 'Сколько квот куплено, списано и осталось по площадкам. Скоро.' },
+  { key: 'go-active', label: 'Действующий пакет', color: '#22C55E', icon: <Inventory2RoundedIcon sx={{ fontSize: 32 }} />,
+    description: 'Сколько квот куплено, списано и осталось по площадкам, и до какого числа действует пакет.' },
   { key: 'go-packages', label: 'Сбор пакета', color: '#F59E0B', icon: <Inventory2RoundedIcon sx={{ fontSize: 32 }} />,
     description: 'Подай заявку в общий пакет размещения — количество по категориям, сумма считается автоматически.' },
   { key: 'go-connect', label: 'Прикрепление к площадкам', color: '#4361EE', icon: <CampaignRoundedIcon sx={{ fontSize: 32 }} />,
@@ -96,7 +96,8 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
     else if (key === 'go-fix') { setAdPreset('fix'); setView('ads-requests'); }
     else if (key === 'go-packages') setView('ads-packages');
     else if (key === 'go-connect') setView('ads-connect');
-    // go-from-package / go-active — «скоро», клик ничего не делает (фаза B).
+    else if (key === 'go-active') setView('ads-active');
+    // go-from-package — «скоро» (фаза B2).
   };
 
   // Клик по «Заявки» в меню (новая навигация) → сброс на обзор карточек,
@@ -117,7 +118,7 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
 
   const back = () => {
     setOpenTarget(null); setAdPreset(null);
-    if (view === 'ads-requests' || view === 'ads-packages' || view === 'ads-connect') setView('ads');
+    if (view === 'ads-requests' || view === 'ads-packages' || view === 'ads-connect' || view === 'ads-active') setView('ads');
     else setView(null);
   };
 
@@ -160,6 +161,7 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
       {view === 'mortgage' && <Cases track="mortgage" initialOpenId={openTarget?.kind === 'case' ? openTarget.id : undefined} />}
       {view === 'ads-requests' && <AdSimpleRequestsTab key={`adreq-${adPreset ?? 'list'}`} autoCreateKind={adPreset ?? undefined} initialOpenId={openTarget?.kind === 'ad' ? openTarget.id : undefined} />}
       {view === 'ads-connect' && <AdSimpleRequestsTab kinds={['connect']} createKinds={['connect']} initialOpenId={openTarget?.kind === 'ad' ? openTarget.id : undefined} />}
+      {view === 'ads-active' && <AdActivePackages />}
       {view === 'ads-packages' && <AdPackagesTab />}
       {view === 'newbuild' && <NewbuildStub />}
     </Box>

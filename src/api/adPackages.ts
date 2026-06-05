@@ -27,8 +27,17 @@ export interface DriveDetailAgent extends Drive {
   myEntries: MyEntry[];
 }
 
+// Действующий пакет агента: остаток квот по площадке/городу/категории.
+export interface QuotaItem { category_key: string; category_label: string; bought: number; used: number; remaining: number; }
+export interface ActivePackage {
+  entry_id: number; drive_id: number; platform: Platform; platform_label: string;
+  title: string; city: string; starts_at: string; ends_at: string;
+  items: QuotaItem[]; totalRemaining: number;
+}
+
 export const adPackagesApi = {
   drives: () => api.get<Drive[]>('/api/ad-packages/drives'),
+  myQuotas: () => api.get<ActivePackage[]>('/api/ad-packages/my-quotas'),
   drive: (id: number) => api.get<DriveDetailAgent>(`/api/ad-packages/drives/${id}`),
   cityPrices: (platform: Platform, city: string) =>
     api.get<Record<string, number>>(`/api/ad-packages/prices/city?platform=${platform}&city=${encodeURIComponent(city)}`),

@@ -16,7 +16,7 @@ import {
   type AdMessage, type AdEvent, AD_STATUS_RU, PLATFORM_LABEL,
 } from '../api/adRequests';
 import {
-  adPackagesApi, PKG_PLATFORM_LABEL, type Drive, type DriveDetailAgent, type Platform,
+  adPackagesApi, PKG_PLATFORM_LABEL, type Drive, type DriveDetailAgent, type Platform, type ActivePackage,
 } from '../api/adPackages';
 import { getCurrentAgent } from '../auth/auth';
 
@@ -533,5 +533,59 @@ function DriveForm({ id, onBack }: { id: number; onBack: () => void }) {
         </Card>
       )}
     </Box>
+  );
+}
+
+/* ============ ДЕЙСТВУЮЩИЙ ПАКЕТ (витрина квот) ============ */
+function quotaEnds(ends: string): { label: string; soon: boolean; over: boolean } {
+  const end = new Date(ends + 'T23:59:59').getTime();
+  const days = Math.ceil((end - Date.now()) / 86400000);
+  if (days < 0) return { label: 'истёк', soon: false, over: true };
+  if (days === 0) return { label: 'последний день', soon: true, over: false };
+  return { label: `осталось ${days} дн.`, soon: days <= 5, over: false };
+}
+
+export function AdActivePackages() {
+  const [packs, setPacks] = useState<ActivePackage[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => { adPackagesApi.myQuotas().then(setPacks).catch(() => setPacks([])).finally(() => setLoading(false)); }, []);
+
+  if (loading) return <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress sx={{ color: GOLD }} /></Box>;
+  if (packs.length === 0) return (
+    <Box sx={{ py: 6, textAlign: 'center' }}>
+      <Typography sx={{ color: '#94A3B8', fontWeight: 600 }}>Сейчас нет действующих пакетов.</Typography>
+      <Typography sx={{ color: '#64748B', fontSize: 13, mt: 0.5 }}>Пакет появится здесь после оплаты сбора и активации листинг-менеджером (действует 30 дней).</Typography>
+    </Box>
+  );
+
+  return (
+    <Stack spacing={1.5}>
+      {packs.map(p => {
+        const e = quotaEnds(p.ends_at);
+        return (
+          <Card key={p.entry_id} sx={{ ...cardSx }}>
+            <CardContent sx={{ py: 1.8 }}>
+              <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
+                <Chip label={p.platform_label} size="small" sx={{ background: 'rgba(201,168,76,0.15)', color: GOLD, fontWeight: 700 }} />
+                {p.city && <Typography sx={{ color: '#E2E8F0', fontWeight: 600 }}>{p.city}</Typography>}
+                <Box sx={{ flex: 1 }} />
+                <Typography sx={{ color: '#94A3B8', fontSize: 13 }}>действует до {fmtDate(p.ends_at)}</Typography>
+                <Chip label={e.label} size="small" sx={{ background: (e.soon ? '#EF4444' : '#22C55E') + '22', color: e.soon ? '#EF4444' : '#22C55E', fontWeight: 700 }} />
+              </Stack>
+              <Stack spacing={0.8}>
+                {p.items.map(it => (
+                  <Stack key={it.category_key} direction="row" alignItems="center" spacing={1} sx={{ borderTop: '1px solid rgba(148,163,184,0.08)', pt: 0.8 }}>
+                    <Typography sx={{ color: '#CBD5E1', fontSize: 13.5, flex: 1 }}>{it.category_label}</Typography>
+                    <Typography sx={{ color: '#64748B', fontSize: 12 }}>куплено {it.bought} · списано {it.used}</Typography>
+                    <Chip label={`осталось ${it.remaining}`} size="small" sx={{ background: (it.remaining > 0 ? '#22C55E' : '#64748B') + '22', color: it.remaining > 0 ? '#22C55E' : '#94A3B8', fontWeight: 800, minWidth: 96 }} />
+                  </Stack>
+                ))}
+              </Stack>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </Stack>
   );
 }
