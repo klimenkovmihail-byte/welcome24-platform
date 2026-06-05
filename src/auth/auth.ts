@@ -3,11 +3,28 @@
 
 import { api, setToken, getToken, ApiError } from '../api/apiClient';
 
+// Роли, которые могут пользоваться порталом. employee — как агент; referral_partner — только MLM/Акции/Профиль.
+export type PortalRole = 'agent' | 'admin' | 'employee' | 'referral_partner' | string;
+
+// Партнёр привлечения видит только эти разделы (+ привязка ботов в Профиле скрыта).
+export const REFERRAL_PARTNER_PATHS = ['/team', '/shares', '/profile'];
+
+export function isPortalPathAllowed(role: string | undefined, path: string): boolean {
+  if (role === 'referral_partner') {
+    return REFERRAL_PARTNER_PATHS.some(p => path === p || path.startsWith(p + '/'));
+  }
+  return true; // agent / employee / прочие — весь портал
+}
+
+export function portalDefaultPath(role: string | undefined): string {
+  return role === 'referral_partner' ? '/team' : '/dashboard';
+}
+
 export interface AgentUser {
   id?: number;
   email: string;
   name: string;
-  role: 'agent' | 'admin';
+  role: PortalRole;
   loginAt: string;
   // Дополнительные поля из бэка — пробрасываются как есть.
   [key: string]: unknown;

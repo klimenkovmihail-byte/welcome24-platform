@@ -582,6 +582,8 @@ export default function Profile() {
               </CardContent>
             </Card>
 
+            {/* Привязка ботов — скрыта для партнёра привлечения (у них нет такой возможности). */}
+            {getCurrentAgent()?.role !== 'referral_partner' && (<>
             {/* Telegram bot */}
             <Card sx={{ mb: 3 }}>
               <CardContent sx={{ p: 3 }}>
@@ -681,6 +683,7 @@ export default function Profile() {
                 )}
               </CardContent>
             </Card>
+            </>)}
 
             {/* Support */}
             <Card>

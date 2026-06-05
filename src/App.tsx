@@ -4,7 +4,7 @@ import { ThemeProvider, CssBaseline, Box, CircularProgress } from '@mui/material
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
 import { theme } from './theme/theme';
-import { tryImpersonationFromUrl, fetchMe, getCurrentAgent } from './auth/auth';
+import { tryImpersonationFromUrl, fetchMe, getCurrentAgent, isPortalPathAllowed, portalDefaultPath } from './auth/auth';
 import { getToken } from './api/apiClient';
 import Layout from './components/layout/Layout';
 import Login from './pages/Login';
@@ -41,6 +41,17 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Гард по роли: партнёр привлечения видит только MLM/Акции/Профиль — остальное
+// редиректит на его стартовую страницу (/team).
+function RoleGate({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  const role = getCurrentAgent()?.role;
+  if (!isPortalPathAllowed(role, location.pathname)) {
+    return <Navigate to={portalDefaultPath(role)} replace />;
+  }
+  return <>{children}</>;
+}
+
 export default function App() {
   useEffect(() => {
     // СНАЧАЛА — обработать impersonateToken из URL (подменить токен на агентский).
@@ -57,10 +68,11 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<Navigate to={portalDefaultPath(getCurrentAgent()?.role)} replace />} />
             <Route path="/*" element={
               <PrivateRoute>
                 <Layout>
+                  <RoleGate>
                   <Suspense fallback={<PageLoader />}>
                     <Routes>
                       <Route path="/dashboard" element={<Dashboard />} />
@@ -79,6 +91,7 @@ export default function App() {
                       <Route path="/profile" element={<Profile />} />
                     </Routes>
                   </Suspense>
+                  </RoleGate>
                 </Layout>
               </PrivateRoute>
             } />
