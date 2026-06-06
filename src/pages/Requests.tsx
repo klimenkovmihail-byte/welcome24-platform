@@ -105,10 +105,15 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
   // Deep-link из бота/пуша/колокола: /ad-requests?open=<id> → открыть саму заявку.
   const location = useLocation();
   useEffect(() => {
-    const openId = Number(new URLSearchParams(location.search).get('open'));
+    const params = new URLSearchParams(location.search);
+    const openId = Number(params.get('open'));
+    const track = params.get('track'); // legal/mortgage → заявка юрист/ипотека; без него → отдел рекламы
     setAdPreset(null); setAdFromPackage(false);
-    if (openId) { setOpenTarget({ kind: 'ad', id: openId }); setView('ads-requests'); }
-    else { setOpenTarget(null); setView(initialView); }
+    if (openId && (track === 'legal' || track === 'mortgage')) {
+      setOpenTarget({ kind: 'case', id: openId }); setView(track === 'mortgage' ? 'mortgage' : 'lawyers');
+    } else if (openId) {
+      setOpenTarget({ kind: 'ad', id: openId }); setView('ads-requests');
+    } else { setOpenTarget(null); setView(initialView); }
   }, [location.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const openSection = (v: View) => { setOpenTarget(null); setAdPreset(null); setAdFromPackage(false); setView(v); };
   const openItem = (v: View, kind: 'case' | 'ad', id: number) => { setAdPreset(null); setAdFromPackage(false); setOpenTarget({ kind, id }); setView(v); };
