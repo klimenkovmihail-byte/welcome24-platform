@@ -22,7 +22,8 @@ export interface AdRequest {
   status: AdStatus; assignee_id: number | null; assignee_name: string | null;
   created_at: string; updated_at: string; unread?: number;
   attachments: { id: number; name: string; url: string }[];
-  pkg?: PkgQuota | null; // только для from_package
+  pkg?: PkgQuota | null;      // только для from_package
+  connect_value?: string;     // ЦИАН ID/почта или телефон (для connect)
 }
 export interface AdMessage {
   id: number; request_id: number; sender_id: number | null; sender_name: string | null;
@@ -33,6 +34,8 @@ export interface AdMeta {
   kinds: { key: AdKind; label: string; group?: string }[];
   platforms: { key: AdPlatform; label: string }[];
   statuses: { key: AdStatus; label: string }[];
+  connectPlatforms?: AdPlatform[];
+  avitoInviteUrl?: string;
 }
 
 export const AD_STATUS_RU: Record<AdStatus, string> = {
@@ -46,8 +49,9 @@ export const adRequestsApi = {
   meta: () => api.get<AdMeta>('/api/ad-requests/meta'),
   list: (kinds?: AdKind[]) => api.get<AdRequest[]>(`/api/ad-requests?mine=1${kinds?.length ? `&kinds=${kinds.join(',')}` : ''}`),
   get: (id: number) => api.get<AdRequest>(`/api/ad-requests/${id}`),
-  create: (body: { kind: AdKind; objectRef?: string; region?: string; platforms?: AdPlatform[]; comment?: string; pkgEntryId?: number; pkgCategoryKey?: string }) =>
+  create: (body: { kind: AdKind; objectRef?: string; region?: string; platforms?: AdPlatform[]; comment?: string; pkgEntryId?: number; pkgCategoryKey?: string; platform?: AdPlatform; connectValue?: string }) =>
     api.post<AdRequest>('/api/ad-requests', body),
+  connectFilled: (id: number) => api.post<AdRequest>(`/api/ad-requests/${id}/connect-filled`, {}),
   messages: (id: number, after = 0) => api.get<AdMessage[]>(`/api/ad-requests/${id}/messages?after=${after}`),
   sendMessage: (id: number, payload: { body?: string; attachmentUrl?: string; attachmentName?: string }) => api.post<AdMessage>(`/api/ad-requests/${id}/messages`, payload),
   markRead: (id: number, lastId?: number) => api.post<{ ok: boolean }>(`/api/ad-requests/${id}/read`, lastId ? { lastId } : {}),

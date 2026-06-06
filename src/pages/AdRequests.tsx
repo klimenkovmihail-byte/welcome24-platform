@@ -192,15 +192,27 @@ function CreateDialog({ meta, allowedKinds, presetKind, onClose, onCreated, setE
   const [saving, setSaving] = useState(false);
 
   const needObject = kind === 'quota' || kind === 'fix';
-  const needRegion = kind === 'connect';
+  const isConnect = kind === 'connect';
   const togglePlatform = (p: AdPlatform) => setPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
 
+  // connect: одна площадка + поле зависит от площадки.
+  const connectPlatforms = (meta.connectPlatforms || ['cian', 'avito', 'domclick']) as AdPlatform[];
+  const [connectPlatform, setConnectPlatform] = useState<AdPlatform>(connectPlatforms[0] || 'cian');
+  const [connectValue, setConnectValue] = useState('');
+
   const submit = async () => {
-    if (needObject && !objectRef.trim()) { setError('Укажите номер объекта'); return; }
-    if (!platforms.length) { setError('Выберите хотя бы одну площадку'); return; }
     setSaving(true);
     try {
-      const created = await adRequestsApi.create({ kind, objectRef, region, platforms, comment });
+      let created;
+      if (isConnect) {
+        if (connectPlatform === 'cian' && !connectValue.trim()) { setError('Укажите ваш ЦИАН ID или почту'); setSaving(false); return; }
+        if (connectPlatform === 'domclick' && !connectValue.trim()) { setError('Укажите номер телефона для ДомКлик'); setSaving(false); return; }
+        created = await adRequestsApi.create({ kind: 'connect', platform: connectPlatform, connectValue, comment });
+      } else {
+        if (needObject && !objectRef.trim()) { setError('Укажите номер объекта'); setSaving(false); return; }
+        if (!platforms.length) { setError('Выберите хотя бы одну площадку'); setSaving(false); return; }
+        created = await adRequestsApi.create({ kind, objectRef, region, platforms, comment });
+      }
       // Прикрепляем выбранные файлы в тред заявки (чек/скрин/документ).
       for (const f of files) {
         try { const up = await uploadFile(f); await adRequestsApi.sendMessage(created.id, { attachmentUrl: up.url, attachmentName: up.name }); }
@@ -229,21 +241,48 @@ function CreateDialog({ meta, allowedKinds, presetKind, onClose, onCreated, setE
             <TextField size="small" label="Номер объекта" value={objectRef} onChange={e => setObjectRef(e.target.value)} placeholder="№ 12345"
               InputLabelProps={{ sx: { color: '#94A3B8' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
           )}
-          {needRegion && (
-            <TextField size="small" label="Регион / город" value={region} onChange={e => setRegion(e.target.value)}
-              InputLabelProps={{ sx: { color: '#94A3B8' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
+          {/* Объектные заявки: выбор площадок чекбоксами */}
+          {!isConnect && (
+            <Box>
+              <Typography sx={{ color: '#94A3B8', fontSize: 13, mb: 0.5 }}>Площадки</Typography>
+              <Stack direction="row" flexWrap="wrap">
+                {ALL_PLATFORMS.map(p => (
+                  <FormControlLabel key={p} control={<Checkbox size="small" checked={platforms.includes(p)} onChange={() => togglePlatform(p)} sx={{ color: '#64748B', '&.Mui-checked': { color: GOLD } }} />}
+                    label={PLATFORM_LABEL[p]} sx={{ color: '#E2E8F0', mr: 1 }} />
+                ))}
+              </Stack>
+            </Box>
           )}
-          <Box>
-            <Typography sx={{ color: '#94A3B8', fontSize: 13, mb: 0.5 }}>Площадки</Typography>
-            <Stack direction="row" flexWrap="wrap">
-              {ALL_PLATFORMS.map(p => (
-                <FormControlLabel key={p} control={<Checkbox size="small" checked={platforms.includes(p)} onChange={() => togglePlatform(p)} sx={{ color: '#64748B', '&.Mui-checked': { color: GOLD } }} />}
-                  label={PLATFORM_LABEL[p]} sx={{ color: '#E2E8F0', mr: 1 }} />
-              ))}
-            </Stack>
-          </Box>
+          {/* Прикрепление: одна площадка + поле под неё */}
+          {isConnect && (
+            <>
+              <FormControl fullWidth size="small">
+                <InputLabel sx={{ color: '#94A3B8' }}>Площадка</InputLabel>
+                <Select label="Площадка" value={connectPlatform} onChange={e => { setConnectPlatform(e.target.value as AdPlatform); setConnectValue(''); }} sx={{ color: '#E2E8F0' }}>
+                  {connectPlatforms.map(p => <MenuItem key={p} value={p}>{PLATFORM_LABEL[p]}</MenuItem>)}
+                </Select>
+              </FormControl>
+              {connectPlatform === 'cian' && (
+                <TextField size="small" label="Ваш ЦИАН ID или почта" value={connectValue} onChange={e => setConnectValue(e.target.value)} placeholder="ID профиля или email"
+                  InputLabelProps={{ sx: { color: '#94A3B8' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
+              )}
+              {connectPlatform === 'domclick' && (
+                <TextField size="small" label="Номер телефона для привязки к ДомКлик" value={connectValue} onChange={e => setConnectValue(e.target.value)} placeholder="+7 900 000-00-00"
+                  InputLabelProps={{ sx: { color: '#94A3B8' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
+              )}
+              {connectPlatform === 'avito' && (
+                <Alert severity="info" sx={{ '& a': { color: GOLD } }}>
+                  <Typography sx={{ fontSize: 13, mb: 1 }}>1. Перейдите по ссылке-приглашению Авито и заполните заявку:</Typography>
+                  <Box sx={{ wordBreak: 'break-all', fontSize: 12, color: '#CBD5E1', mb: 1 }}>{meta.avitoInviteUrl}</Box>
+                  <Button size="small" variant="outlined" onClick={() => { if (meta.avitoInviteUrl) { navigator.clipboard?.writeText(meta.avitoInviteUrl); } }}
+                    sx={{ color: GOLD, borderColor: 'rgba(201,168,76,0.4)', textTransform: 'none', mb: 1 }}>Скопировать ссылку</Button>
+                  <Typography sx={{ fontSize: 13 }}>2. Создайте эту заявку, затем нажмите в ней «Я заполнил» — листинг-менеджер подтвердит и закроет.</Typography>
+                </Alert>
+              )}
+            </>
+          )}
           <TextField size="small" label="Комментарий" value={comment} onChange={e => setComment(e.target.value)} multiline minRows={2}
-            placeholder="Напр.: квартира в городе, продажа — поднять в топ на неделю"
+            placeholder={isConnect ? 'Если есть вопросы — напишите здесь' : 'Напр.: квартира в городе, продажа — поднять в топ на неделю'}
             slotProps={{ inputLabel: { shrink: true, sx: { color: '#94A3B8' } } }}
             sx={{ '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
           <Box>
@@ -342,13 +381,20 @@ function RequestDetail({ request, onClose }: { request: AdRequest; onClose: () =
   const [events, setEvents] = useState<AdEvent[]>([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [avitoUrl, setAvitoUrl] = useState('');
+  const [filledSaving, setFilledSaving] = useState(false);
   const agent = getCurrentAgent();
+  const isConnect = request.kind === 'connect';
+  const connectPlatform = isConnect ? request.platforms[0] : undefined;
+  const isMine = agent?.id === request.agent_id;
 
   const reload = useCallback(() => {
     adRequestsApi.messages(request.id).then(setMessages).catch(() => {});
     adRequestsApi.events(request.id).then(setEvents).catch(() => {});
   }, [request.id]);
   useEffect(() => { reload(); adRequestsApi.markRead(request.id).catch(() => {}); }, [reload, request.id]);
+  useEffect(() => { if (connectPlatform === 'avito') adRequestsApi.meta().then(m => setAvitoUrl(m.avitoInviteUrl || '')).catch(() => {}); }, [connectPlatform]);
+  const markFilled = async () => { setFilledSaving(true); try { await adRequestsApi.connectFilled(request.id); reload(); } finally { setFilledSaving(false); } };
   // Поллинг чата — новые сообщения от отдела видны без переоткрытия.
   useEffect(() => {
     const iv = setInterval(() => { adRequestsApi.messages(request.id).then(setMessages).catch(() => {}); }, 4000);
@@ -398,6 +444,7 @@ function RequestDetail({ request, onClose }: { request: AdRequest; onClose: () =
           <Info label="Подана" value={fmtDateTime(request.created_at)} />
           {request.platforms.length > 0 && <Info label="Площадки" value={request.platforms.map(p => PLATFORM_LABEL[p]).join(', ')} />}
           {request.comment && <Info label="Комментарий" value={request.comment} />}
+          {request.connect_value && <Info label={connectPlatform === 'cian' ? 'ЦИАН ID / почта' : connectPlatform === 'domclick' ? 'Телефон для ДомКлик' : 'Данные'} value={request.connect_value} />}
           {request.pkg && <Info label="Из пакета" value={`${request.pkg.platform_label} · ${request.pkg.city} · ${request.pkg.category_label} (остаток ${request.pkg.remaining})`} />}
           <Info label="Исполнитель" value={request.assignee_name || 'ещё не взяли в работу'} />
         </Stack>
@@ -405,6 +452,29 @@ function RequestDetail({ request, onClose }: { request: AdRequest; onClose: () =
           <Alert severity={request.status === 'done' ? 'success' : 'info'} sx={{ mb: 2, py: 0.5 }}>
             {request.status === 'done' ? 'Квота списана из пакета.' : 'Квота спишется, когда заявку переведут в «Готово».'}
           </Alert>
+        )}
+        {/* Прикрепление к площадкам — подсказки по площадке + «Я заполнил» (Авито) */}
+        {isConnect && request.status !== 'done' && request.status !== 'cancelled' && (
+          <Box sx={{ mb: 2 }}>
+            {connectPlatform === 'avito' && (
+              <Alert severity={events.some(e => e.kind === 'filled') ? 'success' : 'info'} sx={{ mb: 1 }}>
+                {events.some(e => e.kind === 'filled')
+                  ? 'Вы отметили, что заполнили. Листинг-менеджер подтвердит и закроет заявку.'
+                  : 'Перейдите по ссылке-приглашению Авито, заполните заявку, затем нажмите «Я заполнил».'}
+                {avitoUrl && <Box sx={{ mt: 0.5, wordBreak: 'break-all', fontSize: 12 }}><a href={avitoUrl} target="_blank" rel="noopener noreferrer" style={{ color: GOLD }}>{avitoUrl}</a></Box>}
+              </Alert>
+            )}
+            {connectPlatform === 'domclick' && (
+              <Alert severity="info" sx={{ mb: 1 }}>Листинг-менеджер отправит SMS-приглашение в ДомКлик на ваш номер. Присоединитесь по ссылке из SMS — затем заявку закроют.</Alert>
+            )}
+            {connectPlatform === 'cian' && (
+              <Alert severity="info" sx={{ mb: 1 }}>Листинг-менеджер добавит вас на ЦИАН по указанному ID/почте и закроет заявку.</Alert>
+            )}
+            {isMine && connectPlatform === 'avito' && !events.some(e => e.kind === 'filled') && (
+              <Button variant="contained" disabled={filledSaving} onClick={markFilled}
+                sx={{ background: GOLD, color: '#0A0E1A', fontWeight: 700, '&:hover': { background: '#E2C97E' } }}>Я заполнил на Авито</Button>
+            )}
+          </Box>
         )}
         {events.length > 0 && (
           <Box sx={{ mb: 2 }}>
