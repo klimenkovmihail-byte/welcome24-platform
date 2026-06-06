@@ -101,10 +101,15 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
     else if (key === 'go-active') setView('ads-active');
   };
 
-  // Клик по «Заявки» в меню (новая навигация) → сброс на обзор карточек,
-  // а не «застревание» в подразделе (#5). Сброс по смене location.key.
+  // Сброс по смене location.key: клик «Заявки» → обзор карточек (#5).
+  // Deep-link из бота/пуша/колокола: /ad-requests?open=<id> → открыть саму заявку.
   const location = useLocation();
-  useEffect(() => { setView(initialView); setOpenTarget(null); }, [location.key]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const openId = Number(new URLSearchParams(location.search).get('open'));
+    setAdPreset(null); setAdFromPackage(false);
+    if (openId) { setOpenTarget({ kind: 'ad', id: openId }); setView('ads-requests'); }
+    else { setOpenTarget(null); setView(initialView); }
+  }, [location.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const openSection = (v: View) => { setOpenTarget(null); setAdPreset(null); setAdFromPackage(false); setView(v); };
   const openItem = (v: View, kind: 'case' | 'ad', id: number) => { setAdPreset(null); setAdFromPackage(false); setOpenTarget({ kind, id }); setView(v); };
 
