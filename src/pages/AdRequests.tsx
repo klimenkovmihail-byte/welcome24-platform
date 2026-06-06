@@ -437,6 +437,10 @@ function DriveForm({ id, onBack }: { id: number; onBack: () => void }) {
 
   if (!drive) return <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress sx={{ color: GOLD }} /></Box>;
   const open = drive.status === 'open';
+  // Защита: для сотрудника/админа бэк отдаёт scope='manage' БЕЗ этих полей агента.
+  const myEntries = drive.myEntries || [];
+  const pricedCities = drive.pricedCities || [];
+  const categories = drive.categories || [];
 
   const submit = () => {
     const lines = (drive.categories || []).filter(c => qty[c.key] > 0).map(c => ({ categoryKey: c.key, qty: qty[c.key] }));
@@ -459,12 +463,12 @@ function DriveForm({ id, onBack }: { id: number; onBack: () => void }) {
       </Stack>
 
       {/* Мои поданные заявки */}
-      {drive.myEntries.length > 0 && (
+      {myEntries.length > 0 && (
         <Card sx={{ ...cardSx, mb: 2 }}>
           <CardContent>
             <Typography sx={{ color: '#94A3B8', fontSize: 13, mb: 1, fontWeight: 700 }}>Мои заявки в этом сборе</Typography>
             <Stack spacing={0.8}>
-              {drive.myEntries.map(e => (
+              {myEntries.map(e => (
                 <Stack key={e.id} direction="row" alignItems="center" spacing={1.5}>
                   <Typography sx={{ color: '#E2E8F0', fontWeight: 600, minWidth: 130 }}>{e.city}</Typography>
                   <Typography sx={{ color: '#94A3B8', fontSize: 13 }}>{e.total_qty} квот</Typography>
@@ -487,8 +491,8 @@ function DriveForm({ id, onBack }: { id: number; onBack: () => void }) {
             <FormControl size="small" sx={{ minWidth: 220, mb: 2 }}>
               <InputLabel sx={{ color: '#94A3B8' }}>Город</InputLabel>
               <Select label="Город" value={city} onChange={e => setCity(e.target.value)} sx={{ color: '#E2E8F0' }}>
-                {drive.pricedCities.length === 0 && <MenuItem disabled value="">Прайс по городам ещё не задан</MenuItem>}
-                {drive.pricedCities.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                {pricedCities.length === 0 && <MenuItem disabled value="">Прайс по городам ещё не задан</MenuItem>}
+                {pricedCities.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
               </Select>
             </FormControl>
 
@@ -501,7 +505,7 @@ function DriveForm({ id, onBack }: { id: number; onBack: () => void }) {
                   <TableCell align="right" sx={{ color: '#94A3B8', fontWeight: 700 }}>Сумма</TableCell>
                 </TableRow></TableHead>
                 <TableBody>
-                  {drive.categories.map(c => {
+                  {categories.map(c => {
                     const price = prices[c.key] || 0;
                     const q = qty[c.key] || 0;
                     return (
