@@ -78,23 +78,29 @@ export default function AdRequests() {
 
 /* ============ МОИ ЗАЯВКИ ============ */
 // Типы заявок по рекламе ОБЪЕКТОВ (отдельно от «прикрепления к площадкам»).
-const OBJECT_KINDS: AdKind[] = ['quota', 'fix'];
+// from_package — в списке есть, но создаётся отдельной формой (с выбором квоты).
+const OBJECT_KINDS: AdKind[] = ['quota', 'fix', 'from_package'];
 
-export function AdSimpleRequestsTab({ initialOpenId, kinds = OBJECT_KINDS, createKinds, autoCreateKind }: {
+export function AdSimpleRequestsTab({ initialOpenId, kinds = OBJECT_KINDS, createKinds, autoCreateKind, autoFromPackage }: {
   initialOpenId?: number;
   kinds?: AdKind[];           // какие типы показывать в списке
-  createKinds?: AdKind[];     // какие типы доступны в «Новой заявке» (по умолчанию = kinds)
+  createKinds?: AdKind[];     // какие типы доступны в «Новой заявке» (по умолчанию = kinds без from_package)
   autoCreateKind?: AdKind;    // сразу открыть окно новой заявки с этим типом
+  autoFromPackage?: boolean;  // сразу открыть форму «реклама из пакета» (списание квоты)
 } = {}) {
   const [items, setItems] = useState<AdRequest[]>([]);
   const [meta, setMeta] = useState<AdMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(!!autoCreateKind);
+  const [fromPkgOpen, setFromPkgOpen] = useState(!!autoFromPackage);
   const [detail, setDetail] = useState<AdRequest | null>(null);
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | AdStatus>('all');
   const kindsKey = kinds.join(',');
+  // В обычном «+Новая заявка» from_package не предлагаем — у него своя форma.
+  const genericCreateKinds = createKinds || kinds.filter(k => k !== 'from_package');
+  const showFromPackageBtn = kinds.includes('from_package');
 
   const load = useCallback(() => {
     setLoading(true);
@@ -113,8 +119,14 @@ export function AdSimpleRequestsTab({ initialOpenId, kinds = OBJECT_KINDS, creat
   return (
     <Box>
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-      <Button startIcon={<AddRoundedIcon />} variant="contained" onClick={() => setCreateOpen(true)}
-        sx={{ mb: 2, background: GOLD, color: '#0A0E1A', fontWeight: 700, '&:hover': { background: '#E2C97E' } }}>Новая заявка</Button>
+      <Stack direction="row" spacing={1.5} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
+        <Button startIcon={<AddRoundedIcon />} variant="contained" onClick={() => setCreateOpen(true)}
+          sx={{ background: GOLD, color: '#0A0E1A', fontWeight: 700, '&:hover': { background: '#E2C97E' } }}>Новая заявка</Button>
+        {showFromPackageBtn && (
+          <Button startIcon={<AddRoundedIcon />} variant="outlined" onClick={() => setFromPkgOpen(true)}
+            sx={{ color: GOLD, borderColor: 'rgba(201,168,76,0.4)', fontWeight: 700, '&:hover': { borderColor: GOLD } }}>Реклама из пакета</Button>
+        )}
+      </Stack>
 
       {items.length > 0 && (
         <Stack direction="row" spacing={1.5} sx={{ mb: 2, flexWrap: 'wrap' }} useFlexGap>
@@ -162,7 +174,8 @@ export function AdSimpleRequestsTab({ initialOpenId, kinds = OBJECT_KINDS, creat
         })()}
       </Stack>
 
-      {createOpen && meta && <CreateDialog meta={meta} allowedKinds={createKinds || kinds} presetKind={autoCreateKind} onClose={() => setCreateOpen(false)} onCreated={() => { setCreateOpen(false); load(); }} setError={setError} />}
+      {createOpen && meta && <CreateDialog meta={meta} allowedKinds={genericCreateKinds} presetKind={autoCreateKind} onClose={() => setCreateOpen(false)} onCreated={() => { setCreateOpen(false); load(); }} setError={setError} />}
+      {fromPkgOpen && <FromPackageDialog onClose={() => setFromPkgOpen(false)} onCreated={() => { setFromPkgOpen(false); load(); }} setError={setError} />}
       {detail && <RequestDetail request={detail} onClose={() => setDetail(null)} />}
     </Box>
   );
@@ -261,6 +274,69 @@ function CreateDialog({ meta, allowedKinds, presetKind, onClose, onCreated, setE
   );
 }
 
+/* ============ РЕКЛАМА ИЗ ПАКЕТА (списание квоты) ============ */
+function FromPackageDialog({ onClose, onCreated, setError }: { onClose: () => void; onCreated: () => void; setError: (e: string) => void }) {
+  const [packs, setPacks] = useState<ActivePackage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sel, setSel] = useState('');        // "entryId:categoryKey"
+  const [objectRef, setObjectRef] = useState('');
+  const [comment, setComment] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { adPackagesApi.myQuotas().then(setPacks).catch(() => setPacks([])).finally(() => setLoading(false)); }, []);
+
+  // Плоский список доступных квот (остаток > 0).
+  const options = packs.flatMap(p => p.items.filter(it => it.remaining > 0).map(it => ({
+    value: `${p.entry_id}:${it.category_key}`,
+    label: `${p.platform_label} · ${p.city} · ${it.category_label} — осталось ${it.remaining}`,
+  })));
+
+  const submit = async () => {
+    if (!sel) { setError('Выберите квоту из действующего пакета'); return; }
+    if (!objectRef.trim()) { setError('Укажите номер объекта'); return; }
+    const [entryId, categoryKey] = sel.split(':');
+    setSaving(true);
+    try {
+      await adRequestsApi.create({ kind: 'from_package', objectRef, comment, pkgEntryId: Number(entryId), pkgCategoryKey: categoryKey });
+      onCreated();
+    } catch (e) { setError((e as Error)?.message || 'Ошибка'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { background: '#0B1120', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 3 } }}>
+      <DialogTitle sx={{ color: '#F1F5F9' }}>Реклама объекта из пакета</DialogTitle>
+      <DialogContent>
+        {loading ? <Box sx={{ textAlign: 'center', py: 4 }}><CircularProgress sx={{ color: GOLD }} /></Box>
+          : options.length === 0 ? (
+            <Alert severity="info" sx={{ mt: 1 }}>
+              Нет доступных квот. Квоты появляются после оплаты сбора и активации пакета листинг-менеджером (раздел «Действующий пакет»).
+            </Alert>
+          ) : (
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ color: '#94A3B8' }}>Квота (площадка · город · категория)</InputLabel>
+              <Select label="Квота (площадка · город · категория)" value={sel} onChange={e => setSel(e.target.value)} sx={{ color: '#E2E8F0' }}>
+                {options.map(o => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+              </Select>
+            </FormControl>
+            <TextField size="small" label="Номер объекта" value={objectRef} onChange={e => setObjectRef(e.target.value)} placeholder="№ 12345"
+              InputLabelProps={{ sx: { color: '#94A3B8' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
+            <TextField size="small" label="Комментарий" value={comment} onChange={e => setComment(e.target.value)} multiline minRows={2}
+              slotProps={{ inputLabel: { shrink: true, sx: { color: '#94A3B8' } } }} sx={{ '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
+            <Typography sx={{ color: '#64748B', fontSize: 12 }}>Квота спишется, когда отдел рекламы переведёт заявку в «Готово».</Typography>
+          </Stack>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} sx={{ color: '#94A3B8' }}>Отмена</Button>
+        <Button onClick={submit} disabled={saving || loading || options.length === 0 || !sel || !objectRef.trim()} variant="contained"
+          sx={{ background: GOLD, color: '#0A0E1A', fontWeight: 700, '&:hover': { background: '#E2C97E' } }}>Создать заявку</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 function RequestDetail({ request, onClose }: { request: AdRequest; onClose: () => void }) {
   const [messages, setMessages] = useState<AdMessage[]>([]);
   const [events, setEvents] = useState<AdEvent[]>([]);
@@ -322,8 +398,14 @@ function RequestDetail({ request, onClose }: { request: AdRequest; onClose: () =
           <Info label="Подана" value={fmtDateTime(request.created_at)} />
           {request.platforms.length > 0 && <Info label="Площадки" value={request.platforms.map(p => PLATFORM_LABEL[p]).join(', ')} />}
           {request.comment && <Info label="Комментарий" value={request.comment} />}
+          {request.pkg && <Info label="Из пакета" value={`${request.pkg.platform_label} · ${request.pkg.city} · ${request.pkg.category_label} (остаток ${request.pkg.remaining})`} />}
           <Info label="Исполнитель" value={request.assignee_name || 'ещё не взяли в работу'} />
         </Stack>
+        {request.pkg && (
+          <Alert severity={request.status === 'done' ? 'success' : 'info'} sx={{ mb: 2, py: 0.5 }}>
+            {request.status === 'done' ? 'Квота списана из пакета.' : 'Квота спишется, когда заявку переведут в «Готово».'}
+          </Alert>
+        )}
         {events.length > 0 && (
           <Box sx={{ mb: 2 }}>
             <Typography sx={{ color: '#64748B', fontSize: 12, mb: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>История</Typography>

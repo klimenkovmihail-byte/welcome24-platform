@@ -68,8 +68,8 @@ const SECTIONS: CardMeta[] = [
 const AD_SECTIONS: CardMeta[] = [
   { key: 'go-quota', label: 'Разовое размещение объекта', color: '#C9A84C', icon: <ReceiptLongRoundedIcon sx={{ fontSize: 32 }} />,
     description: 'Заказ и оплата размещения конкретного объекта на площадке.' },
-  { key: 'go-from-package', label: 'Реклама объекта из пакета', color: '#F59E0B', soon: true, icon: <Inventory2RoundedIcon sx={{ fontSize: 32 }} />,
-    description: 'Списать квоту из действующего пакета на объект — бесплатно. Скоро.' },
+  { key: 'go-from-package', label: 'Реклама объекта из пакета', color: '#F59E0B', icon: <Inventory2RoundedIcon sx={{ fontSize: 32 }} />,
+    description: 'Списать квоту из действующего пакета на объект — бесплатно (в рамках купленного пакета).' },
   { key: 'go-fix', label: 'Ошибка при выгрузке', color: '#EF4444', icon: <ConstructionRoundedIcon sx={{ fontSize: 32 }} />,
     description: 'Объект не выгрузился или ошибка в объявлении — отдел разберётся.' },
   { key: 'go-active', label: 'Действующий пакет', color: '#22C55E', icon: <Inventory2RoundedIcon sx={{ fontSize: 32 }} />,
@@ -86,26 +86,27 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
   const [view, setView] = useState<View>(initialView);
   // Какую заявку авто-открыть после перехода из «Мои обращения».
   const [openTarget, setOpenTarget] = useState<{ kind: 'case' | 'ad'; id: number } | null>(null);
-  // Пресет типа для авто-открытия окна новой заявки (клик по плитке 1/3).
+  // Пресет типа для авто-открытия окна новой заявки (клик по плитке).
   const [adPreset, setAdPreset] = useState<AdPreset | null>(null);
+  const [adFromPackage, setAdFromPackage] = useState(false);
 
   // Клик по плитке внутри «Рекламы».
   const pickAd = (key: string) => {
-    setOpenTarget(null); setAdPreset(null);
+    setOpenTarget(null); setAdPreset(null); setAdFromPackage(false);
     if (key === 'go-quota') { setAdPreset('quota'); setView('ads-requests'); }
     else if (key === 'go-fix') { setAdPreset('fix'); setView('ads-requests'); }
+    else if (key === 'go-from-package') { setAdFromPackage(true); setView('ads-requests'); }
     else if (key === 'go-packages') setView('ads-packages');
     else if (key === 'go-connect') setView('ads-connect');
     else if (key === 'go-active') setView('ads-active');
-    // go-from-package — «скоро» (фаза B2).
   };
 
   // Клик по «Заявки» в меню (новая навигация) → сброс на обзор карточек,
   // а не «застревание» в подразделе (#5). Сброс по смене location.key.
   const location = useLocation();
   useEffect(() => { setView(initialView); setOpenTarget(null); }, [location.key]); // eslint-disable-line react-hooks/exhaustive-deps
-  const openSection = (v: View) => { setOpenTarget(null); setAdPreset(null); setView(v); };
-  const openItem = (v: View, kind: 'case' | 'ad', id: number) => { setAdPreset(null); setOpenTarget({ kind, id }); setView(v); };
+  const openSection = (v: View) => { setOpenTarget(null); setAdPreset(null); setAdFromPackage(false); setView(v); };
+  const openItem = (v: View, kind: 'case' | 'ad', id: number) => { setAdPreset(null); setAdFromPackage(false); setOpenTarget({ kind, id }); setView(v); };
 
   // Непрочитанные по отделам — из общего singleton-поллера (без своего таймера).
   const { cases, adRequests } = useRequestsData();
@@ -117,7 +118,7 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
   }, [cases, adRequests]);
 
   const back = () => {
-    setOpenTarget(null); setAdPreset(null);
+    setOpenTarget(null); setAdPreset(null); setAdFromPackage(false);
     if (view === 'ads-requests' || view === 'ads-packages' || view === 'ads-connect' || view === 'ads-active') setView('ads');
     else setView(null);
   };
@@ -159,7 +160,7 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
       <Button onClick={back} startIcon={<ArrowBackRoundedIcon />} sx={{ color: '#94A3B8', textTransform: 'none', mb: 1 }}>Назад</Button>
       {view === 'lawyers' && <Cases track="legal" initialOpenId={openTarget?.kind === 'case' ? openTarget.id : undefined} />}
       {view === 'mortgage' && <Cases track="mortgage" initialOpenId={openTarget?.kind === 'case' ? openTarget.id : undefined} />}
-      {view === 'ads-requests' && <AdSimpleRequestsTab key={`adreq-${adPreset ?? 'list'}`} autoCreateKind={adPreset ?? undefined} initialOpenId={openTarget?.kind === 'ad' ? openTarget.id : undefined} />}
+      {view === 'ads-requests' && <AdSimpleRequestsTab key={`adreq-${adPreset ?? (adFromPackage ? 'pkg' : 'list')}`} autoCreateKind={adPreset ?? undefined} autoFromPackage={adFromPackage} initialOpenId={openTarget?.kind === 'ad' ? openTarget.id : undefined} />}
       {view === 'ads-connect' && <AdSimpleRequestsTab kinds={['connect']} createKinds={['connect']} initialOpenId={openTarget?.kind === 'ad' ? openTarget.id : undefined} />}
       {view === 'ads-active' && <AdActivePackages />}
       {view === 'ads-packages' && <AdPackagesTab />}
