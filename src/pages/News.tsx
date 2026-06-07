@@ -321,6 +321,7 @@ export default function News() {
                     <CoverImage
                       src={article.image}
                       preferThumb
+                      fit="contain"
                       accentColor={c.color}
                       placeholderIcon={<ArticleRoundedIcon fontSize="inherit" />}
                     />
