@@ -17,6 +17,8 @@ import { newsApi, type NewsArticle, type NewsComment } from '../api/news';
 import { getCurrentAgent } from '../auth/auth';
 import CoverImage from '../components/CoverImage';
 import ArticleRoundedIcon from '@mui/icons-material/ArticleRounded';
+import PushPinRoundedIcon from '@mui/icons-material/PushPinRounded';
+import { thumbUrl } from '../utils/thumb';
 
 const categoryColors: Record<string, { bg: string; color: string }> = {
   'Рынок': { bg: 'rgba(67,97,238,0.15)', color: '#4361EE' },
@@ -171,10 +173,10 @@ export default function News() {
     (!activeCategory || a.category === activeCategory)
   );
 
-  const featured = filtered.find(a => a.featured);
-  // В сетку идут все, КРОМЕ той одной, что показана баннером (не все featured —
-  // иначе вторая «Главное»-новость пропадала бы вовсе).
-  const rest = filtered.filter(a => a.id !== featured?.id);
+  // Закреплённые (featured) приходят первыми из API (is_featured DESC), поэтому
+  // в сетке они автоматически вверху. Показываем их обычными карточками с меткой
+  // «Закреплено» — без отдельного растянутого баннера (он плохо смотрелся на широких экранах).
+  const rest = filtered;
   const openArticle = openId !== null ? newsArticles.find(a => a.id === openId) : null;
 
   const getLikes = (a: NewsArticle) => likesOverride[a.id] ?? a.likes;
@@ -298,59 +300,9 @@ export default function News() {
         </Box>
       </Box>
 
-      {/* Featured */}
-      {featured && (
-        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}>
-          <Card
-            onClick={() => setOpenId(featured.id)}
-            sx={{
-              mb: 4, overflow: 'hidden', cursor: 'pointer',
-              '&:hover': { border: '1px solid rgba(201,168,76,0.25)', boxShadow: '0 16px 48px rgba(0,0,0,0.5)' },
-              transition: 'all 0.3s',
-            }}
-          >
-            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, minHeight: 280 }}>
-              <Box sx={{ position: 'relative', width: { xs: '100%', md: '55%' }, minHeight: 240, overflow: 'hidden' }}>
-                <CoverImage
-                  src={featured.image}
-                  accentColor={categoryColors[featured.category]?.color || '#C9A84C'}
-                  placeholderIcon={<ArticleRoundedIcon fontSize="inherit" />}
-                />
-                <Box sx={{ position: 'absolute', top: 16, left: 16 }}>
-                  <Chip label="Главное" sx={{ background: 'rgba(201,168,76,0.9)', color: '#0A0E1A', fontWeight: 800 }} />
-                </Box>
-              </Box>
-              <CardContent sx={{ flex: 1, p: 4, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-                  {(() => {
-                    const c = categoryColors[featured.category] || { bg: 'rgba(100,116,139,0.15)', color: '#94A3B8' };
-                    return <Chip label={featured.category} size="small" sx={{ background: c.bg, color: c.color, fontWeight: 700 }} />;
-                  })()}
-                  <Tooltip title={featured.createdAt ? new Date(featured.createdAt.replace(' ', 'T') + 'Z').toLocaleString('ru-RU') : formatDate(featured.date)}>
-                    <Typography variant="caption" sx={{ color: '#64748B' }}>
-                      {featured.createdAt ? `опубликовано ${formatRelative(featured.createdAt)}` : formatDate(featured.date)}
-                    </Typography>
-                  </Tooltip>
-                </Box>
-                <Typography variant="h5" sx={{ fontWeight: 800, color: '#F1F5F9', mb: 2, lineHeight: 1.3 }}>{featured.title}</Typography>
-                <Typography sx={{ color: '#94A3B8', lineHeight: 1.7, mb: 3 }}>{featured.summary}</Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Avatar sx={{ width: 28, height: 28, fontSize: 11, fontWeight: 700, background: 'linear-gradient(135deg, #C9A84C, #E2C97E)', color: '#0A0E1A' }}>
-                    {featured.author.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                  </Avatar>
-                  <Typography variant="caption" sx={{ color: '#64748B' }}>{featured.author}</Typography>
-                  <Box sx={{ ml: 'auto' }}>
-                    <ArticleMetaRow a={featured} isCard={false} />
-                  </Box>
-                </Box>
-              </CardContent>
-            </Box>
-          </Card>
-        </motion.div>
-      )}
-
-      {/* Grid of regular articles — auto-fit: карточки ровно заполняют ширину
-          при любом их числе (2 → две на всю ширину, без пустой колонки). */}
+      {/* Grid of articles — auto-fit: карточки ровно заполняют ширину
+          при любом их числе (2 → две на всю ширину, без пустой колонки).
+          Закреплённые идут первыми (is_featured DESC с бэка) и помечены меткой. */}
       <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))' }}>
         {rest.map((article, i) => {
           const c = categoryColors[article.category] || { bg: 'rgba(100,116,139,0.15)', color: '#94A3B8' };
@@ -361,19 +313,29 @@ export default function News() {
                   sx={{
                     height: '100%', cursor: 'pointer',
                     display: 'flex', flexDirection: 'column',
+                    border: article.featured ? '1px solid rgba(201,168,76,0.4)' : undefined,
                     '&:hover': { border: '1px solid rgba(201,168,76,0.2)', boxShadow: '0 12px 32px rgba(0,0,0,0.4)' },
                     transition: 'all 0.3s',
                   }}
                 >
                   <Box sx={{ position: 'relative', paddingTop: '56%', overflow: 'hidden', borderRadius: '16px 16px 0 0' }}>
                     <CoverImage
-                      src={article.image}
+                      src={thumbUrl(article.image)}
                       accentColor={c.color}
                       placeholderIcon={<ArticleRoundedIcon fontSize="inherit" />}
                     />
                     <Box sx={{ position: 'absolute', top: 12, left: 12 }}>
                       <Chip label={article.category} size="small" sx={{ background: alpha(c.color, 0.85), color: '#fff', fontWeight: 700, fontSize: 11 }} />
                     </Box>
+                    {article.featured && (
+                      <Box sx={{ position: 'absolute', top: 12, right: 12 }}>
+                        <Chip
+                          icon={<PushPinRoundedIcon sx={{ fontSize: 14, color: '#0A0E1A !important' }} />}
+                          label="Закреплено" size="small"
+                          sx={{ background: 'rgba(201,168,76,0.95)', color: '#0A0E1A', fontWeight: 800, fontSize: 11 }}
+                        />
+                      </Box>
+                    )}
                   </Box>
                   <CardContent sx={{ p: 2.5, flex: 1, display: 'flex', flexDirection: 'column' }}>
                     <Tooltip title={article.createdAt ? new Date(article.createdAt.replace(' ', 'T') + 'Z').toLocaleString('ru-RU') : formatDate(article.date)}>
