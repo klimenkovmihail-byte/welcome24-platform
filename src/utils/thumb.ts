@@ -10,3 +10,13 @@ export function thumbUrl(url?: string | null): string | null {
   const [base] = url.split('?');
   return base.replace(/\.[^./]+$/, '') + '_thumb.webp';
 }
+
+// 16:9 превью обложек (covers/...): .../RND.png → .../RND_thumb16.webp.
+// Отдельный ключ от квадратного _thumb.webp — чтобы обложки не обрезались в квадрат.
+export function coverThumbUrl(url?: string | null): string | null {
+  if (!url) return null;
+  if (!url.includes(STORAGE_HOST)) return url;
+  if (url.includes('_thumb16.webp')) return url;
+  const [base] = url.split('?');
+  return base.replace(/\.[^./]+$/, '') + '_thumb16.webp';
+}

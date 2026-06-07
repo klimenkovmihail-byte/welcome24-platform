@@ -320,6 +320,8 @@ export default function News() {
                   <Box sx={{ position: 'relative', paddingTop: '56%', overflow: 'hidden', borderRadius: '16px 16px 0 0' }}>
                     <CoverImage
                       src={article.image}
+                      preferThumb
+                      thumbKind="cover"
                       accentColor={c.color}
                       placeholderIcon={<ArticleRoundedIcon fontSize="inherit" />}
                     />

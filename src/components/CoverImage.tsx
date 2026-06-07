@@ -13,7 +13,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Box, type SxProps, type Theme } from '@mui/material';
 import ImageRoundedIcon from '@mui/icons-material/ImageRounded';
-import { thumbUrl } from '../utils/thumb';
+import { thumbUrl, coverThumbUrl } from '../utils/thumb';
 
 interface Props {
   src: string | null | undefined;
@@ -27,12 +27,14 @@ interface Props {
   overlay?: ReactNode;
   /** Сначала грузить webp-превью, при 404 — откат на оригинал. Для карточек/сеток. */
   preferThumb?: boolean;
+  /** Вид превью: 'square' (_thumb.webp — аватары) или 'cover' (_thumb16.webp — 16:9 обложки). */
+  thumbKind?: 'square' | 'cover';
   /** objectFit картинки. cover (по умолч.) заполняет с обрезкой; contain вписывает целиком. */
   fit?: 'cover' | 'contain';
 }
 
 export default function CoverImage({
-  src, alt, sx, accentColor = '#C9A84C', placeholderIcon, overlay, preferThumb, fit = 'cover',
+  src, alt, sx, accentColor = '#C9A84C', placeholderIcon, overlay, preferThumb, thumbKind = 'square', fit = 'cover',
 }: Props) {
   const hasSrc = !!src && src.trim() !== '';
   // Стадия загрузки: thumb (превью) → full (оригинал) → error (плейсхолдер).
@@ -40,7 +42,8 @@ export default function CoverImage({
   useEffect(() => { setStage(preferThumb ? 'thumb' : 'full'); }, [src, preferThumb]);
 
   const showImage = hasSrc && stage !== 'error';
-  const imgSrc = stage === 'thumb' ? (thumbUrl(src) || src) : src;
+  const previewUrl = thumbKind === 'cover' ? coverThumbUrl(src) : thumbUrl(src);
+  const imgSrc = stage === 'thumb' ? (previewUrl || src) : src;
 
   const handleError = () => {
     // thumb не загрузился → пробуем оригинал; оригинал не загрузился → плейсхолдер.
