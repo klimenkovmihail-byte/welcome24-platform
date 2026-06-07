@@ -57,15 +57,28 @@ export default function CoverImage({
       ...sx,
     }}>
       {showImage ? (
-        <Box
-          component="img"
-          src={imgSrc as string}
-          // alt пустой — браузер ничего не покажет если src сломается. onError ниже подменит.
-          alt=""
-          loading="lazy"
-          onError={handleError}
-          sx={{ width: '100%', height: '100%', objectFit: fit, display: 'block' }}
-        />
+        <>
+          {/* Размытый фон-заполнитель: при contain поля вокруг картинки не пустые,
+              а заполнены размытой версией самой обложки — баннеры видны целиком,
+              карточка выглядит «заполненной», ничего не обрезано. */}
+          {fit === 'contain' && (
+            <Box aria-hidden sx={{
+              position: 'absolute', inset: 0,
+              backgroundImage: `url("${imgSrc}")`,
+              backgroundSize: 'cover', backgroundPosition: 'center',
+              filter: 'blur(22px)', transform: 'scale(1.18)', opacity: 0.5,
+            }} />
+          )}
+          <Box
+            component="img"
+            src={imgSrc as string}
+            // alt пустой — браузер ничего не покажет если src сломается. onError ниже подменит.
+            alt=""
+            loading="lazy"
+            onError={handleError}
+            sx={{ position: 'relative', width: '100%', height: '100%', objectFit: fit, display: 'block' }}
+          />
+        </>
       ) : (
         <Box sx={{
           color: accentColor, opacity: 0.35,
