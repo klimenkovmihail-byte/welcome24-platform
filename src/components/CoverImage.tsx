@@ -2,6 +2,10 @@
  * CoverImage — обёртка над <img>, которая при пустом src или ошибке загрузки
  * показывает градиентный плейсхолдер с иконкой вместо ломаной картинки + alt-текста.
  *
+ * preferThumb: сначала грузим лёгкое webp-превью (utils/thumb), а если его нет
+ * (старые обложки без сгенерированного превью → 404) — откатываемся на оригинал,
+ * и только потом на плейсхолдер. Так быстрые превью не «съедают» старые картинки.
+ *
  * Используется в карточках новостей, вебинаров, курсов — везде где cover_url может
  * быть пустой строкой или ссылкой на сторонний хост (где может стоять hotlink-protection).
  */
@@ -9,6 +13,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Box, type SxProps, type Theme } from '@mui/material';
 import ImageRoundedIcon from '@mui/icons-material/ImageRounded';
+import { thumbUrl } from '../utils/thumb';
 
 interface Props {
   src: string | null | undefined;
@@ -20,16 +25,27 @@ interface Props {
   placeholderIcon?: ReactNode;
   /** Дополнительный overlay поверх изображения (например, градиент для текста снизу). */
   overlay?: ReactNode;
+  /** Сначала грузить webp-превью, при 404 — откат на оригинал. Для карточек/сеток. */
+  preferThumb?: boolean;
+  /** objectFit картинки. cover (по умолч.) заполняет с обрезкой; contain вписывает целиком. */
+  fit?: 'cover' | 'contain';
 }
 
 export default function CoverImage({
-  src, alt, sx, accentColor = '#C9A84C', placeholderIcon, overlay,
+  src, alt, sx, accentColor = '#C9A84C', placeholderIcon, overlay, preferThumb, fit = 'cover',
 }: Props) {
   const hasSrc = !!src && src.trim() !== '';
-  const [errored, setErrored] = useState(false);
-  useEffect(() => { setErrored(false); }, [src]);
+  // Стадия загрузки: thumb (превью) → full (оригинал) → error (плейсхолдер).
+  const [stage, setStage] = useState<'thumb' | 'full' | 'error'>(preferThumb ? 'thumb' : 'full');
+  useEffect(() => { setStage(preferThumb ? 'thumb' : 'full'); }, [src, preferThumb]);
 
-  const showImage = hasSrc && !errored;
+  const showImage = hasSrc && stage !== 'error';
+  const imgSrc = stage === 'thumb' ? (thumbUrl(src) || src) : src;
+
+  const handleError = () => {
+    // thumb не загрузился → пробуем оригинал; оригинал не загрузился → плейсхолдер.
+    setStage(s => (s === 'thumb' ? 'full' : 'error'));
+  };
 
   return (
     <Box sx={{
@@ -43,12 +59,12 @@ export default function CoverImage({
       {showImage ? (
         <Box
           component="img"
-          src={src as string}
-          // alt пустой — браузер ничего не покажет если src сломается. onError ниже подменит на плейсхолдер.
+          src={imgSrc as string}
+          // alt пустой — браузер ничего не покажет если src сломается. onError ниже подменит.
           alt=""
           loading="lazy"
-          onError={() => setErrored(true)}
-          sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          onError={handleError}
+          sx={{ width: '100%', height: '100%', objectFit: fit, display: 'block' }}
         />
       ) : (
         <Box sx={{

@@ -18,7 +18,6 @@ import { getCurrentAgent } from '../auth/auth';
 import CoverImage from '../components/CoverImage';
 import ArticleRoundedIcon from '@mui/icons-material/ArticleRounded';
 import PushPinRoundedIcon from '@mui/icons-material/PushPinRounded';
-import { thumbUrl } from '../utils/thumb';
 
 const categoryColors: Record<string, { bg: string; color: string }> = {
   'Рынок': { bg: 'rgba(67,97,238,0.15)', color: '#4361EE' },
@@ -320,7 +319,8 @@ export default function News() {
                 >
                   <Box sx={{ position: 'relative', paddingTop: '56%', overflow: 'hidden', borderRadius: '16px 16px 0 0' }}>
                     <CoverImage
-                      src={thumbUrl(article.image)}
+                      src={article.image}
+                      preferThumb
                       accentColor={c.color}
                       placeholderIcon={<ArticleRoundedIcon fontSize="inherit" />}
                     />
