@@ -23,8 +23,11 @@ window.addEventListener('unhandledrejection', e => {
   const m = (e?.reason && (e.reason.message || String(e.reason))) || '';
   if (isChunkError(m)) reloadOnce();
 });
-// Успешно загрузились — снимаем флаг, чтобы следующий деплой тоже мог перезагрузить.
-window.addEventListener('load', () => sessionStorage.removeItem(RELOAD_FLAG));
+// Снимаем флаг ТОЛЬКО после стабильной работы (а не на каждый 'load'):
+// если битый чанк падает сразу при загрузке, 'load' успел бы снять флаг ДО
+// ошибки → reloadOnce срабатывал бы снова и снова = бесконечный цикл перезагрузок.
+// 8 сек без падений = загрузка удалась, разрешаем будущие авто-перезагрузки.
+setTimeout(() => sessionStorage.removeItem(RELOAD_FLAG), 8000);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
