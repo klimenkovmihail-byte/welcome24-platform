@@ -251,8 +251,15 @@ export default function Profile() {
     setPushBusy(true);
     disablePush().then(setPushState).catch(() => { /* tolerate */ }).finally(() => setPushBusy(false));
   };
-  const handleCopyMxCode = () => {
-    if (mx?.code) { navigator.clipboard?.writeText(mx.code); setMxCodeCopied(true); setTimeout(() => setMxCodeCopied(false), 1500); }
+  const handleCopyMxCode = async () => {
+    if (!mx?.code) return;
+    // «Скопировано» — только после успеха: writeText может упасть (нет разрешения,
+    // не-secure context), и пользователь уносил бы пустой буфер с зелёной галочкой.
+    try {
+      await navigator.clipboard.writeText(mx.code);
+      setMxCodeCopied(true);
+      setTimeout(() => setMxCodeCopied(false), 1500);
+    } catch { /* буфер недоступен — галочку не показываем */ }
   };
 
   // Реф-ссылка приходит из БД (бэк её авто-генерит). На случай если поле ещё
@@ -262,7 +269,7 @@ export default function Profile() {
       || (user as { referralLink?: string } | null)?.referralLink
       || '';
     if (fromDb) return fromDb;
-    if (user?.id && user?.name) return buildReferralLink(user.id, user.name);
+    if (user?.id && user?.name) return buildReferralLink(user.id as number | string, user.name as string);
     return '';
   })();
 
@@ -359,11 +366,19 @@ export default function Profile() {
     }
   };
 
+  // id последнего кликнутого тикета — защита от гонки: два быстрых клика по разным
+  // тикетам открывали тот, чей ответ пришёл ПОЗЖЕ (мог быть первый), и ответ
+  // можно было отправить не в тот диалог.
+  const lastTicketClickRef = useRef<number | null>(null);
   const openExistingTicket = async (id: number) => {
+    lastTicketClickRef.current = id;
     setOpenTicketLoading(true);
-    try { setOpenTicket(await supportApi.get(id)); }
-    catch (e) { setSupportError(e instanceof Error ? e.message : 'Ошибка'); }
-    finally { setOpenTicketLoading(false); }
+    try {
+      const t = await supportApi.get(id);
+      if (lastTicketClickRef.current === id) setOpenTicket(t);
+    }
+    catch (e) { if (lastTicketClickRef.current === id) setSupportError(e instanceof Error ? e.message : 'Ошибка'); }
+    finally { if (lastTicketClickRef.current === id) setOpenTicketLoading(false); }
   };
 
   const sendReply = async () => {
@@ -383,10 +398,14 @@ export default function Profile() {
     }
   };
 
-  const handleCopyRef = () => {
-    navigator.clipboard?.writeText(referralLink);
-    setRefCopied(true);
-    setTimeout(() => setRefCopied(false), 1800);
+  const handleCopyRef = async () => {
+    // «Скопировано!» — только после успешной записи в буфер, иначе агент
+    // «делится» рефссылкой, которой в буфере нет.
+    try {
+      await navigator.clipboard.writeText(referralLink);
+      setRefCopied(true);
+      setTimeout(() => setRefCopied(false), 1800);
+    } catch { /* буфер недоступен — галочку не показываем */ }
   };
 
   const earned = achievements.filter(a => a.earned);
@@ -402,7 +421,7 @@ export default function Profile() {
               <Box sx={{ height: 80, background: 'linear-gradient(135deg, rgba(201,168,76,0.3) 0%, rgba(67,97,238,0.2) 100%)', borderRadius: '16px 16px 0 0', position: 'relative' }}>
                 <Box sx={{ position: 'absolute', bottom: -40, left: '50%', transform: 'translateX(-50%)' }}>
                   <Box sx={{ position: 'relative' }}>
-                    <SmartAvatar src={currentUser.photo} name={currentUser.name} size={80} sx={{ background: 'linear-gradient(135deg, #C9A84C, #E2C97E)', color: '#0A0E1A', border: '4px solid #0F1629', boxShadow: '0 8px 32px rgba(201,168,76,0.4)' }} />
+                    <SmartAvatar src={(currentUser as { photo?: string | null }).photo} name={currentUser.name} size={80} sx={{ background: 'linear-gradient(135deg, #C9A84C, #E2C97E)', color: '#0A0E1A', border: '4px solid #0F1629', boxShadow: '0 8px 32px rgba(201,168,76,0.4)' }} />
                     <Tooltip title="Загрузить фото">
                       <IconButton
                         size="small"
@@ -721,7 +740,7 @@ export default function Profile() {
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.2, borderRadius: 2, background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)' }}>
                     <EmojiEventsRoundedIcon sx={{ color: '#C9A84C', fontSize: 20 }} />
-                    <Typography variant="body2" sx={{ fontWeight: 800, color: '#C9A84C' }}>{Math.round(earned.length / achievements.length * 100)}%</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 800, color: '#C9A84C' }}>{achievements.length ? Math.round(earned.length / achievements.length * 100) : 0}%</Typography>
                   </Box>
                 </Box>
 
@@ -1102,11 +1121,13 @@ export default function Profile() {
               ) : (
                 <Stack spacing={1}>
                   {tickets.map(t => {
-                    const statusCfg = {
+                    const STATUS_CFG = {
                       open:    { label: 'Ожидает ответа', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
                       replied: { label: 'Есть ответ',     color: '#22C55E', bg: 'rgba(34,197,94,0.12)' },
                       closed:  { label: 'Закрыт',         color: '#94A3B8', bg: 'rgba(100,116,139,0.12)' },
-                    }[t.status];
+                    };
+                    // Фолбэк на closed: новый статус с бэка без него ронял бы весь Профиль.
+                    const statusCfg = STATUS_CFG[t.status] || STATUS_CFG.closed;
                     return (
                       <Box key={t.id}
                         onClick={() => openExistingTicket(t.id)}

@@ -62,7 +62,10 @@ async function request<T>(method: string, path: string, body?: Json): Promise<T>
   // Render»; теперь бэк на собственном VPS без холодных стартов — причина отпала.
   const retryable = method === 'GET';
   const maxAttempts = retryable ? 5 : 1;
-  const ATTEMPT_TIMEOUT = 15000;               // мс на одну попытку
+  // GET — короткий таймаут (есть ретраи). Не-GET — одна попытка, поэтому ждём долго:
+  // AI-чат (юрист/навигатор) генерирует ответ 15-40с+, с 15с-таймаутом он падал бы
+  // «не удаётся подключиться». 120с = proxy_read_timeout nginx на сервере.
+  const ATTEMPT_TIMEOUT = retryable ? 15000 : 120000; // мс на одну попытку
   const backoff = (n: number) => Math.min(800 * 2 ** (n - 1), 4000);
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -98,7 +101,10 @@ async function request<T>(method: string, path: string, body?: Json): Promise<T>
     const json = text ? (() => { try { return JSON.parse(text); } catch { return text; } })() : null;
 
     if (!res.ok) {
-      if (res.status === 401) setToken(null); // токен невалиден — стереть
+      // Токен невалиден — стереть. Но только если он всё ещё ТЕКУЩИЙ: запоздавший
+      // 401 от запроса со старым токеном не должен затирать свежий токен,
+      // который пользователь только что получил при логине.
+      if (res.status === 401 && getToken() === token) setToken(null);
       const message = (json && typeof json === 'object' && 'error' in json && typeof (json as { error: unknown }).error === 'string')
         ? (json as { error: string }).error
         : `HTTP ${res.status}`;

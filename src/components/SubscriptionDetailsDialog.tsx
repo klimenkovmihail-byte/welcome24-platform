@@ -196,7 +196,7 @@ export default function SubscriptionDetailsDialog({ open, onClose, status, agent
                         </TableCell>
                         <TableCell align="right">
                           {isPayable && (
-                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
                               {!opened ? (
                                 <Button size="small" variant="contained"
                                   startIcon={<OpenInNewRoundedIcon />}

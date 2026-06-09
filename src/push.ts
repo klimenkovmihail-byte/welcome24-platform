@@ -21,11 +21,12 @@ export type PushState =
   | 'default';      // можно предложить включить
 
 // base64url → Uint8Array (для applicationServerKey).
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+// Возвращаем Uint8Array<ArrayBuffer> (не ArrayBufferLike) — иначе TS не пускает в BufferSource.
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const raw = atob(base64);
-  const arr = new Uint8Array(raw.length);
+  const arr = new Uint8Array(new ArrayBuffer(raw.length));
   for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
   return arr;
 }
@@ -61,7 +62,12 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 async function getReg(): Promise<ServiceWorkerRegistration | null> {
   if (swReg) return swReg;
   if (!('serviceWorker' in navigator)) return null;
-  swReg = (await navigator.serviceWorker.ready.catch(() => null)) as ServiceWorkerRegistration | null;
+  // serviceWorker.ready НИКОГДА не резолвится (и не реджектится), если регистрация
+  // SW не удалась — .catch не спасает, и кнопка «Включить уведомления» висела бы
+  // в спиннере вечно. Ограничиваем ожидание таймаутом.
+  const ready = navigator.serviceWorker.ready.catch(() => null);
+  const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), 5000));
+  swReg = (await Promise.race([ready, timeout])) as ServiceWorkerRegistration | null;
   return swReg;
 }
 

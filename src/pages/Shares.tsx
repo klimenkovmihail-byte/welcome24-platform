@@ -262,8 +262,8 @@ export default function Shares() {
                 />
                 <RechartTooltip
                   contentStyle={{ background: '#0F1629', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 8 }}
-                  labelFormatter={(v: string) => new Date(v).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  formatter={(v: number) => [`${fmt(v)} ₽`, 'Цена']}
+                  labelFormatter={(v: unknown) => new Date(v as string).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  formatter={(v: unknown) => [`${fmt(v as number)} ₽`, 'Цена']}
                 />
                 <Area
                   type="monotone"

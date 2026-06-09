@@ -81,14 +81,20 @@ export const theme = createTheme({
     MuiButton: {
       styleOverrides: {
         root: { borderRadius: 12, padding: '10px 24px' },
-        containedPrimary: {
-          background: 'linear-gradient(135deg, #C9A84C 0%, #E2C97E 50%, #C9A84C 100%)',
-          backgroundSize: '200% 100%',
-          color: '#0A0E1A',
-          fontWeight: 700,
-          '&:hover': { backgroundPosition: '100% 0', boxShadow: '0 8px 24px rgba(201,168,76,0.4)' },
-        },
       },
+      // v9: ключа containedPrimary в styleOverrides больше нет — те же стили через variants.
+      variants: [
+        {
+          props: { variant: 'contained', color: 'primary' },
+          style: {
+            background: 'linear-gradient(135deg, #C9A84C 0%, #E2C97E 50%, #C9A84C 100%)',
+            backgroundSize: '200% 100%',
+            color: '#0A0E1A',
+            fontWeight: 700,
+            '&:hover': { backgroundPosition: '100% 0', boxShadow: '0 8px 24px rgba(201,168,76,0.4)' },
+          },
+        },
+      ],
     },
     MuiChip: {
       styleOverrides: {

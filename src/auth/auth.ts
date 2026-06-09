@@ -166,10 +166,17 @@ export function tryImpersonationFromUrl(): ImpersonationState | null {
 
   // Если есть токен от админки — бэкапим старые и подменяем.
   if (impersonateToken) {
-    const oldToken = localStorage.getItem('w24_token');
-    const oldUser  = localStorage.getItem(USER_KEY);
-    if (oldToken) localStorage.setItem(TOKEN_BACKUP_KEY, oldToken);
-    if (oldUser)  localStorage.setItem(USER_BACKUP_KEY, oldUser);
+    // Если импersonation УЖЕ активна (админ кликнул «войти как» по второму агенту,
+    // не выйдя из первого) — бэкап не трогаем: в нём лежит токен админа, а текущий
+    // токен принадлежит агенту №1. Перезапись затёрла бы админский бэкап, и «выход»
+    // возвращал бы в админку с агентским токеном (401, принудительный релогин).
+    const alreadyImpersonating = !!localStorage.getItem(IMPERSONATION_KEY);
+    if (!alreadyImpersonating) {
+      const oldToken = localStorage.getItem('w24_token');
+      const oldUser  = localStorage.getItem(USER_KEY);
+      if (oldToken) localStorage.setItem(TOKEN_BACKUP_KEY, oldToken);
+      if (oldUser)  localStorage.setItem(USER_BACKUP_KEY, oldUser);
+    }
     setToken(impersonateToken);
     // Заглушка-user, чтобы PrivateRoute не редиректнул на /login до того,
     // как fetchMe подтянет реальные данные агента.

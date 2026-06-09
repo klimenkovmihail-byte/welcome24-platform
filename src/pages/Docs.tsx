@@ -4,7 +4,7 @@
  * PDF и картинки откроются inline в браузере, остальное скачается.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   Box, Typography, IconButton, TextField, InputAdornment, Chip,
   Alert, CircularProgress,
@@ -73,10 +73,17 @@ export default function Docs() {
 
   useEffect(() => { reload(); }, [reload]);
 
+  // Счётчик поисков — защита от гонки: debounce чистит только таймер, а не
+  // запущенный fetch. Без guard'а поздний ответ перетирал очищенный поиск
+  // (результаты при пустой строке) или показывал не тот запрос.
+  const searchSeqRef = useRef(0);
   useEffect(() => {
-    if (search.trim().length < 2) { setSearchResults(null); return; }
+    if (search.trim().length < 2) { searchSeqRef.current++; setSearchResults(null); return; }
+    const seq = ++searchSeqRef.current;
     const h = setTimeout(() => {
-      docsApi.search(search.trim()).then(setSearchResults).catch(() => setSearchResults([]));
+      docsApi.search(search.trim())
+        .then(r => { if (searchSeqRef.current === seq) setSearchResults(r); })
+        .catch(() => { if (searchSeqRef.current === seq) setSearchResults([]); });
     }, 300);
     return () => clearTimeout(h);
   }, [search]);

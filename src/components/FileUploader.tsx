@@ -74,8 +74,15 @@ export default function FileUploader({
 
   // Если файл — image и кропер не отключён, открываем модалку обрезки.
   // Иначе грузим как есть.
+  const MAX_FILE_MB = 15;
   const handleFile = (f: File) => {
     setErr(null);
+    // Проверяем размер ДО отправки — подпись обещает «до 15 МБ», но раньше
+    // лимит узнавали только от сервера после полной заливки.
+    if (f.size > MAX_FILE_MB * 1024 * 1024) {
+      setErr(`Файл слишком большой: ${(f.size / 1024 / 1024).toFixed(1)} МБ (максимум ${MAX_FILE_MB} МБ)`);
+      return;
+    }
     if (!noCrop && f.type.startsWith('image/')) {
       setPendingFile(f);
     } else {

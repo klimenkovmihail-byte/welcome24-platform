@@ -563,7 +563,7 @@ function PassiveIncomeCalculator() {
           value={avgVkd} onChange={e => setAvgVkd(Number(e.target.value) || 0)}
         />
         <TextField
-          label="Сделок в месяц на агента" size="small" type="number" inputProps={{ step: 0.1 }}
+          label="Сделок в месяц на агента" size="small" type="number" slotProps={{ htmlInput: { step: 0.1 } }}
           value={dealsPerMonth} onChange={e => setDealsPerMonth(Number(e.target.value) || 0)}
         />
         <TextField

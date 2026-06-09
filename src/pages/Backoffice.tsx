@@ -143,7 +143,7 @@ export default function Backoffice() {
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                       {m.phone && (
                         <Tooltip title={m.phone}>
-                          <IconButton size="small" onClick={() => window.open(`tel:${m.phone}`)}
+                          <IconButton size="small" onClick={() => { window.location.href = `tel:${m.phone}`; }}
                             sx={{ color: '#22C55E', background: 'rgba(34,197,94,0.1)', '&:hover': { background: 'rgba(34,197,94,0.2)' } }}>
                             <PhoneRoundedIcon fontSize="small" />
                           </IconButton>
@@ -151,7 +151,7 @@ export default function Backoffice() {
                       )}
                       {m.email && (
                         <Tooltip title={m.email}>
-                          <IconButton size="small" onClick={() => window.open(`mailto:${m.email}`)}
+                          <IconButton size="small" onClick={() => { window.location.href = `mailto:${m.email}`; }}
                             sx={{ color: '#F59E0B', background: 'rgba(245,158,11,0.1)', '&:hover': { background: 'rgba(245,158,11,0.2)' } }}>
                             <EmailRoundedIcon fontSize="small" />
                           </IconButton>
@@ -159,7 +159,7 @@ export default function Backoffice() {
                       )}
                       {m.telegram && (
                         <Tooltip title={`@${tgClean}`}>
-                          <IconButton size="small" onClick={() => window.open(`https://t.me/${tgClean}`)}
+                          <IconButton size="small" onClick={() => window.open(`https://t.me/${tgClean}`, '_blank', 'noopener')}
                             sx={{ color: '#229ED9', background: 'rgba(34,158,217,0.1)', '&:hover': { background: 'rgba(34,158,217,0.2)' } }}>
                             <TelegramIcon fontSize="small" />
                           </IconButton>

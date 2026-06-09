@@ -37,16 +37,31 @@ export default function CaseChat({ caseId, myId, fillHeight }: { caseId: number;
   const [pending, setPending] = useState<{ url: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [attachError, setAttachError] = useState<string | null>(null);
   const lastIdRef = useRef(0);
+  // Актуальный caseId: при смене заявки без размонтирования (deep-link ?open=N)
+  // поздний ответ старого чата не должен дописываться в новый.
+  const caseIdRef = useRef(caseId);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollDown = () => bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+
+  // Дедупликация по id: перекрывающиеся ответы поллинга (медленная сеть,
+  // интервал 5с) и гонка poll↔send давали задвоенные сообщения.
+  const appendUnique = (fresh: CaseMessage[]) => {
+    setMessages(prev => {
+      const seen = new Set(prev.map(m => m.id));
+      const add = fresh.filter(m => !seen.has(m.id));
+      return add.length ? [...prev, ...add] : prev;
+    });
+  };
 
   const poll = useCallback(async () => {
     try {
       const fresh = await casesApi.messages(caseId, lastIdRef.current);
+      if (caseIdRef.current !== caseId) return; // переключились на другую заявку
       if (fresh.length) {
-        lastIdRef.current = fresh[fresh.length - 1].id;
-        setMessages(prev => [...prev, ...fresh]);
+        lastIdRef.current = Math.max(lastIdRef.current, fresh[fresh.length - 1].id);
+        appendUnique(fresh);
         setTimeout(scrollDown, 50);
         casesApi.markRead(caseId, lastIdRef.current).catch(() => {});
       }
@@ -54,17 +69,21 @@ export default function CaseChat({ caseId, myId, fillHeight }: { caseId: number;
   }, [caseId]);
 
   useEffect(() => {
+    caseIdRef.current = caseId;
     setMessages([]); lastIdRef.current = 0; setLoading(true);
     poll().finally(() => setLoading(false));
     const t = setInterval(poll, 5000);
     return () => clearInterval(t);
-  }, [poll]);
+  }, [poll, caseId]);
 
   const handleAttach = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setBusy(true);
-    try { setPending(await uploadFile(file)); } catch { /* tolerate */ } finally { setBusy(false); e.target.value = ''; }
+    setAttachError(null);
+    try { setPending(await uploadFile(file)); }
+    catch { setAttachError('Не удалось загрузить файл — попробуйте ещё раз.'); }
+    finally { setBusy(false); e.target.value = ''; }
   };
 
   const send = async () => {
@@ -76,8 +95,8 @@ export default function CaseChat({ caseId, myId, fillHeight }: { caseId: number;
       const msg = await casesApi.sendMessage(caseId, {
         body, attachmentUrl: pending?.url, attachmentName: pending?.name,
       });
-      lastIdRef.current = msg.id;
-      setMessages(prev => [...prev, msg]);
+      lastIdRef.current = Math.max(lastIdRef.current, msg.id);
+      appendUnique([msg]); // poll мог успеть добавить это же сообщение — без дублей
       setText(''); setPending(null);
       setTimeout(scrollDown, 50);
     } catch { /* tolerate */ } finally { setBusy(false); }
@@ -120,6 +139,9 @@ export default function CaseChat({ caseId, myId, fillHeight }: { caseId: number;
       {pending && (
         <Chip icon={<DescriptionRoundedIcon />} label={pending.name} onDelete={() => setPending(null)} deleteIcon={<CloseRoundedIcon />}
           sx={{ mt: 1, maxWidth: '100%', background: 'rgba(201,168,76,0.12)', color: '#E2C97E', '& .MuiChip-icon': { color: '#C9A84C' } }} />
+      )}
+      {attachError && (
+        <Typography variant="caption" sx={{ color: '#EF4444', mt: 1, display: 'block' }}>{attachError}</Typography>
       )}
       <Box sx={{ display: 'flex', gap: 1, mt: 1, alignItems: 'center' }}>
         <IconButton component="label" disabled={busy} sx={{ color: '#64748B', '&:hover': { color: '#C9A84C' } }}>

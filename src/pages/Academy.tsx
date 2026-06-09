@@ -66,7 +66,10 @@ const formatCfg: Record<string, { label: string; color: string }> = {
 const RU_MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const RU_WEEKDAYS_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
-const today = new Date(); // текущая дата
+// Функция, не константа: модульная const new Date() вычисляется один раз при
+// загрузке бандла, и в долгоживущей вкладке (PWA) «сегодня» протухало — вчерашние
+// вебинары выглядели предстоящими, подсветка «Сегодня» указывала на вчера.
+const today = () => new Date();
 
 function pad(n: number) { return n.toString().padStart(2, '0'); }
 
@@ -197,15 +200,15 @@ function CourseCard({ c, delay, onOpen }: { c: AcademyCourse; delay: number; onO
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: '#64748B', mb: 1.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
               <AccessTimeRoundedIcon sx={{ fontSize: 13 }} />
-              <Typography variant="caption" fontSize={11}>{c.duration}</Typography>
+              <Typography variant="caption" sx={{ fontSize: 11 }}>{c.duration}</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
               <MenuBookRoundedIcon sx={{ fontSize: 13 }} />
-              <Typography variant="caption" fontSize={11}>{c.totalLessons} уроков</Typography>
+              <Typography variant="caption" sx={{ fontSize: 11 }}>{c.totalLessons} уроков</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
               <PeopleRoundedIcon sx={{ fontSize: 13 }} />
-              <Typography variant="caption" fontSize={11}>{c.authorName.split(' ').slice(0, 2).join(' ')}</Typography>
+              <Typography variant="caption" sx={{ fontSize: 11 }}>{c.authorName.split(' ').slice(0, 2).join(' ')}</Typography>
             </Box>
           </Box>
           {c.progress > 0 ? (
@@ -269,7 +272,7 @@ function WebinarCard({ w, delay, onOpen }: { w: WebinarRecording; delay: number;
             <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 600 }}>{w.speakerName}</Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, color: '#64748B' }}>
               <VisibilityRoundedIcon sx={{ fontSize: 13 }} />
-              <Typography variant="caption" fontSize={11}>{w.views.toLocaleString('ru-RU')}</Typography>
+              <Typography variant="caption" sx={{ fontSize: 11 }}>{w.views.toLocaleString('ru-RU')}</Typography>
             </Box>
           </Box>
         </CardContent>
@@ -304,7 +307,8 @@ function MonthCalendar({ events, selectedDate, onSelectDate, viewDate, setViewDa
     return map;
   }, [events]);
 
-  const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  const now = today();
+  const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
   const prevMonth = () => setViewDate(new Date(year, month - 1, 1));
   const nextMonth = () => setViewDate(new Date(year, month + 1, 1));
@@ -358,7 +362,7 @@ function MonthCalendar({ events, selectedDate, onSelectDate, viewDate, setViewDa
                 {dayEvents.length > 0 && (
                   <Box sx={{ display: 'flex', gap: 0.3, mt: 0.4, flexWrap: 'wrap', justifyContent: 'center' }}>
                     {dayEvents.slice(0, 3).map(e => (
-                      <Box key={e.id} sx={{ width: 5, height: 5, borderRadius: '50%', background: formatCfg[e.format].color }} />
+                      <Box key={e.id} sx={{ width: 5, height: 5, borderRadius: '50%', background: (formatCfg[e.format] || formatCfg.webinar).color }} />
                     ))}
                   </Box>
                 )}
@@ -374,8 +378,10 @@ function MonthCalendar({ events, selectedDate, onSelectDate, viewDate, setViewDa
 // ----------------- Event card (for selected day or list) -----------------
 function EventCard({ e, compact = false }: { e: AcademyEvent; compact?: boolean }) {
   const [calAnchor, setCalAnchor] = useState<HTMLElement | null>(null);
-  const cfg = formatCfg[e.format];
-  const isPast = new Date(`${e.date}T${e.endTime}`).getTime() < today.getTime();
+  // Фолбэк: бэк не валидирует format при PATCH — неизвестное значение без него
+  // роняло всю Академию (TypeError на cfg.color).
+  const cfg = formatCfg[e.format] || formatCfg.webinar;
+  const isPast = new Date(`${e.date}T${e.endTime}`).getTime() < today().getTime();
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} layout>
       <Box sx={{
@@ -438,7 +444,7 @@ function EventCard({ e, compact = false }: { e: AcademyEvent; compact?: boolean 
         </Box>
 
         <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mt: 1, fontSize: 11 }}>
-          🎤 {e.speaker}
+          🎤 {e.speakerName}
         </Typography>
 
         {!isPast && e.link && (
@@ -544,8 +550,11 @@ function AcademyImpl() {
     const currentDone = lessonProgress[key] ?? initial;
     const newDone = !currentDone;
     setLessonProgress(prev => ({ ...prev, [key]: newDone }));
-    // Сохраняем прогресс на бэке — для разблокировки следующего урока и для сохранения после reload.
-    academyApi.completeLesson(courseId, lessonId, newDone).catch(() => { /* tolerate */ });
+    // Сохраняем прогресс на бэке. При ошибке — откатываем оптимистичную отметку,
+    // иначе урок выглядит пройденным, а после reload прогресс «теряется» молча.
+    academyApi.completeLesson(courseId, lessonId, newDone).catch(() => {
+      setLessonProgress(prev => ({ ...prev, [key]: currentDone }));
+    });
   };
 
   const getWebinarLikes = (w: WebinarRecording) => webinarLikeOverride[w.id] ?? w.likesCount;
@@ -608,8 +617,9 @@ function AcademyImpl() {
   const filteredWebinars = webinarFilter === 'all' ? webinarRecordings : webinarRecordings.filter(w => w.topic === webinarFilter);
 
   // Schedule
-  const [viewDate, setViewDate] = useState<Date>(new Date(today.getFullYear(), today.getMonth(), 1));
-  const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  const now = today();
+  const [viewDate, setViewDate] = useState<Date>(new Date(now.getFullYear(), now.getMonth(), 1));
+  const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
 
   const monthEvents = useMemo(() =>
@@ -627,7 +637,7 @@ function AcademyImpl() {
 
   const upcomingEvents = useMemo(() =>
     academyEvents
-      .filter(e => new Date(`${e.date}T${e.endTime}`).getTime() >= today.getTime())
+      .filter(e => new Date(`${e.date}T${e.endTime}`).getTime() >= today().getTime())
       .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
       .slice(0, 5)
   , [academyEvents]);

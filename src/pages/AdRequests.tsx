@@ -59,7 +59,7 @@ export default function AdRequests() {
   const [tab, setTab] = useState(0);
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1100, mx: 'auto' }}>
-      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 2 }}>
         <CampaignRoundedIcon sx={{ color: GOLD, fontSize: 30 }} />
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 800, color: '#F1F5F9' }}>Реклама объектов</Typography>
@@ -119,7 +119,7 @@ export function AdSimpleRequestsTab({ initialOpenId, kinds = OBJECT_KINDS, creat
   return (
     <Box>
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-      <Stack direction="row" spacing={1.5} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
+      <Stack direction="row" spacing={1.5} sx={{ mb: 2, flexWrap: 'wrap' }} useFlexGap>
         <Button startIcon={<AddRoundedIcon />} variant="contained" onClick={() => setCreateOpen(true)}
           sx={{ background: GOLD, color: '#0A0E1A', fontWeight: 700, '&:hover': { background: '#E2C97E' } }}>Новая заявка</Button>
         {showFromPackageBtn && (
@@ -157,7 +157,7 @@ export function AdSimpleRequestsTab({ initialOpenId, kinds = OBJECT_KINDS, creat
           return filtered.map(r => (
           <Card key={r.id} sx={{ ...cardSx, cursor: 'pointer', border: (r.unread || 0) > 0 ? '1px solid rgba(239,68,68,0.4)' : cardSx.border, '&:hover': { borderColor: 'rgba(201,168,76,0.3)' } }} onClick={() => setDetail(r)}>
             <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-              <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap" useFlexGap>
+              <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }} useFlexGap>
                 <Chip label={r.kind_label} size="small" sx={{ background: 'rgba(201,168,76,0.15)', color: GOLD, fontWeight: 700 }} />
                 {(r.unread || 0) > 0 && <Chip label={`+${r.unread}`} size="small" sx={{ height: 18, fontSize: 10, fontWeight: 800, background: 'rgba(239,68,68,0.18)', color: '#EF4444' }} />}
                 {r.object_ref && <Typography sx={{ color: '#E2E8F0', fontWeight: 600 }}>{r.object_ref}</Typography>}
@@ -214,9 +214,14 @@ function CreateDialog({ meta, allowedKinds, presetKind, onClose, onCreated, setE
         created = await adRequestsApi.create({ kind, objectRef, region, platforms, comment });
       }
       // Прикрепляем выбранные файлы в тред заявки (чек/скрин/документ).
+      // Неудавшиеся — показываем: раньше ошибка глоталась молча.
+      const failed: string[] = [];
       for (const f of files) {
         try { const up = await uploadFile(f); await adRequestsApi.sendMessage(created.id, { attachmentUrl: up.url, attachmentName: up.name }); }
-        catch { /* один файл не загрузился — заявка всё равно создана */ }
+        catch { failed.push(f.name); }
+      }
+      if (failed.length) {
+        alert(`Заявка создана, но файлы не загрузились: ${failed.join(', ')}. Откройте заявку и отправьте их в чат заново.`);
       }
       onCreated();
     } catch (e) {
@@ -227,7 +232,7 @@ function CreateDialog({ meta, allowedKinds, presetKind, onClose, onCreated, setE
   };
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { background: '#0B1120', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 3 } }}>
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth slotProps={{ paper: { sx: { background: '#0B1120', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 3 } } }}>
       <DialogTitle sx={{ color: '#F1F5F9' }}>Новая заявка в отдел рекламы</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
@@ -239,13 +244,13 @@ function CreateDialog({ meta, allowedKinds, presetKind, onClose, onCreated, setE
           </FormControl>
           {needObject && (
             <TextField size="small" label="Номер объекта" value={objectRef} onChange={e => setObjectRef(e.target.value)} placeholder="№ 12345"
-              InputLabelProps={{ sx: { color: '#94A3B8' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
+              slotProps={{ inputLabel: { sx: { color: '#94A3B8' } } }} sx={{ '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
           )}
           {/* Объектные заявки: выбор площадок чекбоксами */}
           {!isConnect && (
             <Box>
               <Typography sx={{ color: '#94A3B8', fontSize: 13, mb: 0.5 }}>Площадки</Typography>
-              <Stack direction="row" flexWrap="wrap">
+              <Stack direction="row" sx={{ flexWrap: 'wrap' }}>
                 {ALL_PLATFORMS.map(p => (
                   <FormControlLabel key={p} control={<Checkbox size="small" checked={platforms.includes(p)} onChange={() => togglePlatform(p)} sx={{ color: '#64748B', '&.Mui-checked': { color: GOLD } }} />}
                     label={PLATFORM_LABEL[p]} sx={{ color: '#E2E8F0', mr: 1 }} />
@@ -264,11 +269,11 @@ function CreateDialog({ meta, allowedKinds, presetKind, onClose, onCreated, setE
               </FormControl>
               {connectPlatform === 'cian' && (
                 <TextField size="small" label="Ваш ЦИАН ID или почта" value={connectValue} onChange={e => setConnectValue(e.target.value)} placeholder="ID профиля или email"
-                  InputLabelProps={{ sx: { color: '#94A3B8' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
+                  slotProps={{ inputLabel: { sx: { color: '#94A3B8' } } }} sx={{ '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
               )}
               {connectPlatform === 'domclick' && (
                 <TextField size="small" label="Номер телефона для привязки к ДомКлик" value={connectValue} onChange={e => setConnectValue(e.target.value)} placeholder="+7 900 000-00-00"
-                  InputLabelProps={{ sx: { color: '#94A3B8' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
+                  slotProps={{ inputLabel: { sx: { color: '#94A3B8' } } }} sx={{ '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
               )}
               {connectPlatform === 'avito' && (
                 <Alert severity="info" sx={{ '& a': { color: GOLD } }}>
@@ -293,7 +298,7 @@ function CreateDialog({ meta, allowedKinds, presetKind, onClose, onCreated, setE
             {files.length > 0 && (
               <Stack spacing={0.5} sx={{ mt: 0.5 }}>
                 {files.map((f, i) => (
-                  <Stack key={i} direction="row" alignItems="center" spacing={1}>
+                  <Stack key={i} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                     <Typography variant="caption" sx={{ color: '#94A3B8', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</Typography>
                     <Button size="small" onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))} sx={{ minWidth: 0, color: '#EF4444', p: 0.3 }}>✕</Button>
                   </Stack>
@@ -343,7 +348,7 @@ function FromPackageDialog({ onClose, onCreated, setError }: { onClose: () => vo
   };
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { background: '#0B1120', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 3 } }}>
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth slotProps={{ paper: { sx: { background: '#0B1120', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 3 } } }}>
       <DialogTitle sx={{ color: '#F1F5F9' }}>Реклама объекта из пакета</DialogTitle>
       <DialogContent>
         {loading ? <Box sx={{ textAlign: 'center', py: 4 }}><CircularProgress sx={{ color: GOLD }} /></Box>
@@ -360,7 +365,7 @@ function FromPackageDialog({ onClose, onCreated, setError }: { onClose: () => vo
               </Select>
             </FormControl>
             <TextField size="small" label="Номер объекта" value={objectRef} onChange={e => setObjectRef(e.target.value)} placeholder="№ 12345"
-              InputLabelProps={{ sx: { color: '#94A3B8' } }} sx={{ '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
+              slotProps={{ inputLabel: { sx: { color: '#94A3B8' } } }} sx={{ '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
             <TextField size="small" label="Комментарий" value={comment} onChange={e => setComment(e.target.value)} multiline minRows={2}
               slotProps={{ inputLabel: { shrink: true, sx: { color: '#94A3B8' } } }} sx={{ '& .MuiOutlinedInput-root': { color: '#E2E8F0' } }} />
             <Typography sx={{ color: '#64748B', fontSize: 12 }}>Квота спишется, когда отдел рекламы переведёт заявку в «Готово».</Typography>
@@ -394,7 +399,12 @@ function RequestDetail({ request, onClose }: { request: AdRequest; onClose: () =
   }, [request.id]);
   useEffect(() => { reload(); adRequestsApi.markRead(request.id).catch(() => {}); }, [reload, request.id]);
   useEffect(() => { if (connectPlatform === 'avito') adRequestsApi.meta().then(m => setAvitoUrl(m.avitoInviteUrl || '')).catch(() => {}); }, [connectPlatform]);
-  const markFilled = async () => { setFilledSaving(true); try { await adRequestsApi.connectFilled(request.id); reload(); } finally { setFilledSaving(false); } };
+  const markFilled = async () => {
+    setFilledSaving(true);
+    try { await adRequestsApi.connectFilled(request.id); reload(); }
+    catch { alert('Не удалось отправить «Я заполнил» — проверьте сеть и попробуйте ещё раз.'); }
+    finally { setFilledSaving(false); }
+  };
   // Поллинг чата — новые сообщения от отдела видны без переоткрытия.
   useEffect(() => {
     const iv = setInterval(() => { adRequestsApi.messages(request.id).then(setMessages).catch(() => {}); }, 4000);
@@ -432,7 +442,7 @@ function RequestDetail({ request, onClose }: { request: AdRequest; onClose: () =
   };
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { background: '#0B1120', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 3 } }}>
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth slotProps={{ paper: { sx: { background: '#0B1120', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 3 } } }}>
       <DialogTitle sx={{ color: '#F1F5F9', display: 'flex', alignItems: 'center', gap: 1 }}>
         {request.kind_label}
         <Chip label={AD_STATUS_RU[request.status]} size="small" sx={{ background: statusColor(request.status) + '22', color: statusColor(request.status), fontWeight: 700 }} />
@@ -507,7 +517,7 @@ function RequestDetail({ request, onClose }: { request: AdRequest; onClose: () =
             );
           })}
         </Box>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Tooltip title="Прикрепить файл (чек, скрин)">
             <IconButton component="label" disabled={uploading} sx={{ color: '#94A3B8', '&:hover': { color: GOLD } }}>
               {uploading ? <CircularProgress size={18} sx={{ color: GOLD }} /> : <AttachFileRoundedIcon />}
@@ -531,11 +541,14 @@ function Info({ label, value }: { label: string; value: string }) {
 export function AdPackagesTab() {
   const [drives, setDrives] = useState<Drive[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
-    adPackagesApi.drives().then(setDrives).finally(() => setLoading(false));
+    setLoadError(false);
+    // catch обязателен: без него ошибка сети молча показывала «Активных сборов нет».
+    adPackagesApi.drives().then(setDrives).catch(() => setLoadError(true)).finally(() => setLoading(false));
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -544,11 +557,16 @@ export function AdPackagesTab() {
 
   return (
     <Stack spacing={1.2}>
-      {drives.length === 0 && <Typography sx={{ color: '#64748B', py: 4, textAlign: 'center' }}>Активных сборов нет</Typography>}
+      {loadError && (
+        <Alert severity="error" action={<Button size="small" color="inherit" onClick={load}>Повторить</Button>}>
+          Не удалось загрузить сборы — проверьте сеть.
+        </Alert>
+      )}
+      {!loadError && drives.length === 0 && <Typography sx={{ color: '#64748B', py: 4, textAlign: 'center' }}>Активных сборов нет</Typography>}
       {drives.map(d => (
         <Card key={d.id} sx={{ ...cardSx, cursor: 'pointer', '&:hover': { borderColor: 'rgba(201,168,76,0.3)' } }} onClick={() => setOpenId(d.id)}>
           <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-            <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap" useFlexGap>
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }} useFlexGap>
               <Chip label={d.platform_label} size="small" sx={{ background: 'rgba(201,168,76,0.15)', color: GOLD, fontWeight: 700 }} />
               <Typography sx={{ color: '#F1F5F9', fontWeight: 700 }}>{d.title}</Typography>
               <Chip label={d.status === 'open' ? 'Открыт' : d.status === 'closed' ? 'Закрыт' : 'Оплачен'} size="small"
@@ -615,7 +633,7 @@ function DriveForm({ id, onBack }: { id: number; onBack: () => void }) {
   return (
     <Box>
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 2, flexWrap: 'wrap' }} useFlexGap>
         <Button onClick={onBack} sx={{ color: '#94A3B8' }}>← Назад</Button>
         <Chip label={drive.platform_label} size="small" sx={{ background: 'rgba(201,168,76,0.15)', color: GOLD, fontWeight: 700 }} />
         <Typography sx={{ color: '#F1F5F9', fontWeight: 800, fontSize: 18 }}>{drive.title}</Typography>
@@ -629,12 +647,12 @@ function DriveForm({ id, onBack }: { id: number; onBack: () => void }) {
             <Typography sx={{ color: '#94A3B8', fontSize: 13, mb: 1, fontWeight: 700 }}>Мои заявки в этом сборе</Typography>
             <Stack spacing={0.8}>
               {myEntries.map(e => (
-                <Stack key={e.id} direction="row" alignItems="center" spacing={1.5}>
+                <Stack key={e.id} direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
                   <Typography sx={{ color: '#E2E8F0', fontWeight: 600, minWidth: 130 }}>{e.city}</Typography>
                   <Typography sx={{ color: '#94A3B8', fontSize: 13 }}>{e.total_qty} квот</Typography>
                   <Typography sx={{ color: GOLD, fontWeight: 700 }}>{money(e.total_cost)} ₽</Typography>
                   <Chip label={e.paid ? 'оплачено' : 'ожидает оплаты'} size="small" sx={{ background: (e.paid ? '#22C55E' : '#F59E0B') + '22', color: e.paid ? '#22C55E' : '#F59E0B', fontWeight: 700 }} />
-                  {open && !e.paid && <Button size="small" sx={{ color: '#EF4444', textTransform: 'none' }} onClick={() => adPackagesApi.removeEntry(id, e.id).then(load)}>удалить</Button>}
+                  {open && !e.paid && <Button size="small" sx={{ color: '#EF4444', textTransform: 'none' }} onClick={() => adPackagesApi.removeEntry(id, e.id).then(load).catch(() => alert('Не удалось удалить — попробуйте ещё раз.'))}>удалить</Button>}
                 </Stack>
               ))}
             </Stack>
@@ -674,7 +692,7 @@ function DriveForm({ id, onBack }: { id: number; onBack: () => void }) {
                         <TableCell align="center" sx={{ color: price ? '#94A3B8' : '#475569' }}>{price ? money(price) + ' ₽' : 'нет цены'}</TableCell>
                         <TableCell align="center">
                           <TextField variant="standard" type="number" value={q || ''} onChange={e => setQty(prev => ({ ...prev, [c.key]: Math.max(0, parseInt(e.target.value) || 0) }))}
-                            inputProps={{ min: 0 }} sx={{ width: 64, '& input': { color: '#E2E8F0', textAlign: 'center' } }} disabled={!price} />
+                            slotProps={{ htmlInput: { min: 0 } }} sx={{ width: 64, '& input': { color: '#E2E8F0', textAlign: 'center' } }} disabled={!price} />
                         </TableCell>
                         <TableCell align="right" sx={{ color: q ? GOLD : '#475569', fontWeight: 600 }}>{q ? money(q * price) + ' ₽' : '—'}</TableCell>
                       </TableRow>
@@ -685,7 +703,7 @@ function DriveForm({ id, onBack }: { id: number; onBack: () => void }) {
             )}
 
             {city && (
-              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 2, p: 1.5, background: 'rgba(201,168,76,0.08)', borderRadius: 2 }}>
+              <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mt: 2, p: 1.5, background: 'rgba(201,168,76,0.08)', borderRadius: 2 }}>
                 <Typography sx={{ color: '#E2E8F0', fontWeight: 700 }}>Итого: {totalQty} квот</Typography>
                 <Typography sx={{ color: GOLD, fontWeight: 800, fontSize: 20 }}>{money(total)} ₽</Typography>
               </Stack>
@@ -730,7 +748,7 @@ export function AdActivePackages() {
         return (
           <Card key={p.entry_id} sx={{ ...cardSx }}>
             <CardContent sx={{ py: 1.8 }}>
-              <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
+              <Stack direction="row" spacing={1.5} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap', mb: 1.5 }}>
                 <Chip label={p.platform_label} size="small" sx={{ background: 'rgba(201,168,76,0.15)', color: GOLD, fontWeight: 700 }} />
                 {p.city && <Typography sx={{ color: '#E2E8F0', fontWeight: 600 }}>{p.city}</Typography>}
                 <Box sx={{ flex: 1 }} />
@@ -739,7 +757,7 @@ export function AdActivePackages() {
               </Stack>
               <Stack spacing={0.8}>
                 {p.items.map(it => (
-                  <Stack key={it.category_key} direction="row" alignItems="center" spacing={1} sx={{ borderTop: '1px solid rgba(148,163,184,0.08)', pt: 0.8 }}>
+                  <Stack key={it.category_key} direction="row" spacing={1} sx={{ alignItems: 'center', borderTop: '1px solid rgba(148,163,184,0.08)', pt: 0.8 }}>
                     <Typography sx={{ color: '#CBD5E1', fontSize: 13.5, flex: 1 }}>{it.category_label}</Typography>
                     <Typography sx={{ color: '#64748B', fontSize: 12 }}>куплено {it.bought} · списано {it.used}</Typography>
                     <Chip label={`осталось ${it.remaining}`} size="small" sx={{ background: (it.remaining > 0 ? '#22C55E' : '#64748B') + '22', color: it.remaining > 0 ? '#22C55E' : '#94A3B8', fontWeight: 800, minWidth: 96 }} />

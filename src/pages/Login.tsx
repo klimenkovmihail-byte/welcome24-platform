@@ -195,7 +195,7 @@ export default function Login() {
           backdropFilter: 'blur(30px)',
         }}>
           <CardContent sx={{ p: 4 }}>
-            <Typography variant="h6" fontWeight={700} sx={{ color: '#F1F5F9', mb: 0.5 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#F1F5F9', mb: 0.5 }}>
               Добро пожаловать
             </Typography>
             <Typography variant="body2" sx={{ color: '#64748B', mb: 3 }}>

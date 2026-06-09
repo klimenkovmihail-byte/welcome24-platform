@@ -14,7 +14,9 @@ const fmtCompact = (n: number) =>
 
 type SortKey = 'vkd' | 'deals';
 
-const YEARS = [2022, 2023, 2024, 2025, 2026];
+// Генерим от 2022 до текущего года: захардкоженный список «протухал» 1 января —
+// текущий год пропадал из фильтра (в Team.tsx годы уже генерятся так же).
+const YEARS = Array.from({ length: new Date().getFullYear() - 2021 }, (_, i) => 2022 + i);
 const MONTH_NAMES = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 
 /** null = накопительный за весь год */
@@ -248,7 +250,7 @@ export default function Rating() {
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                       {pos === 1 && (
                         <motion.div animate={{ rotate: [0, 5, -5, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}>
-                          <Typography fontSize={32}>👑</Typography>
+                          <Typography sx={{ fontSize: 32 }}>👑</Typography>
                         </motion.div>
                       )}
                       <Avatar sx={{
@@ -396,13 +398,6 @@ export default function Rating() {
           </Box>
           </Box>
 
-          {ranking.length > 5 && (
-            <Box sx={{ p: 2, textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-              <Typography variant="caption" sx={{ color: '#64748B' }}>
-                Показаны лучшие 5 из {ranking.length} активных агентов в этом периоде
-              </Typography>
-            </Box>
-          )}
         </CardContent>
       </Card>
     </Box>

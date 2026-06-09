@@ -66,7 +66,7 @@ export default function SubscriptionLockedView({ status, agentId, onUpdated }: P
             </Typography>
           </Box>
 
-          <Stack direction="row" spacing={1.5} justifyContent="center">
+          <Stack direction="row" spacing={1.5} sx={{ justifyContent: 'center' }}>
             <Button variant="contained" size="large" onClick={() => setOpen(true)}
               sx={{ background: '#EF4444', '&:hover': { background: '#DC2626' }, fontWeight: 700, px: 4 }}
             >

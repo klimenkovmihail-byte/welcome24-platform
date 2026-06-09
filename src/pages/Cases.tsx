@@ -87,15 +87,21 @@ export default function Cases({ track, initialOpenId }: { track?: TaskTrack; ini
         note: form.note.trim() || undefined,
         taskType: form.taskType as TaskType,
       });
-      // Прикрепляем документы, выбранные при создании.
+      // Прикрепляем документы, выбранные при создании. Неудавшиеся — собираем
+      // и показываем: раньше ошибка глоталась молча, и агент был уверен,
+      // что документы прикреплены.
+      const failed: string[] = [];
       for (const f of newFiles) {
         try { const up = await uploadCaseFile(f); await casesApi.addAttachment(created.id, { name: up.name, url: up.url, size: up.size }); }
-        catch { /* один файл не загрузился — заявка всё равно создана */ }
+        catch { failed.push(f.name); }
       }
       setOpen(false);
       setForm({ clientName: '', objectAddress: '', city: '', note: '', taskType: '' });
       setNewFiles([]);
       load();
+      if (failed.length) {
+        setError(`Заявка создана, но файлы не загрузились: ${failed.join(', ')}. Откройте заявку и прикрепите их заново.`);
+      }
     } catch (e) {
       setError((e as Error)?.message || 'Не удалось создать заявку');
     } finally {
@@ -388,7 +394,7 @@ export default function Cases({ track, initialOpenId }: { track?: TaskTrack; ini
               {newFiles.length > 0 && (
                 <Stack spacing={0.5} sx={{ mt: 0.5 }}>
                   {newFiles.map((f, i) => (
-                    <Stack key={i} direction="row" alignItems="center" spacing={1}>
+                    <Stack key={i} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                       <Typography variant="caption" sx={{ color: '#94A3B8', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</Typography>
                       <Button size="small" onClick={() => setNewFiles(prev => prev.filter((_, j) => j !== i))} sx={{ minWidth: 0, color: '#EF4444', p: 0.3 }}>✕</Button>
                     </Stack>

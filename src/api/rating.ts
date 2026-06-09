@@ -20,6 +20,8 @@ export interface RatingResponse {
   year: string | null;
   month: string | null;
   limit: number;
+  /** Сколько агентов с ВКД в периоде всего (без LIMIT) — для подписи «из N». */
+  total: number;
   agents: RatingAgent[];
 }
 

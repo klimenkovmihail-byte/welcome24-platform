@@ -116,7 +116,7 @@ export default function ImageCropper({ file, aspect = 16 / 9, open, onClose, onA
           )}
         </Box>
 
-        <Stack direction="row" alignItems="center" spacing={2} sx={{ mt: 2, px: 1 }}>
+        <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mt: 2, px: 1 }}>
           <ZoomInRoundedIcon sx={{ color: '#94A3B8' }} />
           <Slider
             value={zoom}
