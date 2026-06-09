@@ -829,12 +829,20 @@ function ChatTool({ tool, onBack, onUsageChange }: ChatProps) {
       .finally(() => setChatsLoading(false));
   }, [tool]);
 
-  // При смене активного чата — подгрузить сообщения.
+  // Актуальный id чата для защиты от гонок: ответы запросов, начатых для другого
+  // чата, не должны перетирать экран (генерация AI идёт 5-30с, за это время
+  // пользователь мог переключить диалог).
+  const activeChatIdRef = useRef<number | null>(null);
+
+  // При смене активного чата — подгрузить сообщения (с отменой устаревшего ответа).
   useEffect(() => {
+    activeChatIdRef.current = activeChatId;
     if (activeChatId == null) { setMessages([]); return; }
+    let cancelled = false;
     aiApi.getChat(activeChatId)
-      .then(full => setMessages(full.messages))
-      .catch(() => setMessages([]));
+      .then(full => { if (!cancelled) setMessages(full.messages); })
+      .catch(() => { if (!cancelled) setMessages([]); });
+    return () => { cancelled = true; };
   }, [activeChatId]);
 
   // Авто-скролл вниз при новых сообщениях.
@@ -895,7 +903,9 @@ function ChatTool({ tool, onBack, onUsageChange }: ChatProps) {
     setMessages(prev => [...prev, optimisticUser]);
     try {
       const r = await aiApi.sendMessage(chatId, text);
-      setMessages(r.chat.messages);
+      // Пока AI отвечал, пользователь мог переключиться на другой чат —
+      // тогда сообщения не перетираем (они от другого диалога).
+      if (chatId === activeChatIdRef.current) setMessages(r.chat.messages);
       // Бэк хранит только 5 последних — перезагружаем список целиком для синхронизации.
       const list = await aiApi.listChats(tool);
       setChats(list);

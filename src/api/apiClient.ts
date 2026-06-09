@@ -55,16 +55,13 @@ async function request<T>(method: string, path: string, body?: Json): Promise<T>
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (body !== undefined) headers['Content-Type'] = 'application/json';
 
-  // Авто-ретрай только для безопасных GET (повтор POST/PATCH мог бы создать дубль).
-  // Render на free/starter засыпает и просыпается ~30-60с, отдавая сетевую ошибку,
-  // зависание или 502/503/504. Повторяем с экспоненциальным backoff, а каждую
-  // попытку ограничиваем таймаутом (иначе зависший сокет висел бы «вечно»).
-  // Сетевой сбой/таймаут (запрос НЕ дошёл до сервера) ретраим для ЛЮБОГО метода —
-  // это безопасно (сервер ничего не обработал) и нужно для холодного старта Render,
-  // иначе первый POST (логин) падает «не удаётся подключиться». А вот HTTP 5xx
-  // (сервер мог обработать) ретраим только для идемпотентного GET — без дублей POST.
-  const retry5xx = method === 'GET';
-  const maxAttempts = 5;
+  // Авто-ретрай ТОЛЬКО для идемпотентных GET (сеть/таймаут/5xx — с backoff).
+  // POST/PATCH/DELETE не ретраим вообще: при таймауте клиент обрывает запрос у себя,
+  // но сервер мог его получить и обработать — повтор создаёт дубли (заявки на оплату,
+  // сообщения, записи в истории). Раньше не-GET ретраился «для холодного старта
+  // Render»; теперь бэк на собственном VPS без холодных стартов — причина отпала.
+  const retryable = method === 'GET';
+  const maxAttempts = retryable ? 5 : 1;
   const ATTEMPT_TIMEOUT = 15000;               // мс на одну попытку
   const backoff = (n: number) => Math.min(800 * 2 ** (n - 1), 4000);
 
@@ -91,8 +88,8 @@ async function request<T>(method: string, path: string, body?: Json): Promise<T>
       clearTimeout(timer);
     }
 
-    // Сервер перезапускается/просыпается — повторяем (только идемпотентный GET).
-    if (retry5xx && [502, 503, 504].includes(res.status) && attempt < maxAttempts) {
+    // Сервер перезапускается (деплой) — повторяем (только идемпотентный GET).
+    if (retryable && [502, 503, 504].includes(res.status) && attempt < maxAttempts) {
       await sleep(backoff(attempt));
       continue;
     }

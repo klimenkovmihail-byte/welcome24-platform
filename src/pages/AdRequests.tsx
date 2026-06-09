@@ -13,7 +13,7 @@ import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
 import { API_BASE_URL, getToken } from '../api/apiClient';
 import {
   adRequestsApi, type AdRequest, type AdKind, type AdPlatform, type AdMeta,
-  type AdMessage, type AdEvent, AD_STATUS_RU, PLATFORM_LABEL,
+  type AdMessage, type AdEvent, type AdStatus, AD_STATUS_RU, PLATFORM_LABEL,
 } from '../api/adRequests';
 import {
   adPackagesApi, PKG_PLATFORM_LABEL, type Drive, type DriveDetailAgent, type Platform, type ActivePackage,
@@ -423,9 +423,11 @@ function RequestDetail({ request, onClose }: { request: AdRequest; onClose: () =
     catch { /* tolerate */ } finally { setUploading(false); e.target.value = ''; }
   };
   const send = async () => {
-    if (!text.trim()) return;
+    // sending в guard'е: Enter не проверяет disabled кнопки → без него дубли сообщений.
+    if (!text.trim() || sending) return;
     setSending(true);
     try { await adRequestsApi.sendMessage(request.id, { body: text.trim() }); setText(''); reload(); }
+    catch { /* ошибка сети — текст остаётся в поле, можно повторить */ }
     finally { setSending(false); }
   };
 
@@ -576,9 +578,15 @@ function DriveForm({ id, onBack }: { id: number; onBack: () => void }) {
   useEffect(() => { load(); }, [load]);
 
   // При выборе города — подтягиваем цены площадки и считаем суммы live.
+  // cancelled-флаг: без него поздний ответ по СТАРОМУ городу перетирал цены нового —
+  // агент видел «Итого» по чужому городу и подавал заявку с неверной суммой на экране.
   useEffect(() => {
     if (!drive || !city) { setPrices({}); return; }
-    adPackagesApi.cityPrices(drive.platform as Platform, city).then(setPrices).catch(() => setPrices({}));
+    let cancelled = false;
+    adPackagesApi.cityPrices(drive.platform as Platform, city)
+      .then(p => { if (!cancelled) setPrices(p); })
+      .catch(() => { if (!cancelled) setPrices({}); });
+    return () => { cancelled = true; };
   }, [drive, city]);
 
   const total = useMemo(() => {

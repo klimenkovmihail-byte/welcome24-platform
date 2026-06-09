@@ -23,10 +23,15 @@ export default function Layout({ children }: LayoutProps) {
   const [subStatus, setSubStatus] = useState<SubscriptionStatus | null>(null);
   const agent = getCurrentAgent();
 
+  // Деп — примитив agent?.id, НЕ объект agent: getCurrentAgent() парсит localStorage
+  // и возвращает новый объект на каждый рендер. С депом [agent] reload пересоздавался
+  // каждый рендер → useEffect ниже стрелял после каждого рендера → setSubStatus →
+  // новый рендер → бесконечный цикл запросов /api/subscription/me (~9 rps с клиента).
+  const agentId = agent?.id;
   const reload = useCallback(() => {
-    if (!agent) return;
+    if (!agentId) return;
     subscriptionApi.me().then(setSubStatus).catch(() => { /* tolerate */ });
-  }, [agent]);
+  }, [agentId]);
 
   useEffect(() => {
     reload();

@@ -69,7 +69,8 @@ export default function CaseChat({ caseId, myId, fillHeight }: { caseId: number;
 
   const send = async () => {
     const body = text.trim();
-    if (!body && !pending) return;
+    // busy в guard'е: Enter не проверяет disabled кнопки → без него дубли при автоповторе клавиши.
+    if ((!body && !pending) || busy) return;
     setBusy(true);
     try {
       const msg = await casesApi.sendMessage(caseId, {

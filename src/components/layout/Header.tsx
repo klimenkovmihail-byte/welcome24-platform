@@ -51,7 +51,8 @@ function relativeTime(iso: string): string {
   if (diff < 3_600_000)     return `${Math.floor(diff / 60_000)} мин назад`;
   if (diff < 86_400_000)    return `${Math.floor(diff / 3_600_000)} ч назад`;
   if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)} дн назад`;
-  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  // Из t, не из сырого iso: "YYYY-MM-DD HH:MM:SS" Safari не парсит (Invalid Date).
+  return new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
 
 const typeConfig: Record<string, { icon: React.ReactNode; color: string }> = {

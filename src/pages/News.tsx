@@ -12,7 +12,6 @@ import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineR
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
-import { currentUser } from '../data/mockData';
 import { newsApi, type NewsArticle, type NewsComment } from '../api/news';
 import { getCurrentAgent } from '../auth/auth';
 import CoverImage from '../components/CoverImage';
@@ -202,7 +201,8 @@ export default function News() {
   };
 
   const sendComment = async () => {
-    if (!openArticle || !newComment.trim()) return;
+    // sending в guard'е — иначе двойной клик/повторный Ctrl+Enter шлёт комментарий дважды.
+    if (!openArticle || !newComment.trim() || sending) return;
     const text = newComment.trim();
     setSending(true);
     try {
@@ -491,7 +491,7 @@ export default function News() {
                 {/* Composer */}
                 <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', mt: 2 }}>
                   <Avatar sx={{ width: 32, height: 32, fontSize: 11, fontWeight: 700, background: 'linear-gradient(135deg, #C9A84C, #E2C97E)', color: '#0A0E1A', flexShrink: 0 }}>
-                    {currentUser.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                    {(getCurrentAgent()?.name || 'А').split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('')}
                   </Avatar>
                   <TextField
                     fullWidth multiline maxRows={4} size="small"
@@ -507,7 +507,7 @@ export default function News() {
                   />
                   <Button
                     onClick={sendComment}
-                    disabled={!newComment.trim()}
+                    disabled={!newComment.trim() || sending}
                     variant="contained"
                     sx={{ minWidth: 0, px: 1.5, py: 1, alignSelf: 'stretch' }}
                   >

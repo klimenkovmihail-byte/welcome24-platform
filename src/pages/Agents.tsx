@@ -22,7 +22,7 @@ import WorkRoundedIcon from '@mui/icons-material/WorkRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import YouTubeIcon from '@mui/icons-material/YouTube';
-import { currentUser, type AgentBaseRecord, type AgentReview } from '../data/mockData';
+import { type AgentBaseRecord, type AgentReview } from '../data/mockData';
 import { agentsApi } from '../api/agents';
 import { getCurrentAgent } from '../auth/auth';
 import type { Agent } from '../types/api';
@@ -209,10 +209,12 @@ export default function Agents() {
     try {
       await agentsApi.createReview(openAgent.id, composerRating!, composerText.trim());
       // Отзыв ушёл, но он pending — модерация. Локально показываем мгновенно.
-      const initials = currentUser.name.split(' ').map(n => n[0]).slice(0, 2).join('');
+      // Имя — реального залогиненного агента (раньше тут был мок из mockData).
+      const meName = getCurrentAgent()?.name || 'Вы';
+      const initials = meName.split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('');
       const optimistic: AgentReview = {
         id: Date.now(),
-        author: currentUser.name.split(' ').slice(0, 2).join(' '),
+        author: meName.split(' ').slice(0, 2).join(' '),
         initials,
         rating: composerRating as 1 | 2 | 3 | 4 | 5,
         date: new Date().toISOString().slice(0, 10),
@@ -543,7 +545,7 @@ export default function Agents() {
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1.5, flexWrap: 'wrap', gap: 1 }}>
                     <Typography variant="caption" sx={{ color: '#64748B' }}>
-                      Отзыв публикуется от имени <b style={{ color: '#C9A84C' }}>{currentUser.name.split(' ').slice(0, 2).join(' ')}</b>
+                      Отзыв публикуется от имени <b style={{ color: '#C9A84C' }}>{(getCurrentAgent()?.name || 'Вы').split(' ').slice(0, 2).join(' ')}</b>
                     </Typography>
                     <Button
                       variant="contained"

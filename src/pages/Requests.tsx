@@ -18,10 +18,13 @@ import { STATUS_RU, type CaseItem } from '../api/cases';
 import { AD_STATUS_RU, type AdRequest } from '../api/adRequests';
 
 // Относительное время для списка обращений.
+// SQLite отдаёт "YYYY-MM-DD HH:MM:SS" в UTC без TZ: без 'Z' Chrome парсит как локальное
+// время (свежее обращение показывало «3 ч назад»), а Safari вообще не парсит.
 function fmtWhen(iso?: string): string {
   if (!iso) return '';
-  const d = new Date(iso).getTime();
-  if (!d) return '';
+  const norm = iso.includes('T') || iso.includes('Z') ? iso : iso.replace(' ', 'T') + 'Z';
+  const d = new Date(norm).getTime();
+  if (!Number.isFinite(d)) return '';
   const mins = Math.floor((Date.now() - d) / 60000);
   if (mins < 1) return 'только что';
   if (mins < 60) return `${mins} мин назад`;
@@ -29,7 +32,7 @@ function fmtWhen(iso?: string): string {
   if (hrs < 24) return `${hrs} ч назад`;
   const days = Math.floor(hrs / 24);
   if (days < 30) return `${days} дн назад`;
-  return new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  return new Date(d).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
 const STATUS_COLOR: Record<string, string> = {
