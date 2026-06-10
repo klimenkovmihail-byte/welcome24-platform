@@ -40,6 +40,7 @@ interface NotifUi {
   desc: string;
   time: string;
   unread: boolean;
+  link: string | null;
 }
 
 function relativeTime(iso: string): string {
@@ -124,6 +125,7 @@ export default function Header({ currentPath, isMobile = false, onMenuClick }: H
           desc: n.description,
           time: relativeTime(n.createdAt),
           unread: !n.readAt,
+          link: n.link,
         })));
       })
       .catch(() => { /* tolerate */ });
@@ -133,6 +135,22 @@ export default function Header({ currentPath, isMobile = false, onMenuClick }: H
   const handleMarkAllRead = () => {
     setNotifs(prev => prev.map(n => ({ ...n, unread: false })));
     notificationsApi.markAllRead().catch(() => { /* tolerate */ });
+  };
+
+  // Клик по уведомлению: проваливаемся по ссылке (новость / заявка / пакет / сделка)
+  // и отмечаем это уведомление прочитанным. Раньше клик ничего не делал.
+  const handleNotifClick = (n: NotifUi) => {
+    setNotifAnchor(null);
+    if (n.unread) {
+      setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, unread: false } : x));
+      notificationsApi.markRead(n.id).catch(() => { /* tolerate */ });
+    }
+    if (n.link) {
+      // В БД лежит относительный путь ('/cases?open=5'); на всякий случай поддержим и полный URL.
+      let to = n.link;
+      if (/^https?:\/\//.test(to)) { try { const u = new URL(to); to = u.pathname + u.search; } catch { /* ignore */ } }
+      navigate(to);
+    }
   };
 
   const handleLogout = () => {
@@ -264,7 +282,7 @@ export default function Header({ currentPath, isMobile = false, onMenuClick }: H
             {notifs.map((n) => {
               const cfg = typeConfig[n.type] || defaultTypeCfg;
               return (
-                <ListItem key={n.id} sx={{
+                <ListItem key={n.id} onClick={() => handleNotifClick(n)} sx={{
                   px: 2, py: 1.5,
                   borderBottom: '1px solid rgba(255,255,255,0.03)',
                   background: n.unread ? 'rgba(201,168,76,0.04)' : 'transparent',

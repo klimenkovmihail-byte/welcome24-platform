@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Box, Card, CardContent, Typography, Chip, Grid, Avatar, alpha, TextField, InputAdornment,
   Dialog, DialogContent, IconButton, Divider, Button, CircularProgress, Alert, Tooltip,
@@ -127,6 +128,7 @@ export default function News() {
 
   const me = getCurrentAgent();
   const meId = typeof me?.id === 'number' ? me.id : null;
+  const location = useLocation();
 
   useEffect(() => {
     let cancelled = false;
@@ -137,6 +139,13 @@ export default function News() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
+
+  // Deep-link из колокольчика/пуша: /news?open=<id> → открыть саму статью.
+  useEffect(() => {
+    if (!newsArticles.length) return;
+    const openParam = Number(new URLSearchParams(location.search).get('open'));
+    if (openParam && newsArticles.some(a => a.id === openParam)) setOpenId(openParam);
+  }, [newsArticles, location.search]);
 
   // При открытии статьи — подтянуть её комменты с бэка и +1 к просмотру.
   useEffect(() => {

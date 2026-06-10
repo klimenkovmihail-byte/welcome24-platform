@@ -133,13 +133,11 @@ function SocialsRow({ agent, size = 'small' }: SocialsRowProps) {
 }
 
 export default function Agents() {
-  // Список агентов через react-query (кэш на возврат). Себя скрываем — «база остальных».
+  // Список агентов через react-query (кэш на возврат). Себя НЕ скрываем —
+  // иначе агент не может найти себя в базе (искал свою фамилию → 0 результатов).
   const agentsQ = useAgents({ status: 'active', role: 'agent' });
   const agentsBase = useMemo<BaseRecord[]>(() => {
-    const list = agentsQ.data ?? [];
-    const meId = typeof getCurrentAgent()?.id === 'number' ? (getCurrentAgent()!.id as number) : null;
-    const visible = meId != null ? list.filter(a => a.id !== meId) : list;
-    return visible.map(toBaseRecord);
+    return (agentsQ.data ?? []).map(toBaseRecord);
   }, [agentsQ.data]);
   const loading = agentsQ.isLoading;
   const error = agentsQ.error as Error | null;
