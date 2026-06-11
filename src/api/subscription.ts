@@ -48,6 +48,9 @@ export const subscriptionApi = {
   me:    () => api.get<SubscriptionStatus>('/api/subscription/me'),
   claim: (period: string) =>
     api.post<{ id: number; period: string; status: string }>('/api/subscription/claim', { period }),
+  // Ссылка на оплату с ФИО агента в описании (создаётся через ЮKassa API на бэке).
+  payLink: (period: string, amount: number) =>
+    api.get<{ url: string }>(`/api/subscription/pay-link?period=${period}&amount=${amount}`),
 };
 
 // Базовая ссылка YooKassa (твоя статическая платёжная ссылка).

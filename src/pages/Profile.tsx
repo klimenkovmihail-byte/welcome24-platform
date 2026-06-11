@@ -2,8 +2,11 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Box, Card, CardContent, Typography, Avatar, Chip, Grid, Divider, Button,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, Stack, IconButton, Alert, Tooltip,
-  CircularProgress,
+  CircularProgress, FormGroup, FormControlLabel, Checkbox,
 } from '@mui/material';
+
+// Типы недвижимости, которыми занимается агент (галочки в профиле → база агентов).
+export const PROPERTY_TYPES = ['Вторичная', 'Первичная', 'Аренда', 'Коммерческая'];
 import { motion } from 'framer-motion';
 import SmartAvatar from '../components/SmartAvatar';
 import LocationOnRoundedIcon from '@mui/icons-material/LocationOnRounded';
@@ -132,7 +135,7 @@ export default function Profile() {
 
   const [form, setForm] = useState({
     name: '', email: '', phone: '', city: '',
-    specialization: '',
+    specialization: [] as string[],
     experienceYears: '',
     bio: '',
     photo: '' as string | null,
@@ -187,7 +190,7 @@ export default function Profile() {
       email: currentUser.email,
       phone: currentUser.phone || '',
       city: currentUser.city || '',
-      specialization: (currentUser.specialization || []).join(', '),
+      specialization: currentUser.specialization || [],
       experienceYears: String((currentUser as { experience_years?: number; experienceYears?: number }).experience_years
         ?? (currentUser as { experienceYears?: number }).experienceYears ?? ''),
       bio: (currentUser as { bio?: string }).bio || '',
@@ -285,7 +288,7 @@ export default function Profile() {
         photo: form.photo || null,
         bio: form.bio,
         experienceYears: Math.max(0, parseInt(form.experienceYears, 10) || 0),
-        specialization: form.specialization.split(',').map(s => s.trim()).filter(Boolean),
+        specialization: form.specialization,
         socials: {
           telegram: form.telegram || undefined,
           telegramChannel: form.telegramChannel || undefined,
@@ -896,7 +899,32 @@ export default function Profile() {
               onChange={e => setForm(f => ({ ...f, experienceYears: e.target.value }))}
               slotProps={{ htmlInput: { min: 0, max: 60 } }}
               helperText="Виден в Базе агентов" />
-            <TextField fullWidth size="small" label="Специализация (через запятую)" value={form.specialization} onChange={e => setForm(f => ({ ...f, specialization: e.target.value }))} />
+            <Box>
+              <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 700, display: 'block', mb: 0.5 }}>
+                Чем занимаетесь (видно в Базе агентов)
+              </Typography>
+              <FormGroup row>
+                {PROPERTY_TYPES.map(t => (
+                  <FormControlLabel
+                    key={t}
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={form.specialization.includes(t)}
+                        onChange={e => setForm(f => ({
+                          ...f,
+                          specialization: e.target.checked
+                            ? [...f.specialization, t]
+                            : f.specialization.filter(s => s !== t),
+                        }))}
+                        sx={{ color: '#C9A84C', '&.Mui-checked': { color: '#C9A84C' } }}
+                      />
+                    }
+                    label={<Typography variant="body2">{t}</Typography>}
+                  />
+                ))}
+              </FormGroup>
+            </Box>
 
             <Divider sx={{ borderColor: 'rgba(201,168,76,0.1)', my: 1 }}>
               <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 700, letterSpacing: '0.05em' }}>СОЦСЕТИ И МЕССЕНДЖЕРЫ</Typography>

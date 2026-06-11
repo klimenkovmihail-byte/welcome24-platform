@@ -28,11 +28,12 @@ import { getCurrentAgent } from '../auth/auth';
 import type { Agent } from '../types/api';
 
 const dirColors: Record<string, string> = {
-  'Жилая': '#4361EE',
+  'Вторичная': '#4361EE',
+  'Первичная': '#22C55E',
+  'Аренда': '#A855F7',
   'Коммерческая': '#F59E0B',
-  'Загородная': '#22C55E',
 };
-const directions = ['Все направления', 'Жилая', 'Коммерческая', 'Загородная'];
+const directions = ['Все направления', 'Вторичная', 'Первичная', 'Аренда', 'Коммерческая'];
 
 function pluralDeals(n: number): string {
   const mod10 = n % 10;
@@ -46,7 +47,7 @@ type BaseRecord = AgentBaseRecord & { reviewsCount: number };
 
 /** Адаптер: бэковый Agent → формат базы агентов на портале. */
 function toBaseRecord(a: Agent): BaseRecord {
-  const primary = a.specialization.length > 0 ? a.specialization : ['Жилая'];
+  const primary = a.specialization;
   return {
     id: a.id,
     name: a.name,
@@ -180,7 +181,7 @@ export default function Agents() {
   const filtered = useMemo(() => {
     const q = deferredSearch.toLowerCase();
     return agentsBase.filter(a =>
-      (a.name.toLowerCase().includes(q) || a.city.toLowerCase().includes(q)) &&
+      (a.name.toLowerCase().includes(q) || a.city.toLowerCase().includes(q) || [...a.primaryDir, ...a.secondaryDir].some(d => d.toLowerCase().includes(q))) &&
       (city === 'Все города' || a.city === city) &&
       (direction === 'Все направления' || [...a.primaryDir, ...a.secondaryDir].includes(direction))
     );

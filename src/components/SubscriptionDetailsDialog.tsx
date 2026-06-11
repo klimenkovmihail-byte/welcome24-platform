@@ -54,10 +54,18 @@ export default function SubscriptionDetailsDialog({ open, onClose, status, agent
   const [error, setError] = useState<string | null>(null);
   const [paymentOpened, setPaymentOpened] = useState<Set<string>>(new Set());
 
-  const handleOpenPayment = (period: string) => {
-    const url = buildYookassaUrl(agentId, period, status.fee);
-    window.open(url, '_blank', 'noopener,noreferrer');
+  const handleOpenPayment = async (period: string) => {
+    // Открываем вкладку синхронно (иначе popup-блокер срежет после await),
+    // затем подставляем ссылку с ФИО из ЮKassa API (fallback — статическая).
+    const w = window.open('about:blank', '_blank');
     setPaymentOpened(prev => new Set(prev).add(period));
+    let url: string;
+    try {
+      url = (await subscriptionApi.payLink(period, status.fee)).url;
+    } catch {
+      url = buildYookassaUrl(agentId, period, status.fee);
+    }
+    if (w) w.location.href = url; else window.location.href = url;
   };
 
   const handleClaim = async (period: string) => {
