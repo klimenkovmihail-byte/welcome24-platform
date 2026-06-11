@@ -14,6 +14,7 @@ import DoneAllRoundedIcon from '@mui/icons-material/DoneAllRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import { motion } from 'framer-motion';
 import { getCurrentAgent, openAdminPanel, logoutAgent } from '../../auth/auth';
+import SmartAvatar from '../SmartAvatar';
 import { notificationsApi, type Notification as ApiNotification } from '../../api/notifications';
 import { sharesApi } from '../../api/shares';
 import { formatMoney } from '../../utils/format';
@@ -81,7 +82,6 @@ export default function Header({ currentPath, isMobile = false, onMenuClick }: H
   const user = getCurrentAgent();
   // For demo: show "Admin panel" button if no user logged in too (CEO testing flow)
   const isAdmin = !user || user.role === 'admin';
-  const initials = (user?.name || '').trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase() || '—';
   // Дашборд показывает сегодняшнюю дату (раньше была захардкожена).
   const subtitle = currentPath === '/dashboard'
     ? (() => { const d = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); return d.charAt(0).toUpperCase() + d.slice(1); })()
@@ -330,14 +330,17 @@ export default function Header({ currentPath, isMobile = false, onMenuClick }: H
               {user?.email || ''}
             </Typography>
           </Box>
-          <Avatar sx={{
-            width: 36, height: 36, fontSize: 13, fontWeight: 800,
-            background: 'linear-gradient(135deg, #C9A84C, #E2C97E)',
-            color: '#0A0E1A',
-            border: '2px solid rgba(201,168,76,0.3)',
-          }}>
-            {initials}
-          </Avatar>
+          <SmartAvatar
+            src={(user?.photo as string | null) || null}
+            name={user?.name || ''}
+            size={36}
+            fontSize={13}
+            sx={{
+              background: 'linear-gradient(135deg, #C9A84C, #E2C97E)',
+              color: '#0A0E1A',
+              border: '2px solid rgba(201,168,76,0.3)',
+            }}
+          />
         </Box>
 
         {/* User menu */}

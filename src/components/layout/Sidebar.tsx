@@ -20,6 +20,7 @@ import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
 import Logo, { LogoIcon } from '../Logo';
 import { logoutAgent, getCurrentAgent, isPortalPathAllowed } from '../../auth/auth';
+import SmartAvatar from '../SmartAvatar';
 import { useRequestsData } from '../../hooks/useRequestsData';
 
 const navItems = [
@@ -58,6 +59,7 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
   const agent = getCurrentAgent();
   const userName = agent?.name || 'Агент';
   const userLevel = Number(agent?.level) || 1;
+  const userPhoto = (agent?.photo as string | null) || null;
 
   // Бейдж непрочитанного на «Заявки» — из общего singleton-поллера (один цикл на всё
   // приложение, пауза при скрытой вкладке).
@@ -171,13 +173,10 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
               cursor: 'pointer', '&:hover': { background: 'rgba(201,168,76,0.1)' },
               transition: 'all 0.2s',
             }} onClick={() => handleNav('/profile')}>
-              <Avatar sx={{
-                width: 36, height: 36, fontSize: 14, fontWeight: 700,
+              <SmartAvatar src={userPhoto} name={userName} size={36} fontSize={14} sx={{
                 background: `linear-gradient(135deg, ${getLevelColor(userLevel)}, ${alpha(getLevelColor(userLevel), 0.6)})`,
                 color: '#0A0E1A',
-              }}>
-                {userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-              </Avatar>
+              }} />
               <Box sx={{ flex: 1, overflow: 'hidden' }}>
                 <Typography variant="caption" sx={{ fontWeight: 700, color: '#F1F5F9', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {userName.split(' ')[0]} {userName.split(' ')[1]}
@@ -187,13 +186,12 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
             </Box>
           ) : (
             <Tooltip title="Профиль" placement="right">
-              <Avatar onClick={() => handleNav('/profile')} sx={{
-                width: 40, height: 40, fontSize: 14, fontWeight: 700, mx: 'auto', cursor: 'pointer',
-                background: `linear-gradient(135deg, ${getLevelColor(userLevel)}, ${alpha(getLevelColor(userLevel), 0.6)})`,
-                color: '#0A0E1A',
-              }}>
-                {userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-              </Avatar>
+              <Box onClick={() => handleNav('/profile')} sx={{ mx: 'auto', cursor: 'pointer', width: 40 }}>
+                <SmartAvatar src={userPhoto} name={userName} size={40} fontSize={14} sx={{
+                  background: `linear-gradient(135deg, ${getLevelColor(userLevel)}, ${alpha(getLevelColor(userLevel), 0.6)})`,
+                  color: '#0A0E1A',
+                }} />
+              </Box>
             </Tooltip>
           )}
 
