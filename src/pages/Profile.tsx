@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 
 // Типы недвижимости, которыми занимается агент (галочки в профиле → база агентов).
-export const PROPERTY_TYPES = ['Вторичная', 'Первичная', 'Аренда', 'Коммерческая'];
+export const PROPERTY_TYPES = ['Вторичная', 'Первичная', 'Аренда', 'Коммерческая', 'Загородная'];
 import { motion } from 'framer-motion';
 import SmartAvatar from '../components/SmartAvatar';
 import LocationOnRoundedIcon from '@mui/icons-material/LocationOnRounded';

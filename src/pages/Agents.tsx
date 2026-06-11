@@ -32,8 +32,9 @@ const dirColors: Record<string, string> = {
   'Первичная': '#22C55E',
   'Аренда': '#A855F7',
   'Коммерческая': '#F59E0B',
+  'Загородная': '#14B8A6',
 };
-const directions = ['Все направления', 'Вторичная', 'Первичная', 'Аренда', 'Коммерческая'];
+const directions = ['Все направления', 'Вторичная', 'Первичная', 'Аренда', 'Коммерческая', 'Загородная'];
 
 function pluralDeals(n: number): string {
   const mod10 = n % 10;
@@ -270,17 +271,18 @@ export default function Agents() {
             const initials = agent.name.split(' ').map(n => n[0]).join('').slice(0, 2);
             const totalReviews = agent.reviewsCount;
             return (
-              <Grid size={{ xs: 12, sm: 6, lg: 4, xl: 3 }} key={agent.id}>
-                <motion.div whileHover={{ y: -4 }}>
+              <Grid size={{ xs: 12, sm: 6, lg: 4, xl: 3 }} key={agent.id} sx={{ display: 'flex' }}>
+                <motion.div whileHover={{ y: -4 }} style={{ width: '100%', display: 'flex' }}>
                   <Card
                     onClick={() => setOpenId(agent.id)}
                     sx={{
-                      cursor: 'pointer',
+                      cursor: 'pointer', width: '100%', height: '100%',
+                      display: 'flex', flexDirection: 'column',
                       '&:hover': { border: '1px solid rgba(201,168,76,0.25)', boxShadow: '0 12px 32px rgba(0,0,0,0.4)' },
                       transition: 'all 0.3s',
                     }}
                   >
-                    <CardContent sx={{ p: 3 }}>
+                    <CardContent sx={{ p: 3, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
                       {/* Avatar / Photo */}
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                         <SmartAvatar
@@ -349,7 +351,9 @@ export default function Agents() {
                         ))}
                       </Box>
 
-                      <SocialsRow agent={agent} />
+                      <Box sx={{ mt: 'auto' }}>
+                        <SocialsRow agent={agent} />
+                      </Box>
                     </CardContent>
                   </Card>
                 </motion.div>
