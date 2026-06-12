@@ -16,7 +16,7 @@ import { Link } from '@mui/material';
 import { casesApi, type CaseItem, type TaskTypeMeta, type TaskType, type TaskTrack, STATUS_RU } from '../api/cases';
 import { API_BASE_URL, getToken } from '../api/apiClient';
 import { getCurrentAgent } from '../auth/auth';
-import CaseChat from '../components/CaseChat';
+import Thread from '../components/Thread';
 import CaseTimeline from '../components/CaseTimeline';
 
 // Загрузка файла в Yandex Storage через /api/upload.
@@ -398,7 +398,7 @@ export default function Cases({ track, initialOpenId }: { track?: TaskTrack; ini
                 <Box sx={{ display: 'flex', flexDirection: 'column', p: 2, minHeight: 0, borderTop: { xs: '1px solid rgba(201,168,76,0.08)', md: 'none' } }}>
                   <Typography variant="caption" sx={{ color: '#64748B', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em', display: 'block', mb: 1 }}>Обсуждение со специалистом</Typography>
                   <Box sx={{ flex: 1, minHeight: { xs: 420, md: 0 } }}>
-                    <CaseChat caseId={detail.id} myId={myId} fillHeight />
+                    <Thread apiBase={`/cases/${detail.id}`} myId={myId} fillHeight emptyText="Сообщений пока нет. Напишите специалисту." />
                   </Box>
                 </Box>
               </Box>
