@@ -17,6 +17,7 @@ import { openAdminPanel, logoutAgent } from '../../auth/auth';
 import SmartAvatar from '../SmartAvatar';
 import { useMe } from '../../hooks/useMe';
 import { notificationsApi, type Notification as ApiNotification } from '../../api/notifications';
+import { sseSubscribe } from '../../lib/sse';
 import { sharesApi } from '../../api/shares';
 import { formatMoney } from '../../utils/format';
 
@@ -116,21 +117,26 @@ export default function Header({ currentPath, isMobile = false, onMenuClick }: H
 
   useEffect(() => {
     let cancelled = false;
-    notificationsApi.list()
-      .then(rows => {
-        if (cancelled) return;
-        setNotifs(rows.map(n => ({
-          id: n.id,
-          type: n.type,
-          title: n.title,
-          desc: n.description,
-          time: relativeTime(n.createdAt),
-          unread: !n.readAt,
-          link: n.link,
-        })));
-      })
-      .catch(() => { /* tolerate */ });
-    return () => { cancelled = true; };
+    const load = () => {
+      notificationsApi.list()
+        .then(rows => {
+          if (cancelled) return;
+          setNotifs(rows.map(n => ({
+            id: n.id,
+            type: n.type,
+            title: n.title,
+            desc: n.description,
+            time: relativeTime(n.createdAt),
+            unread: !n.readAt,
+            link: n.link,
+          })));
+        })
+        .catch(() => { /* tolerate */ });
+    };
+    load();
+    // SSE: колокол оживает мгновенно при новом уведомлении (раньше — до перезагрузки).
+    const off = sseSubscribe('notify', load);
+    return () => { cancelled = true; off(); };
   }, []);
 
   const handleMarkAllRead = () => {
