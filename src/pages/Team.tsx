@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, Grid, Avatar, LinearProgress, Tooltip, IconButton,
   Table, TableHead, TableRow, TableCell, TableBody, Divider, ToggleButtonGroup, ToggleButton,
@@ -12,8 +12,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
-import { teamApi, type TeamMember, type TeamLevelStats, type MarketingPlanLevel, type TeamHistoryEntry } from '../api/team';
-import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
+import { type TeamMember, type TeamLevelStats, type MarketingPlanLevel } from '../api/team';
 import { Tabs, Tab } from '@mui/material';
 import { CircularProgress, Alert, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
 import { PageSkeleton } from '../components/States';
@@ -120,135 +119,15 @@ export default function Team() {
   const [expandedLevel, setExpandedLevel] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'levels' | 'agents'>('levels');
 
-  // Главная вкладка: «Текущая команда» или «История подопечных»
-  const [mainTab, setMainTab] = useState<'team' | 'history'>('team');
-  const [historyEntries, setHistoryEntries] = useState<TeamHistoryEntry[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-
-  useEffect(() => {
-    if (mainTab !== 'history') return;
-    let cancelled = false;
-    setHistoryLoading(true);
-    teamApi.history()
-      .then(h => { if (!cancelled) setHistoryEntries(h); })
-      .catch(() => { if (!cancelled) setHistoryEntries([]); })
-      .finally(() => { if (!cancelled) setHistoryLoading(false); });
-    return () => { cancelled = true; };
-  }, [mainTab]);
-
-  // Сумма доходов агентов за все периоды когда они были под target'ом
-  const historyTotals = useMemo(() => ({
-    count: historyEntries.length,
-    uniqueAgents: new Set(historyEntries.map(h => h.agentId)).size,
-    totalVkd: historyEntries.reduce((s, h) => s + h.periodVkd, 0),
-    totalIncome: historyEntries.reduce((s, h) => s + h.periodIncome, 0),
-  }), [historyEntries]);
-
   // Все агенты команды, отсортированные для табличного вида.
   const agentStats = useMemo(
     () => [...teamAgents].sort((a, b) => a.teamLevel - b.teamLevel || b.vkd - a.vkd),
     [teamAgents],
   );
 
-  // Помощник: цвет статуса агента в истории
-  const statusColor = (status: string) => status === 'active' ? '#22C55E' : '#94A3B8';
-  const fmtRu = (n: number) => n.toLocaleString('ru-RU');
 
   return (
     <Box>
-      {/* Вкладка «История подопечных» убрана — это инфа для админа,
-          доступна в админке /agents через модалку «История менторов». */}
-
-      {false && mainTab === 'history' && (
-        <Box>
-          <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-            <Box sx={{ flex: '1 1 200px', p: 2.5, borderRadius: 3, background: 'linear-gradient(135deg, rgba(15,22,41,0.95), rgba(12,18,35,0.98))', border: '1px solid rgba(201,168,76,0.1)' }}>
-              <Typography variant="caption" sx={{ color: '#64748B' }}>Уникальных подопечных</Typography>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#F1F5F9' }}>{historyTotals.uniqueAgents}</Typography>
-            </Box>
-            <Box sx={{ flex: '1 1 200px', p: 2.5, borderRadius: 3, background: 'linear-gradient(135deg, rgba(15,22,41,0.95), rgba(12,18,35,0.98))', border: '1px solid rgba(201,168,76,0.1)' }}>
-              <Typography variant="caption" sx={{ color: '#64748B' }}>Периодов в истории</Typography>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#F1F5F9' }}>{historyTotals.count}</Typography>
-            </Box>
-            <Box sx={{ flex: '1 1 200px', p: 2.5, borderRadius: 3, background: 'linear-gradient(135deg, rgba(15,22,41,0.95), rgba(12,18,35,0.98))', border: '1px solid rgba(201,168,76,0.1)' }}>
-              <Typography variant="caption" sx={{ color: '#64748B' }}>Общий ВКД подопечных за периоды</Typography>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#C9A84C' }}>{(historyTotals.totalVkd / 1e6).toFixed(2)} млн ₽</Typography>
-            </Box>
-          </Box>
-
-          {historyLoading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-              <Typography variant="caption" sx={{ color: '#94A3B8' }}>Загружаю историю…</Typography>
-            </Box>
-          )}
-
-          {!historyLoading && historyEntries.length === 0 && (
-            <Card><CardContent sx={{ py: 6, textAlign: 'center' }}>
-              <HistoryRoundedIcon sx={{ fontSize: 48, color: '#334155', mb: 1 }} />
-              <Typography variant="body2" sx={{ color: '#94A3B8' }}>
-                Пока никто не был у тебя в команде. Здесь появится история когда у тебя появятся подопечные.
-              </Typography>
-            </CardContent></Card>
-          )}
-
-          {!historyLoading && historyEntries.length > 0 && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {historyEntries.map(h => (
-                <Card key={h.id} sx={{
-                  border: `1px solid ${h.isCurrent ? 'rgba(34,197,94,0.25)' : 'rgba(255,255,255,0.06)'}`,
-                  background: h.isCurrent
-                    ? 'linear-gradient(135deg, rgba(34,197,94,0.06), rgba(15,22,41,0.95))'
-                    : undefined,
-                }}>
-                  <CardContent sx={{ p: 2.5 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5, flexWrap: 'wrap' }}>
-                      <Avatar src={h.agentPhoto || undefined} sx={{ width: 52, height: 52, border: '2px solid rgba(201,168,76,0.3)' }}>
-                        {h.agentName.split(' ').map(w => w[0]).slice(0, 2).join('')}
-                      </Avatar>
-                      <Box sx={{ flex: 1, minWidth: 200 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#F1F5F9' }}>{h.agentName}</Typography>
-                        <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                          {h.agentCity ? `${h.agentCity} · ` : ''}
-                          <span style={{ color: statusColor(h.agentStatus) }}>
-                            {h.agentStatus === 'active' ? 'активен' : 'не активен'}
-                          </span>
-                        </Typography>
-                      </Box>
-                      <Box sx={{ textAlign: 'right' }}>
-                        <Typography variant="caption" sx={{ color: '#64748B' }}>Период</Typography>
-                        <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 600 }}>
-                          {new Date(h.effectiveFrom).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                          {' → '}
-                          {h.effectiveUntil
-                            ? new Date(h.effectiveUntil).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })
-                            : 'сейчас'}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: '#C9A84C', fontWeight: 600 }}>
-                          {h.days} дн.{h.isCurrent ? ' (продолжается)' : ''}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', pt: 1.5, borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                      <Box>
-                        <Typography variant="caption" sx={{ color: '#64748B' }}>Сделок за период</Typography>
-                        <Typography variant="body2" sx={{ color: '#F1F5F9', fontWeight: 700 }}>{h.periodDeals}</Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" sx={{ color: '#64748B' }}>ВКД</Typography>
-                        <Typography variant="body2" sx={{ color: '#C9A84C', fontWeight: 700 }}>{fmtRu(h.periodVkd)} ₽</Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" sx={{ color: '#64748B' }}>Доход агента</Typography>
-                        <Typography variant="body2" sx={{ color: '#22C55E', fontWeight: 700 }}>{fmtRu(h.periodIncome)} ₽</Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              ))}
-            </Box>
-          )}
-        </Box>
-      )}
 
       {<>
       {/* ===== Период (год / месяц) ===== */}

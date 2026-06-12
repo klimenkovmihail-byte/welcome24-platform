@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, LinearProgress, Grid, Tabs, Tab, alpha,
   Button, Dialog, DialogContent, IconButton, ToggleButtonGroup, ToggleButton, Divider,
-  Tooltip, Stack, useMediaQuery, useTheme, Menu, MenuItem,
+  Tooltip, Stack, useMediaQuery, useTheme, Menu, MenuItem, CircularProgress,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import PlayCircleRoundedIcon from '@mui/icons-material/PlayCircleRounded';
@@ -472,21 +472,20 @@ function AcademyImpl() {
   const [academyCourses, setAcademyCourses] = useState<AcademyCourse[]>([]);
   const [webinarRecordings, setWebinarRecordings] = useState<WebinarRecording[]>([]);
   const [academyEvents, setAcademyEvents] = useState<AcademyEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      academyApi.courses().catch(() => []),
-      academyApi.webinars().catch(() => []),
-      academyApi.events().catch(() => []),
-    ]).then(([c, w, e]) => {
-      if (cancelled) return;
-      setAcademyCourses(c);
-      setWebinarRecordings(w);
-      setAcademyEvents(e);
-    });
-    return () => { cancelled = true; };
+  // Без per-call catch(()=>[]) — реальная ошибка показывается с «Повторить»,
+  // а не молчаливо «0 курсов».
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    Promise.all([academyApi.courses(), academyApi.webinars(), academyApi.events()])
+      .then(([c, w, e]) => { setAcademyCourses(c); setWebinarRecordings(w); setAcademyEvents(e); })
+      .catch(err => setError(err?.message || 'Не удалось загрузить Академию'))
+      .finally(() => setLoading(false));
   }, []);
+  useEffect(() => { load(); }, [load]);
 
   const [tab, setTab] = useState<'courses' | 'recordings' | 'schedule'>('courses');
   const [openCourse, setOpenCourse] = useState<AcademyCourse | null>(null);
@@ -655,6 +654,19 @@ function AcademyImpl() {
   const isShort = useMediaQuery('(max-height: 820px)');
   const compactDialog = isMobile || isShort;
 
+  if (loading) {
+    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 12 }}><CircularProgress sx={{ color: '#C9A84C' }} /></Box>;
+  }
+  if (error) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 12 }}>
+        <Typography sx={{ color: '#94A3B8', mb: 2 }}>{error}</Typography>
+        <Button variant="contained" onClick={load}
+          sx={{ background: '#C9A84C', color: '#0A0E1A', fontWeight: 700, '&:hover': { background: '#E2C97E' } }}>Повторить</Button>
+      </Box>
+    );
+  }
+
   return (
     <Box>
       {/* Stats row */}
@@ -718,13 +730,19 @@ function AcademyImpl() {
               );
             })}
           </Box>
-          <Grid container spacing={2.5}>
-            {filteredCourses.map((c, i) => (
-              <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={c.id}>
-                <CourseCard c={c} delay={i} onOpen={setOpenCourse} />
-              </Grid>
-            ))}
-          </Grid>
+          {filteredCourses.length === 0 ? (
+            <Typography sx={{ color: '#64748B', textAlign: 'center', py: 6 }}>
+              {academyCourses.length === 0 ? 'Курсы скоро появятся.' : 'В этой теме курсов пока нет.'}
+            </Typography>
+          ) : (
+            <Grid container spacing={2.5}>
+              {filteredCourses.map((c, i) => (
+                <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={c.id}>
+                  <CourseCard c={c} delay={i} onOpen={setOpenCourse} />
+                </Grid>
+              ))}
+            </Grid>
+          )}
         </Box>
       )}
 
@@ -745,13 +763,19 @@ function AcademyImpl() {
               );
             })}
           </Box>
-          <Grid container spacing={2.5}>
-            {filteredWebinars.map((w, i) => (
-              <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={w.id}>
-                <WebinarCard w={w} delay={i} onOpen={setOpenWebinar} />
-              </Grid>
-            ))}
-          </Grid>
+          {filteredWebinars.length === 0 ? (
+            <Typography sx={{ color: '#64748B', textAlign: 'center', py: 6 }}>
+              {webinarRecordings.length === 0 ? 'Записи вебинаров скоро появятся.' : 'В этой теме записей пока нет.'}
+            </Typography>
+          ) : (
+            <Grid container spacing={2.5}>
+              {filteredWebinars.map((w, i) => (
+                <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={w.id}>
+                  <WebinarCard w={w} delay={i} onOpen={setOpenWebinar} />
+                </Grid>
+              ))}
+            </Grid>
+          )}
         </Box>
       )}
 

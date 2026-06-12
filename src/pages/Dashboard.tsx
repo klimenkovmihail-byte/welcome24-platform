@@ -41,6 +41,8 @@ function computePassiveIncome(levels: TeamLevelStats[], plan: MarketingPlanLevel
 // берём из настроек компании (useSettings), чтобы совпадать с бэком и админкой.
 const LEVEL1_FALLBACK = 2_000_000; // ВКД для перехода 80% → 90%
 const LEVEL2_FALLBACK = 5_000_000; // ВКД для перехода 90% → 95%
+// «2 млн» / «2,5 млн» — подписи диапазонов считаем из порогов, не хардкодим.
+const fmtMln = (n: number) => `${(n / 1_000_000).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} млн`;
 
 function commissionByVkd(totalVkd: number, l1 = LEVEL1_FALLBACK, l2 = LEVEL2_FALLBACK): { level: 1 | 2 | 3; commission: 80 | 90 | 95; nextThreshold: number; nextCommission: 80 | 90 | 95; toNext: number } {
   if (totalVkd >= l2) {
@@ -407,9 +409,9 @@ export default function Dashboard() {
                 <Typography variant="h6" sx={{ fontWeight: 700, color: '#F1F5F9', mb: 0.5 }}>Уровень комиссии</Typography>
                 <Typography variant="caption" sx={{ color: '#64748B' }}>Личный объем ВКД</Typography>
                 <Box sx={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', my: 3, px: 1 }}>
-                  <CommissionLevel percent={80} range="до 2 млн" active={commission.level === 1} completed={commission.level > 1} />
-                  <CommissionLevel percent={90} range="2–5 млн" active={commission.level === 2} completed={commission.level > 2} />
-                  <CommissionLevel percent={95} range="от 5 млн" active={commission.level === 3} completed={false} />
+                  <CommissionLevel percent={80} range={`до ${fmtMln(lvl1)}`} active={commission.level === 1} completed={commission.level > 1} />
+                  <CommissionLevel percent={90} range={`${fmtMln(lvl1)}–${fmtMln(lvl2)}`} active={commission.level === 2} completed={commission.level > 2} />
+                  <CommissionLevel percent={95} range={`от ${fmtMln(lvl2)}`} active={commission.level === 3} completed={false} />
                 </Box>
                 <Box sx={{ mb: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>

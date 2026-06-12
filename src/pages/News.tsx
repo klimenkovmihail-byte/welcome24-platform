@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   Box, Card, CardContent, Typography, Chip, Grid, Avatar, alpha, TextField, InputAdornment,
@@ -93,23 +93,6 @@ function commentFromApi(c: NewsComment, meId: number | null): Comment {
   };
 }
 
-const initialComments: Record<number, Comment[]> = {
-  1: [
-    { id: 1, author: 'Кулаков Степан', initials: 'КС', date: '22.05', text: 'Подтверждаю — у меня на этой неделе 4 показа, все ушли в задаток. Год назад такого темпа не было.' },
-    { id: 2, author: 'Радченко Дмитрий', initials: 'РД', date: '23.05', text: 'В Краснодаре та же картина. Особенно по 1-2-комнатным до 8 млн.' },
-  ],
-  2: [
-    { id: 1, author: 'Мухин Вячеслав', initials: 'МВ', date: '20.05', text: 'Долгожданное изменение! Уже подсчитал, что мой пассивный доход вырастет почти на 15%.' },
-  ],
-  4: [
-    { id: 1, author: 'Бондарь Светлана', initials: 'БС', date: '17.05', text: 'Пункт 5 про follow-up — мой главный инсайт за последний год. Конверсия выросла в 2 раза.' },
-    { id: 2, author: 'Шадрина Ольга', initials: 'ШО', date: '18.05', text: 'А ещё бы добавила: всегда уточняйте, кто принимает финальное решение. Несколько раз показывал маме, а решал муж.' },
-  ],
-  6: [
-    { id: 1, author: 'Колесникова Анна', initials: 'КА', date: '12.05', text: 'Степан, спасибо! «Закрытие через тишину» — гениально. Применила сегодня, клиент сам предложил поднять цену предложения.' },
-  ],
-};
-
 export default function News() {
   const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,15 +113,15 @@ export default function News() {
   const meId = typeof me?.id === 'number' ? me.id : null;
   const location = useLocation();
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadNews = useCallback(() => {
     setLoading(true);
+    setError(null);
     newsApi.list()
-      .then(rows => { if (!cancelled) setNewsArticles(rows); })
-      .catch(err => { if (!cancelled) setError(err?.message || 'Ошибка загрузки новостей'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .then(rows => setNewsArticles(rows))
+      .catch(err => setError(err?.message || 'Не удалось загрузить новости'))
+      .finally(() => setLoading(false));
   }, []);
+  useEffect(() => { loadNews(); }, [loadNews]);
 
   // Deep-link из колокольчика/пуша: /news?open=<id> → открыть саму статью.
   useEffect(() => {
@@ -267,6 +250,19 @@ export default function News() {
     );
   };
 
+  if (loading) {
+    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 12 }}><CircularProgress sx={{ color: '#C9A84C' }} /></Box>;
+  }
+  if (error) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 12 }}>
+        <Typography sx={{ color: '#94A3B8', mb: 2 }}>{error}</Typography>
+        <Button variant="contained" onClick={loadNews}
+          sx={{ background: '#C9A84C', color: '#0A0E1A', fontWeight: 700, '&:hover': { background: '#E2C97E' } }}>Повторить</Button>
+      </Box>
+    );
+  }
+
   return (
     <Box>
       {/* Search & filters */}
@@ -311,6 +307,11 @@ export default function News() {
       {/* Grid of articles — auto-fit: карточки ровно заполняют ширину
           при любом их числе (2 → две на всю ширину, без пустой колонки).
           Закреплённые идут первыми (is_featured DESC с бэка) и помечены меткой. */}
+      {rest.length === 0 && (
+        <Typography sx={{ color: '#64748B', textAlign: 'center', py: 8 }}>
+          {newsArticles.length === 0 ? 'Новостей пока нет.' : 'Ничего не найдено по фильтру.'}
+        </Typography>
+      )}
       <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))' }}>
         {rest.map((article, i) => {
           const c = categoryColors[article.category] || { bg: 'rgba(100,116,139,0.15)', color: '#94A3B8' };

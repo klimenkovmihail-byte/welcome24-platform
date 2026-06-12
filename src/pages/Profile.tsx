@@ -117,13 +117,12 @@ export default function Profile() {
     return () => { cancelled = true; };
   }, []);
 
-  // currentUser — единая точка для всех ссылок: реальный юзер если загружен, иначе mock.
-  // Бэк отдаёт join_date (snake_case) — нормализуем в joinDate чтобы перезаписать
-  // mock-значение (иначе UI показывал «март 2024» вместо реальной даты).
+  // currentUser — только реальный юзер (без mock-базы: раньше пропуски полей
+  // заполнялись данными Клименкова из mockData). Бэк отдаёт join_date (snake) —
+  // нормализуем в joinDate.
   const rawUser = (user || {}) as Record<string, unknown>;
   const normalizedJoinDate = rawUser.joinDate ?? rawUser.join_date;
   const currentUser = {
-    ...(mockUser as Record<string, unknown>),
     ...rawUser,
     ...(normalizedJoinDate ? { joinDate: normalizedJoinDate } : {}),
   } as typeof mockUser;
@@ -457,7 +456,7 @@ export default function Profile() {
                   { icon: <EmailRoundedIcon sx={{ fontSize: 16 }} />, value: currentUser.email },
                   { icon: <PhoneRoundedIcon sx={{ fontSize: 16 }} />, value: currentUser.phone },
                   { icon: <LocationOnRoundedIcon sx={{ fontSize: 16 }} />, value: currentUser.city },
-                  { icon: <CalendarTodayRoundedIcon sx={{ fontSize: 16 }} />, value: `В Welcome 24 с ${new Date(currentUser.joinDate).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })} · ${daysAt} дн.` },
+                  { icon: <CalendarTodayRoundedIcon sx={{ fontSize: 16 }} />, value: currentUser.joinDate ? `В Welcome 24 с ${new Date(currentUser.joinDate).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })} · ${daysAt} дн.` : 'Дата регистрации уточняется' },
                 ].map(({ icon, value }) => (
                   <Box key={value} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5, px: 1 }}>
                     <Box sx={{ color: '#64748B', flexShrink: 0 }}>{icon}</Box>
@@ -468,7 +467,7 @@ export default function Profile() {
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 600, display: 'block', mb: 1 }}>Специализация</Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
-                    {currentUser.specialization.map(s => (
+                    {(currentUser.specialization || []).map(s => (
                       <Chip key={s} label={s} size="small" sx={{ background: 'rgba(67,97,238,0.12)', color: '#4361EE', fontWeight: 600 }} />
                     ))}
                   </Box>
