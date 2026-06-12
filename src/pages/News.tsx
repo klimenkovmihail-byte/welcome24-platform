@@ -212,7 +212,8 @@ export default function News() {
   };
 
   const ArticleMetaRow = ({ a, isCard }: { a: NewsArticle; isCard: boolean }) => {
-    const comments = commentsByArticle[a.id]?.length || 0;
+    // Загруженные комменты (после открытия — live), иначе агрегат с бэка для списка.
+    const comments = commentsByArticle[a.id]?.length ?? a.comments;
     const liked = isLiked(a.id);
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: '#64748B', flexWrap: 'wrap' }}>

@@ -183,10 +183,12 @@ export default function Rating() {
     }
   };
 
+  // Ранний return скелетона — иначе при загрузке мигал контент с пустыми данными.
+  if (loading) return <PageSkeleton />;
+
   return (
     <Box>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error.message}</Alert>}
-      {loading && <PageSkeleton />}
       {/* Filters */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>

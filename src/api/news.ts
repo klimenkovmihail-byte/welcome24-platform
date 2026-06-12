@@ -19,6 +19,8 @@ export interface NewsArticle {
   featured: boolean;
   image: string;
   author: string;
+  /** Число комментариев (агрегат с бэка для списка — без открытия статьи). */
+  comments: number;
 }
 
 export interface NewsComment {
@@ -45,6 +47,7 @@ type RawArticle = {
   is_featured: number | boolean;
   published: number | boolean;
   created_at: string;
+  comments_count?: number;
 };
 
 type RawComment = {
@@ -68,6 +71,7 @@ function normalizeArticle(r: RawArticle): NewsArticle {
     readTime: r.read_time || '',
     likes: r.likes_count || 0,
     views: r.views_count || 0,
+    comments: r.comments_count || 0,
     featured: !!r.is_featured,
     image: r.cover_url || '',
     author: r.author_name || '',
