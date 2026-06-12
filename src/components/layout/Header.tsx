@@ -13,8 +13,9 @@ import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import DoneAllRoundedIcon from '@mui/icons-material/DoneAllRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import { motion } from 'framer-motion';
-import { getCurrentAgent, openAdminPanel, logoutAgent } from '../../auth/auth';
+import { openAdminPanel, logoutAgent } from '../../auth/auth';
 import SmartAvatar from '../SmartAvatar';
+import { useMe } from '../../hooks/useMe';
 import { notificationsApi, type Notification as ApiNotification } from '../../api/notifications';
 import { sharesApi } from '../../api/shares';
 import { formatMoney } from '../../utils/format';
@@ -79,7 +80,7 @@ interface HeaderProps {
 export default function Header({ currentPath, isMobile = false, onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
   const page = pageTitles[currentPath] || { title: 'Welcome 24', subtitle: '' };
-  const user = getCurrentAgent();
+  const { data: user } = useMe();
   // For demo: show "Admin panel" button if no user logged in too (CEO testing flow)
   const isAdmin = !user || user.role === 'admin';
   // Дашборд показывает сегодняшнюю дату (раньше была захардкожена).

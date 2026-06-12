@@ -8,6 +8,7 @@ import {
 // Типы недвижимости, которыми занимается агент (галочки в профиле → база агентов).
 export const PROPERTY_TYPES = ['Вторичная', 'Первичная', 'Аренда', 'Коммерческая', 'Загородная'];
 import { motion } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
 import SmartAvatar from '../components/SmartAvatar';
 import LocationOnRoundedIcon from '@mui/icons-material/LocationOnRounded';
 import EmailRoundedIcon from '@mui/icons-material/EmailRounded';
@@ -276,6 +277,7 @@ export default function Profile() {
     return '';
   })();
 
+  const qc = useQueryClient();
   const handleSave = async () => {
     if (!user || typeof user.id !== 'number') { setSaveError('Профиль не загружен'); return; }
     setSaveError(null);
@@ -305,6 +307,7 @@ export default function Profile() {
       setUser(normalized);
       // Обновляем localStorage чтобы Header и т.д. подхватили новые данные.
       localStorage.setItem('w24_agent_user', JSON.stringify({ ...normalized, loginAt: new Date().toISOString() }));
+      qc.invalidateQueries({ queryKey: ['me'] }); // живой рефетч Sidebar/Header (фото/имя)
       setSaved(true); setEditOpen(false);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {

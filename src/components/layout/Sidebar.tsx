@@ -19,7 +19,8 @@ import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
 import Logo, { LogoIcon } from '../Logo';
-import { logoutAgent, getCurrentAgent, isPortalPathAllowed } from '../../auth/auth';
+import { logoutAgent, isPortalPathAllowed } from '../../auth/auth';
+import { useMe } from '../../hooks/useMe';
 import SmartAvatar from '../SmartAvatar';
 import { useRequestsData } from '../../hooks/useRequestsData';
 
@@ -55,8 +56,8 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Текущий агент из сессии (раньше тут был demo-объект из mockData → у всех висел Клименков).
-  const agent = getCurrentAgent();
+  // Живой текущий агент (уровень/фото обновляются без перелогина).
+  const { data: agent } = useMe();
   const userName = agent?.name || 'Агент';
   const userLevel = Number(agent?.level) || 1;
   const userPhoto = (agent?.photo as string | null) || null;
