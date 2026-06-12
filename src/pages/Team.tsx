@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, Grid, Avatar, LinearProgress, Tooltip, IconButton,
-  Table, TableHead, TableRow, TableCell, TableBody, Divider, ToggleButtonGroup, ToggleButton,
+  Table, TableHead, TableRow, TableCell, TableBody, Divider, ToggleButtonGroup, ToggleButton, Button,
   Collapse, alpha,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -118,6 +118,8 @@ export default function Team() {
 
   const [expandedLevel, setExpandedLevel] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'levels' | 'agents'>('levels');
+  const TEAM_PAGE = 50;
+  const [teamVisible, setTeamVisible] = useState(TEAM_PAGE); // не рендерим всю команду разом
 
   // Все агенты команды, отсортированные для табличного вида.
   const agentStats = useMemo(
@@ -571,7 +573,7 @@ export default function Team() {
                 <Typography key={h} variant="caption" sx={{ color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 11 }}>{h}</Typography>
               ))}
             </Box>
-              {agentStats.map((a) => {
+              {agentStats.slice(0, teamVisible).map((a) => {
                 const color = levelColors[a.teamLevel];
                 return (
                   <div key={a.id}>
@@ -616,6 +618,14 @@ export default function Team() {
                 );
               })}
             </Box>
+            {agentStats.length > teamVisible && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                <Button variant="outlined" onClick={() => setTeamVisible(c => c + TEAM_PAGE)}
+                  sx={{ borderColor: 'rgba(201,168,76,0.3)', color: '#C9A84C', fontWeight: 700, '&:hover': { borderColor: '#C9A84C' } }}>
+                  Показать ещё ({agentStats.length - teamVisible})
+                </Button>
+              </Box>
+            )}
           </CardContent>
         </Card>
       )}

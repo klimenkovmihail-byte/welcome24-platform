@@ -188,6 +188,12 @@ export default function Agents() {
     );
   }, [agentsBase, deferredSearch, city, direction]);
 
+  // Пагинация: не рендерим все ~800 карточек разом. Сброс при смене фильтра.
+  const PAGE = 24;
+  const [visibleCount, setVisibleCount] = useState(PAGE);
+  useEffect(() => { setVisibleCount(PAGE); }, [deferredSearch, city, direction]);
+  const visibleAgents = filtered.slice(0, visibleCount);
+
   const openAgent = useMemo(
     () => (openId !== null ? agentsBase.find(a => a.id === openId) || null : null),
     [openId, agentsBase],
@@ -267,7 +273,7 @@ export default function Agents() {
       )}
 
       <Grid container spacing={3}>
-        {filtered.map((agent) => {
+        {visibleAgents.map((agent) => {
             const initials = agent.name.split(' ').map(n => n[0]).join('').slice(0, 2);
             const totalReviews = agent.reviewsCount;
             return (
@@ -361,6 +367,15 @@ export default function Agents() {
             );
           })}
       </Grid>
+
+      {filtered.length > visibleCount && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+          <Button variant="outlined" onClick={() => setVisibleCount(c => c + PAGE)}
+            sx={{ borderColor: 'rgba(201,168,76,0.3)', color: '#C9A84C', fontWeight: 700, '&:hover': { borderColor: '#C9A84C' } }}>
+            Показать ещё ({filtered.length - visibleCount})
+          </Button>
+        </Box>
+      )}
 
       {/* === Agent detail dialog === */}
       <Dialog
