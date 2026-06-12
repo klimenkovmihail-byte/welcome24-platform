@@ -10,6 +10,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
+import ReplayRoundedIcon from '@mui/icons-material/ReplayRounded';
 import { API_BASE_URL, getToken } from '../api/apiClient';
 import {
   adRequestsApi, type AdRequest, type AdKind, type AdPlatform, type AdMeta,
@@ -52,6 +53,13 @@ function fmtDateTime(s?: string | null): string {
 function statusColor(s: string): string {
   return s === 'done' ? '#22C55E' : s === 'cancelled' ? '#EF4444' : s === 'in_progress' ? GOLD : '#64748B';
 }
+// Картинка → превью + лайтбокс; прочие файлы — ссылкой.
+const isImg = (url?: string | null) => !!url && /\.(jpe?g|png|gif|webp|avif|bmp)(\?|$)/i.test(url);
+// Локальная метка времени в формате сервера ('YYYY-MM-DD HH:MM:SS', UTC).
+const nowStamp = () => new Date().toISOString().slice(0, 19).replace('T', ' ');
+// Локальный статус доставки оптимистичных сообщений.
+type AdMsg = AdMessage & { _status?: 'sending' | 'failed' };
+
 const cardSx = { background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(201,168,76,0.12)', borderRadius: 3 } as const;
 const ALL_PLATFORMS: AdPlatform[] = ['avito', 'cian', 'domclick', 'yandex'];
 
@@ -382,22 +390,42 @@ function FromPackageDialog({ onClose, onCreated, setError }: { onClose: () => vo
 }
 
 function RequestDetail({ request, onClose }: { request: AdRequest; onClose: () => void }) {
-  const [messages, setMessages] = useState<AdMessage[]>([]);
+  const [messages, setMessages] = useState<AdMsg[]>([]);
   const [events, setEvents] = useState<AdEvent[]>([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [avitoUrl, setAvitoUrl] = useState('');
   const [filledSaving, setFilledSaving] = useState(false);
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const lastIdRef = useRef(0);
+  const tmpRef = useRef(-1); // отрицательные id для временных сообщений
   const agent = getCurrentAgent();
   const isConnect = request.kind === 'connect';
   const connectPlatform = isConnect ? request.platforms[0] : undefined;
   const isMine = agent?.id === request.agent_id;
 
+  // Новые сообщения с дедупом по id (курсорный поллинг может перекрываться с send).
+  const mergeFresh = (fresh: AdMessage[]) => {
+    if (!fresh.length) return;
+    lastIdRef.current = fresh.reduce((mx, m) => Math.max(mx, m.id), lastIdRef.current);
+    setMessages(prev => {
+      const seen = new Set(prev.map(m => m.id));
+      const add = fresh.filter(m => !seen.has(m.id));
+      return add.length ? [...prev, ...add] : prev;
+    });
+  };
+  // Только таймлайн (чат тянется курсорно отдельно).
   const reload = useCallback(() => {
-    adRequestsApi.messages(request.id).then(setMessages).catch(() => {});
     adRequestsApi.events(request.id).then(setEvents).catch(() => {});
   }, [request.id]);
-  useEffect(() => { reload(); adRequestsApi.markRead(request.id).catch(() => {}); }, [reload, request.id]);
+  useEffect(() => {
+    reload();
+    adRequestsApi.markRead(request.id).catch(() => {});
+    adRequestsApi.messages(request.id).then(fresh => {
+      setMessages(fresh);
+      lastIdRef.current = fresh.reduce((mx, m) => Math.max(mx, m.id), 0);
+    }).catch(() => {});
+  }, [reload, request.id]);
   useEffect(() => { if (connectPlatform === 'avito') adRequestsApi.meta().then(m => setAvitoUrl(m.avitoInviteUrl || '')).catch(() => {}); }, [connectPlatform]);
   const markFilled = async () => {
     setFilledSaving(true);
@@ -405,10 +433,11 @@ function RequestDetail({ request, onClose }: { request: AdRequest; onClose: () =
     catch { alert('Не удалось отправить «Я заполнил» — проверьте сеть и попробуйте ещё раз.'); }
     finally { setFilledSaving(false); }
   };
-  // Поллинг чата — новые сообщения от отдела видны без переоткрытия.
+  // Курсорный поллинг чата: тянем только новое (after=lastId), не весь список каждые 4с.
   useEffect(() => {
-    const iv = setInterval(() => { adRequestsApi.messages(request.id).then(setMessages).catch(() => {}); }, 4000);
+    const iv = setInterval(() => { adRequestsApi.messages(request.id, lastIdRef.current).then(mergeFresh).catch(() => {}); }, 4000);
     return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request.id]);
   // Автоскролл вниз — только при первом открытии или новом сообщении, и только если
   // пользователь уже внизу. Прокрутил вверх (читает историю) — не дёргаем.
@@ -425,20 +454,52 @@ function RequestDetail({ request, onClose }: { request: AdRequest; onClose: () =
   }, [messages]);
 
   const [uploading, setUploading] = useState(false);
+
+  // Доставка с повтором: меняем временное сообщение на настоящее либо метим «не доставлено».
+  const deliver = async (tmpId: number, body: string, att: { url: string; name: string } | null) => {
+    setSending(true);
+    try {
+      const msg = await adRequestsApi.sendMessage(request.id, { body, attachmentUrl: att?.url, attachmentName: att?.name });
+      lastIdRef.current = Math.max(lastIdRef.current, msg.id);
+      setMessages(prev => {
+        const rest = prev.filter(m => m.id !== tmpId);
+        return rest.some(m => m.id === msg.id) ? rest : [...rest, msg]; // poll мог опередить
+      });
+    } catch {
+      setMessages(prev => prev.map(m => (m.id === tmpId ? { ...m, _status: 'failed' } : m)));
+    } finally { setSending(false); }
+  };
+  // Мгновенно показываем сообщение со статусом «отправка…», возвращаем его временный id.
+  const pushOptimistic = (body: string, att: { url: string; name: string } | null): number => {
+    const tmpId = tmpRef.current--;
+    setMessages(prev => [...prev, {
+      id: tmpId, request_id: request.id, sender_id: agent?.id ?? null, sender_name: 'Вы', sender_role: 'agent',
+      body, attachment_url: att?.url ?? null, attachment_name: att?.name ?? null, created_at: nowStamp(), _status: 'sending',
+    }]);
+    return tmpId;
+  };
+
   const handleAttach = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    try { const up = await uploadFile(file); await adRequestsApi.sendMessage(request.id, { attachmentUrl: up.url, attachmentName: up.name }); reload(); }
-    catch { /* tolerate */ } finally { setUploading(false); e.target.value = ''; }
+    try {
+      const up = await uploadFile(file);
+      const att = { url: up.url, name: up.name };
+      deliver(pushOptimistic('', att), '', att);
+    } catch { /* tolerate */ } finally { setUploading(false); e.target.value = ''; }
   };
-  const send = async () => {
+  const send = () => {
     // sending в guard'е: Enter не проверяет disabled кнопки → без него дубли сообщений.
-    if (!text.trim() || sending) return;
-    setSending(true);
-    try { await adRequestsApi.sendMessage(request.id, { body: text.trim() }); setText(''); reload(); }
-    catch { /* ошибка сети — текст остаётся в поле, можно повторить */ }
-    finally { setSending(false); }
+    const body = text.trim();
+    if (!body || sending) return;
+    const tmpId = pushOptimistic(body, null);
+    setText('');
+    deliver(tmpId, body, null);
+  };
+  const retry = (m: AdMsg) => {
+    setMessages(prev => prev.map(x => (x.id === m.id ? { ...x, _status: 'sending' } : x)));
+    deliver(m.id, m.body, m.attachment_url ? { url: m.attachment_url, name: m.attachment_name || 'файл' } : null);
   };
 
   return (
@@ -501,17 +562,30 @@ function RequestDetail({ request, onClose }: { request: AdRequest; onClose: () =
           {messages.map(m => {
             const mine = m.sender_id === agent?.id;
             const c = roleColor(m.sender_role);
+            const img = isImg(m.attachment_url);
             return (
               <Box key={m.id} sx={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', mb: 0.8 }}>
-                <Box sx={{ maxWidth: '80%', background: c + '2E', border: `1px solid ${c}44`, borderRadius: 2, px: 1.3, py: 0.7 }}>
+                <Box sx={{ maxWidth: '80%', background: c + '2E', border: `1px solid ${c}44`, borderRadius: 2, px: 1.3, py: 0.7, opacity: m._status === 'sending' ? 0.65 : 1 }}>
                   {!mine && <Typography sx={{ color: c, fontSize: 11, fontWeight: 700 }}>{m.sender_name}</Typography>}
                   {m.body && <Typography sx={{ color: '#E2E8F0', fontSize: 13.5, whiteSpace: 'pre-wrap' }}>{m.body}</Typography>}
-                  {m.attachment_url && (
+                  {m.attachment_url && (img ? (
+                    <Box component="img" src={m.attachment_url} alt={m.attachment_name || ''} loading="lazy"
+                      onClick={() => setLightbox(m.attachment_url!)}
+                      sx={{ mt: 0.3, display: 'block', maxWidth: 220, maxHeight: 220, borderRadius: 1.5, cursor: 'zoom-in', objectFit: 'cover' }} />
+                  ) : (
                     <Link href={m.attachment_url} target="_blank" rel="noopener" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: '#E2C97E', fontSize: 13, textDecoration: 'none', mt: 0.3, '&:hover': { textDecoration: 'underline' } }}>
                       <AttachFileRoundedIcon sx={{ fontSize: 14 }} /> {m.attachment_name || 'файл'}
                     </Link>
-                  )}
-                  <Typography sx={{ color: '#475569', fontSize: 10, textAlign: 'right' }}>{fmtDate(m.created_at)}</Typography>
+                  ))}
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5, mt: 0.2 }}>
+                    {m._status === 'sending' && <Typography sx={{ color: '#64748B', fontSize: 10 }}>отправка…</Typography>}
+                    {m._status === 'failed' && (
+                      <Box component="span" onClick={() => retry(m)} sx={{ cursor: 'pointer', color: '#EF4444', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 0.3 }}>
+                        не доставлено <ReplayRoundedIcon sx={{ fontSize: 12 }} />
+                      </Box>
+                    )}
+                    <Typography sx={{ color: '#475569', fontSize: 10 }}>{fmtDate(m.created_at)}</Typography>
+                  </Box>
                 </Box>
               </Box>
             );
@@ -530,6 +604,14 @@ function RequestDetail({ request, onClose }: { request: AdRequest; onClose: () =
           <IconButton onClick={send} disabled={sending || !text.trim()} sx={{ color: GOLD }}><SendRoundedIcon /></IconButton>
         </Stack>
       </DialogContent>
+      {lightbox && (
+        <Box onClick={() => setLightbox(null)} sx={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2, cursor: 'zoom-out' }}>
+          <Box component="img" src={lightbox} sx={{ maxWidth: '92vw', maxHeight: '92vh', borderRadius: 2, boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }} />
+          <IconButton onClick={() => setLightbox(null)} sx={{ position: 'absolute', top: 16, right: 16, color: '#fff', background: 'rgba(0,0,0,0.4)', '&:hover': { background: 'rgba(0,0,0,0.6)' } }}>
+            <CloseRoundedIcon />
+          </IconButton>
+        </Box>
+      )}
     </Dialog>
   );
 }
