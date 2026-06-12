@@ -348,6 +348,40 @@ export default function Cases({ track, initialOpenId }: { track?: TaskTrack; ini
                       )}
                     </Box>
 
+                    {/* Совместная сделка — доли комиссии (read-only, видно участникам) */}
+                    {(detail.participants || []).length > 0 && (() => {
+                      const ps = detail.participants || [];
+                      const sumP = ps.reduce((s, p) => s + Number(p.share_pct || 0), 0);
+                      const rows = [
+                        { id: detail.agent_id, name: detail.agent_name || 'агент', share: Math.max(0, 100 - sumP), creator: true },
+                        ...ps.map(p => ({ id: p.agent_id, name: p.agent_name || `агент #${p.agent_id}`, share: Number(p.share_pct || 0), creator: false })),
+                      ];
+                      return (
+                        <>
+                          <Divider sx={{ borderColor: 'rgba(201,168,76,0.08)' }} />
+                          <Box>
+                            <Typography variant="caption" sx={{ color: '#64748B', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em', display: 'block', mb: 1 }}>Совместная сделка — доли</Typography>
+                            <Stack spacing={0.5}>
+                              {rows.map(r => {
+                                const mine = r.id === myId;
+                                return (
+                                  <Box key={r.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1, borderRadius: 1.5, background: mine ? 'rgba(201,168,76,0.10)' : 'rgba(255,255,255,0.03)', border: mine ? '1px solid rgba(201,168,76,0.3)' : '1px solid transparent' }}>
+                                    <Typography variant="body2" sx={{ color: mine ? '#E2C97E' : '#CBD5E1', fontWeight: mine ? 700 : 500 }}>
+                                      {r.name}{r.creator ? ' · создатель' : ''}{mine ? ' (вы)' : ''}
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ color: mine ? '#E2C97E' : '#94A3B8', fontWeight: 700 }}>{r.share}%</Typography>
+                                  </Box>
+                                );
+                              })}
+                            </Stack>
+                            <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mt: 0.6 }}>
+                              ВКД делится по долям; каждый агент — по своему % уровня. Ваша доля учитывается в вашем уровне и MLM.
+                            </Typography>
+                          </Box>
+                        </>
+                      );
+                    })()}
+
                     <Divider sx={{ borderColor: 'rgba(201,168,76,0.08)' }} />
 
                     {/* История */}

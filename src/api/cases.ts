@@ -45,6 +45,7 @@ export interface CaseItem {
   tasks: CaseTask[];
   attachments: CaseAttachment[];
   unread?: number;
+  participants?: { agent_id: number; agent_name: string | null; added_by: number | null; created_at: string; share_pct: number | null }[];
 }
 
 export interface TaskTypeMeta {
