@@ -19,7 +19,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import PropertyForm from './PropertyForm';
 import {
-  listMlsProperties, getMlsProperty, getMlsFacets, getMlsReadiness, getPropertyBuyers, type MlsListItem, type MlsDetail,
+  listMlsProperties, getMlsProperty, getMlsFacets, getMlsReadiness, getPropertyBuyers, updateMlsProperty, type MlsListItem, type MlsDetail,
   TYPE_LABEL, DEAL_LABEL, ROOMS_LABEL, STATUS_LABEL, MARKET_LABEL, LAND_UNIT_LABEL,
   PARAM_LABEL, PARAM_ENUM_LABEL, priceFmt, phoneFmt,
 } from '../../api/mls';
@@ -111,7 +111,18 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
   const readiness = readyQ.data;
   const buyersQ = useQuery({ queryKey: ['mls-property-buyers', id], queryFn: () => getPropertyBuyers(id), staleTime: 60_000 });
   const buyers = buyersQ.data;
+  const qc = useQueryClient();
+  const [statusBusy, setStatusBusy] = useState(false);
   const [active, setActive] = useState(0);
+
+  async function changeStatus(s: string) {
+    setStatusBusy(true);
+    try {
+      await updateMlsProperty(id, { _status: s });
+      await refetch();
+      ['mls-properties', 'mls-count', 'mls-request-matches', 'mls-property-buyers'].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
+    } finally { setStatusBusy(false); }
+  }
   const d = data as MlsDetail | undefined;
   const photos = d?.photos || [];
   const main = photos[active] || photos[0];
@@ -153,6 +164,14 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
                 {d.market_type && <Chip label={MARKET_LABEL[d.market_type] || d.market_type} size="small" sx={{ fontWeight: 600, color: '#94A3B8', background: 'rgba(148,163,184,0.12)' }} />}
                 {d.exclusive_type && d.exclusive_type !== 'none' && <Chip label="Эксклюзив" size="small" sx={{ fontWeight: 700, color: '#3B82F6', background: 'rgba(59,130,246,0.12)' }} />}
                 <Box sx={{ flex: 1 }} />
+                {d.status === 'draft' && (
+                  <Button size="small" variant="contained" disabled={statusBusy} onClick={() => changeStatus('active')}
+                    startIcon={statusBusy ? <CircularProgress size={14} sx={{ color: '#06210F' }} /> : <CheckCircleRoundedIcon sx={{ fontSize: 16 }} />}
+                    sx={{ background: '#22C55E', color: '#06210F', fontWeight: 700, textTransform: 'none', '&:hover': { background: '#16A34A' } }}>Активировать</Button>
+                )}
+                {d.status === 'active' && (
+                  <Button size="small" disabled={statusBusy} onClick={() => changeStatus('draft')} sx={{ color: '#94A3B8', textTransform: 'none' }}>В черновик</Button>
+                )}
                 <Button size="small" startIcon={<EditRoundedIcon sx={{ fontSize: 16 }} />} onClick={onEdit}
                   sx={{ color: GOLD, textTransform: 'none', '&:hover': { background: `${GOLD}11` } }}>Редактировать</Button>
               </Stack>
