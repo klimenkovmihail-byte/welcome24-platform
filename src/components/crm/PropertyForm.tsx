@@ -36,6 +36,7 @@ export default function PropertyForm({ id, onClose, onSaved }: { id: number | nu
   const [dups, setDups] = useState<{ id: number; reason: string; address: string | null }[]>([]);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  const [notice, setNotice] = useState('');
 
   // Префилл при правке.
   useEffect(() => {
@@ -115,15 +116,18 @@ export default function PropertyForm({ id, onClose, onSaved }: { id: number | nu
   }
 
   async function save() {
-    setSaving(true); setErr('');
+    setSaving(true); setErr(''); setNotice('');
     try {
       if (editId == null) {
         const r = await createMlsProperty(buildBody());
         setEditId(r.id); // переходим в режим правки → станет доступна загрузка фото
+        setNotice(`Объект создан (№${r.id}). Добавьте фото при необходимости и нажмите «Сохранить».`);
+        onSaved();
       } else {
         await updateMlsProperty(editId, buildBody());
+        onSaved();
+        onClose(); // правка сохранена → закрываем форму
       }
-      onSaved();
     } catch (e) { setErr((e as Error).message); }
     finally { setSaving(false); }
   }
@@ -281,6 +285,7 @@ export default function PropertyForm({ id, onClose, onSaved }: { id: number | nu
               )}
             </Box>
 
+            {notice && <Alert severity="success" onClose={() => setNotice('')}>{notice}</Alert>}
             {err && <Alert severity="error">{err}</Alert>}
           </Stack>
         )}
