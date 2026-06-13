@@ -2,7 +2,7 @@
 // Сетка карточек + фильтры + диалог карточки (галерея/характеристики/история цены/owner-lock).
 // Данные — GET /api/mls/properties[/:id]. Раздел скрыт (super_admin), гейт — в роутере/сайдбаре.
 import { useState, useMemo, type ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Typography, Card, CardContent, Chip, Grid, Select, MenuItem, Button,
   Dialog, DialogContent, IconButton, Divider, CircularProgress, Stack, Tooltip,
@@ -14,6 +14,9 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
 import MapRoundedIcon from '@mui/icons-material/MapRounded';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import PropertyForm from './PropertyForm';
 import {
   listMlsProperties, getMlsProperty, getMlsFacets, type MlsListItem, type MlsDetail,
   TYPE_LABEL, DEAL_LABEL, ROOMS_LABEL, STATUS_LABEL, MARKET_LABEL, LAND_UNIT_LABEL,
@@ -98,7 +101,7 @@ function Spec({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function DetailDialog({ id, onClose }: { id: number; onClose: () => void }) {
+function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () => void; onEdit: () => void }) {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['mls-property', id],
     queryFn: () => getMlsProperty(id),
@@ -144,6 +147,9 @@ function DetailDialog({ id, onClose }: { id: number; onClose: () => void }) {
                 <Chip label={STATUS_LABEL[d.status] || d.status} size="small" sx={{ fontWeight: 700, color: d.status === 'active' ? '#22C55E' : '#94A3B8', background: d.status === 'active' ? 'rgba(34,197,94,0.12)' : 'rgba(148,163,184,0.12)' }} />
                 {d.market_type && <Chip label={MARKET_LABEL[d.market_type] || d.market_type} size="small" sx={{ fontWeight: 600, color: '#94A3B8', background: 'rgba(148,163,184,0.12)' }} />}
                 {d.exclusive_type && d.exclusive_type !== 'none' && <Chip label="Эксклюзив" size="small" sx={{ fontWeight: 700, color: '#3B82F6', background: 'rgba(59,130,246,0.12)' }} />}
+                <Box sx={{ flex: 1 }} />
+                <Button size="small" startIcon={<EditRoundedIcon sx={{ fontSize: 16 }} />} onClick={onEdit}
+                  sx={{ color: GOLD, textTransform: 'none', '&:hover': { background: `${GOLD}11` } }}>Редактировать</Button>
               </Stack>
               <Typography sx={{ fontWeight: 800, color: GOLD, fontSize: 28 }}>
                 {priceFmt(d.price)}{d.deal_type === 'rent' ? <Box component="span" sx={{ fontSize: 16, color: '#94A3B8' }}> /мес</Box> : null}
@@ -227,6 +233,9 @@ export default function ObjectsView() {
   const [sort, setSort] = useState<'new' | 'price_asc' | 'price_desc'>('new');
   const [limit, setLimit] = useState(24);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [formId, setFormId] = useState<number | null | undefined>(undefined); // undefined=закрыта, null=создание, N=правка
+  const qc = useQueryClient();
+  const refresh = () => { ['mls-properties', 'mls-facets', 'mls-count'].forEach((k) => qc.invalidateQueries({ queryKey: [k] })); };
 
   const facetsQ = useQuery({ queryKey: ['mls-facets'], queryFn: getMlsFacets, staleTime: 300_000 });
   const cities = facetsQ.data?.localities || [];
@@ -251,9 +260,15 @@ export default function ObjectsView() {
 
   return (
     <Box>
-      <Typography sx={{ color: '#64748B', fontSize: 13, mb: 2 }}>
-        База объектов агентства (миграция со «Спутника»{data ? `, ${data.total}` : ''}). Фото — со «Спутника» до переноса в наше хранилище.
-      </Typography>
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2, gap: 2 }}>
+        <Typography sx={{ color: '#64748B', fontSize: 13 }}>
+          База объектов агентства (миграция со «Спутника»{data ? `, ${data.total}` : ''}). Фото — со «Спутника» до переноса в наше хранилище.
+        </Typography>
+        <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setFormId(null)}
+          sx={{ flexShrink: 0, background: GOLD, color: '#0A0E1A', fontWeight: 700, textTransform: 'none', '&:hover': { background: '#E2C97E' } }}>
+          Создать объект
+        </Button>
+      </Stack>
 
       <Stack direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: 'wrap', gap: 1 }} alignItems="center">
         {chip('Все', propType === '', () => setPropType(''))}
@@ -310,7 +325,8 @@ export default function ObjectsView() {
         </>
       )}
 
-      {openId != null && <DetailDialog id={openId} onClose={() => setOpenId(null)} />}
+      {openId != null && <DetailDialog id={openId} onClose={() => setOpenId(null)} onEdit={() => { setFormId(openId); setOpenId(null); }} />}
+      {formId !== undefined && <PropertyForm id={formId} onClose={() => setFormId(undefined)} onSaved={refresh} />}
     </Box>
   );
 }

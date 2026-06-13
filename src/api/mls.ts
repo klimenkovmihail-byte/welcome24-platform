@@ -1,6 +1,7 @@
 // MLS (своя «Спутник») — клиент эндпоинтов объектов. Раздел скрытый (super_admin).
-// Бэк: GET /api/mls/properties (список+фильтры), GET /api/mls/properties/:id (карточка).
-import { api } from './apiClient';
+// Бэк: GET /api/mls/properties (список+фильтры), GET /api/mls/properties/:id (карточка),
+// POST/PUT/DELETE (CRUD), :id/photos (загрузка), registry (форма), dadata/suggest, dedup-check.
+import { api, API_BASE_URL, getToken } from './apiClient';
 
 export interface MlsListItem {
   id: number;
@@ -104,6 +105,59 @@ export function getMlsProperty(id: number): Promise<MlsDetail> {
 export interface MlsFacets { localities: { locality: string; n: number }[]; }
 export function getMlsFacets(): Promise<MlsFacets> {
   return api.get<MlsFacets>('/api/mls/facets');
+}
+
+// ── Форма (registry) + CRUD ──
+export interface RegistryField {
+  key: string; label: string; group: string; kind: string; unit: string | null;
+  applicableTypes: string[]; enumValues: { key: string; label: string }[] | null;
+  requiredFor: string[]; requiredSeverity: string;
+}
+export interface RegistrySchema {
+  version: number;
+  dealTypes: { key: string; label: string }[];
+  propertyTypes: { key: string; label: string }[];
+  fields: RegistryField[];
+}
+export function getMlsRegistry(): Promise<RegistrySchema> { return api.get<RegistrySchema>('/api/mls/registry'); }
+
+export function createMlsProperty(body: Record<string, unknown>): Promise<{ id: number }> {
+  return api.post<{ id: number }>('/api/mls/properties', body);
+}
+export function updateMlsProperty(id: number, body: Record<string, unknown>): Promise<{ ok: boolean }> {
+  return api.put<{ ok: boolean }>(`/api/mls/properties/${id}`, body);
+}
+export function deleteMlsProperty(id: number): Promise<{ ok: boolean }> {
+  return api.del<{ ok: boolean }>(`/api/mls/properties/${id}`);
+}
+export function deleteMlsPhoto(id: number, photoId: number): Promise<{ ok: boolean }> {
+  return api.del<{ ok: boolean }>(`/api/mls/properties/${id}/photos/${photoId}`);
+}
+
+export interface AddressSuggestion { value: string; data: Record<string, string | null> }
+export function suggestMlsAddress(q: string): Promise<{ suggestions: AddressSuggestion[] }> {
+  return api.get<{ suggestions: AddressSuggestion[] }>(`/api/mls/dadata/suggest?q=${encodeURIComponent(q)}`);
+}
+
+export interface DedupHit { id: number; address: string | null; price: number | null; reason: string }
+export function dedupCheck(params: Record<string, string | number | null | undefined>): Promise<{ duplicates: DedupHit[] }> {
+  const q = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => { if (v != null && v !== '') q.set(k, String(v)); });
+  return api.get<{ duplicates: DedupHit[] }>(`/api/mls/properties/dedup-check?${q.toString()}`);
+}
+
+// Загрузка фото — multipart (apiClient шлёт JSON, поэтому свой fetch с токеном).
+export async function uploadMlsPhotos(id: number, files: File[]): Promise<{ photos: MlsPhoto[] }> {
+  const fd = new FormData();
+  files.forEach((f) => fd.append('photos', f));
+  const res = await fetch(`${API_BASE_URL}/api/mls/properties/${id}/photos`, {
+    method: 'POST', headers: { Authorization: `Bearer ${getToken()}` }, body: fd,
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error((e as { error?: string }).error || `HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
 // ── Словари меток (Спутник-ключи → человеческие подписи) ──
