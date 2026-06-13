@@ -181,6 +181,8 @@ export const PARAM_ENUM_LABEL: Record<string, Record<string, string>> = {
   bathroom: { combined: 'Совмещённый', separated: 'Раздельный', '2plus': '2 и более' },
   electricity: { '220': '220 В', '380': '380 В', possibility: 'Есть возможность', no: 'Нет' },
   land_type: { izhs: 'ИЖС', snt_gardening: 'СНТ', ogorod: 'Огородничество', lph: 'ЛПХ', dnp: 'ДНП', agricultural: 'С/х', low_rise: 'Малоэтажная ЖЗ', mid_rise: 'Среднеэтажная ЖЗ', high_rise: 'Многоэтажная ЖЗ' },
+  property_subtype: { flat: 'Квартира', apartments: 'Апартаменты', living_premises: 'Жилое помещение', share: 'Доля в квартире' },
+  commercial_object_type: { office: 'Офис', trade: 'Торговое', free_purpose: 'Своб. назначения', warehouse: 'Склад', production: 'Производство', catering: 'Общепит', hotel: 'Гостиница', autoservice: 'Автосервис', building: 'Здание', ready_business: 'Готовый бизнес' },
 };
 // Подписи строк характеристик из params.
 export const PARAM_LABEL: Record<string, string> = {

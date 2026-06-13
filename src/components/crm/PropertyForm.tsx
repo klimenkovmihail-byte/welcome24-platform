@@ -81,6 +81,7 @@ export default function PropertyForm({ id, onClose, onSaved }: { id: number | nu
   function pickAddress(s: AddressSuggestion | null) {
     if (!s) return;
     const d = s.data;
+    setAddrInput(s.value); // показать выбранный адрес в поле
     setMeta({ address: s.value, lat: d.geo_lat ? Number(d.geo_lat) : undefined, lng: d.geo_lon ? Number(d.geo_lon) : undefined, fias_id: d.fias_id || undefined, address_json: s });
     setVals((v) => ({
       ...v,
@@ -106,7 +107,9 @@ export default function PropertyForm({ id, onClose, onSaved }: { id: number | nu
 
   function buildBody() {
     const body: Record<string, unknown> = { ...vals, _status: status };
-    if (meta.address != null) body._address = meta.address;
+    // Адрес: из поля ввода, иначе собираем из структурных полей (MUI мог затереть строку после выбора).
+    const addr = String(meta.address || addrInput || '').trim() || [vals.locality, vals.street, vals.house].filter(Boolean).join(', ');
+    if (addr) body._address = addr;
     if (meta.lat != null) body._lat = meta.lat;
     if (meta.lng != null) body._lng = meta.lng;
     if (meta.fias_id != null) body._fias_id = meta.fias_id;
