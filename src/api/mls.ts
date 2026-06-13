@@ -58,6 +58,9 @@ export interface MlsDetail extends MlsListItem {
   district: string | null;
   street: string | null;
   house: string | null;
+  lat: number | null;
+  lng: number | null;
+  fias_id: string | null;
   living_area: number | null;
   kitchen_area: number | null;
   commission_value: number | null;
@@ -96,6 +99,11 @@ export function listMlsProperties(f: MlsFilters): Promise<MlsListResponse> {
 
 export function getMlsProperty(id: number): Promise<MlsDetail> {
   return api.get<MlsDetail>(`/api/mls/properties/${id}`);
+}
+
+export interface MlsFacets { localities: { locality: string; n: number }[]; }
+export function getMlsFacets(): Promise<MlsFacets> {
+  return api.get<MlsFacets>('/api/mls/facets');
 }
 
 // ── Словари меток (Спутник-ключи → человеческие подписи) ──

@@ -6,14 +6,16 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Box, Typography, Card, CardContent, Chip, Grid, Select, MenuItem, Button,
   Dialog, DialogContent, IconButton, Divider, CircularProgress, Stack, Tooltip,
+  Autocomplete, TextField, Link,
 } from '@mui/material';
 import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded';
 import PhotoLibraryRoundedIcon from '@mui/icons-material/PhotoLibraryRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
+import MapRoundedIcon from '@mui/icons-material/MapRounded';
 import {
-  listMlsProperties, getMlsProperty, type MlsListItem, type MlsDetail,
+  listMlsProperties, getMlsProperty, getMlsFacets, type MlsListItem, type MlsDetail,
   TYPE_LABEL, DEAL_LABEL, ROOMS_LABEL, STATUS_LABEL, MARKET_LABEL, LAND_UNIT_LABEL,
   PARAM_LABEL, PARAM_ENUM_LABEL, priceFmt,
 } from '../../api/mls';
@@ -148,6 +150,13 @@ function DetailDialog({ id, onClose }: { id: number; onClose: () => void }) {
               </Typography>
               <Typography sx={{ color: '#F1F5F9', fontWeight: 600, mt: 0.5 }}>{specsLine(d)}</Typography>
               <Typography sx={{ color: '#94A3B8', mt: 0.5 }}>{d.address || '—'}</Typography>
+              {d.lat != null && d.lng != null && (
+                <Link href={`https://yandex.ru/maps/?ll=${d.lng}%2C${d.lat}&z=17&pt=${d.lng}%2C${d.lat}`}
+                  target="_blank" rel="noopener" underline="hover"
+                  sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mt: 0.5, color: GOLD, fontSize: 13 }}>
+                  <MapRoundedIcon sx={{ fontSize: 16 }} /> На карте
+                </Link>
+              )}
 
               <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
 
@@ -214,11 +223,15 @@ function DetailDialog({ id, onClose }: { id: number; onClose: () => void }) {
 export default function ObjectsView() {
   const [dealType, setDealType] = useState('');
   const [propType, setPropType] = useState('');
+  const [city, setCity] = useState('');
   const [sort, setSort] = useState<'new' | 'price_asc' | 'price_desc'>('new');
   const [limit, setLimit] = useState(24);
   const [openId, setOpenId] = useState<number | null>(null);
 
-  const filters = useMemo(() => ({ deal_type: dealType, property_type: propType, sort, limit }), [dealType, propType, sort, limit]);
+  const facetsQ = useQuery({ queryKey: ['mls-facets'], queryFn: getMlsFacets, staleTime: 300_000 });
+  const cities = facetsQ.data?.localities || [];
+
+  const filters = useMemo(() => ({ deal_type: dealType, property_type: propType, locality: city, sort, limit }), [dealType, propType, city, sort, limit]);
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['mls-properties', filters],
     queryFn: () => listMlsProperties(filters),
@@ -251,6 +264,15 @@ export default function ObjectsView() {
         {chip('Продажа', dealType === 'sale', () => setDealType('sale'))}
         {chip('Аренда', dealType === 'rent', () => setDealType('rent'))}
         <Box sx={{ flex: 1 }} />
+        <Autocomplete
+          size="small" options={cities} disabled={!cities.length}
+          getOptionLabel={(o) => `${o.locality} (${o.n})`}
+          isOptionEqualToValue={(o, v) => o.locality === v.locality}
+          value={cities.find((c) => c.locality === city) || null}
+          onChange={(_, v) => { setCity(v?.locality || ''); setLimit(24); }}
+          sx={{ minWidth: 200 }}
+          renderInput={(params) => <TextField {...params} placeholder="Все города" />}
+        />
         <Select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} size="small"
           sx={{ minWidth: 150, color: '#F1F5F9', '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(148,163,184,0.2)' } }}>
           <MenuItem value="new">Сначала новые</MenuItem>
