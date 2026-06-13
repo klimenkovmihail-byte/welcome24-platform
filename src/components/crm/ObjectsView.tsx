@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Typography, Card, CardContent, Chip, Grid, Select, MenuItem, Button,
   Dialog, DialogContent, IconButton, Divider, CircularProgress, Stack, Tooltip,
-  Autocomplete, TextField, Link,
+  Autocomplete, TextField, Link, Alert,
 } from '@mui/material';
 import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded';
 import PhotoLibraryRoundedIcon from '@mui/icons-material/PhotoLibraryRounded';
@@ -17,12 +17,17 @@ import MapRoundedIcon from '@mui/icons-material/MapRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded';
+import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import PropertyForm from './PropertyForm';
 import {
-  listMlsProperties, getMlsProperty, getMlsFacets, getMlsReadiness, getPropertyBuyers, updateMlsProperty, type MlsListItem, type MlsDetail,
+  listMlsProperties, getMlsProperty, getMlsFacets, getMlsReadiness, getPropertyBuyers, updateMlsProperty, sellMlsProperty,
+  getPortalLink, issuePortalLink, revokePortalLink,
+  type MlsListItem, type MlsDetail, type SellResult,
   TYPE_LABEL, DEAL_LABEL, ROOMS_LABEL, STATUS_LABEL, MARKET_LABEL, LAND_UNIT_LABEL,
   PARAM_LABEL, PARAM_ENUM_LABEL, priceFmt, phoneFmt,
 } from '../../api/mls';
+import { agentsApi } from '../../api/agents';
 import { ErrorState, PageSkeleton } from '../States';
 
 const TYPES = ['apartment', 'house', 'land', 'commercial', 'room', 'garage'];
@@ -102,6 +107,147 @@ function Spec({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
+// Диалог проведения сделки по объекту (co-broking). ВКД делится на строки-на-агента
+// сервером (POST /sell); комиссия каждого — по его уровню. Объект → «Продан».
+function SellDialog({ property, onClose, onDone }: { property: MlsDetail; onClose: () => void; onDone: () => void }) {
+  const agentsQ = useQuery({ queryKey: ['agents-active-list'], queryFn: () => agentsApi.list({ role: 'agent', status: 'active' }), staleTime: 300_000 });
+  const agents = useMemo(() => (agentsQ.data || []).filter((a) => a.id !== property.agent_id), [agentsQ.data, property.agent_id]);
+  const [vkd, setVkd] = useState('');
+  const [buyerAgent, setBuyerAgent] = useState<{ id: number; name: string } | null>(null);
+  const [share, setShare] = useState(String(property.buyer_side_share ?? 50));
+  const [buyerName, setBuyerName] = useState('');
+  const [buyerPhone, setBuyerPhone] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [notes, setNotes] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [result, setResult] = useState<SellResult | null>(null);
+
+  const vkdNum = Number(String(vkd).replace(/\s/g, ''));
+  const valid = Number.isFinite(vkdNum) && vkdNum > 0;
+  const fieldSx = { '& .MuiOutlinedInput-root': { color: '#F1F5F9', '& fieldset': { borderColor: `${GOLD}33` }, '&:hover fieldset': { borderColor: `${GOLD}66` } }, '& .MuiInputLabel-root': { color: '#94A3B8' }, '& .MuiFormHelperText-root': { color: '#64748B' } };
+
+  async function submit() {
+    setErr(''); setBusy(true);
+    try {
+      const r = await sellMlsProperty(property.id, {
+        vkd: vkdNum,
+        date,
+        buyer_agent_id: buyerAgent?.id ?? null,
+        buyer_side_share: buyerAgent ? Number(share) : undefined,
+        buyer: (buyerName.trim() || buyerPhone.trim()) ? { name: buyerName.trim(), phone: buyerPhone.trim() } : undefined,
+        client_name: buyerName.trim() || undefined,
+        notes: notes.trim() || undefined,
+      });
+      setResult(r);
+      onDone();
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  }
+
+  const agentName = (aid: number) => agents.find((a) => a.id === aid)?.name || (aid === property.agent_id ? property.agent?.name : null) || `Агент #${aid}`;
+
+  return (
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth
+      slotProps={{ paper: { sx: { background: 'linear-gradient(135deg,#0F1629,#0A0E1A)', border: `1px solid ${GOLD}33`, borderRadius: 3 } } }}>
+      <Box sx={{ p: 3 }}>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+          <HandshakeRoundedIcon sx={{ color: GOLD }} />
+          <Typography sx={{ color: GOLD, fontWeight: 800, fontSize: 18, flex: 1 }}>Провести сделку по объекту</Typography>
+          <IconButton onClick={onClose} sx={{ color: '#94A3B8' }}><CloseRoundedIcon /></IconButton>
+        </Stack>
+
+        {result ? (
+          <Box>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, mb: 2, color: '#22C55E' }}>
+              <CheckCircleRoundedIcon /><Typography sx={{ fontWeight: 700 }}>Сделка проведена{result.joint ? ' (совместная)' : ''}</Typography>
+            </Box>
+            <Stack spacing={1}>
+              {result.deals.map((row) => (
+                <Box key={row.id} sx={{ p: 1.25, borderRadius: 1.5, background: `${GOLD}0E`, border: `1px solid ${GOLD}22` }}>
+                  <Typography sx={{ color: '#F1F5F9', fontSize: 14 }}>{agentName(row.agent_id)}{row.is_main ? ' · листинг' : ' · покупатель'} — доля {row.share}%</Typography>
+                  <Typography sx={{ color: '#94A3B8', fontSize: 13 }}>ВКД {priceFmt(row.vkd)} · {row.commission}% · доход {priceFmt(row.income)}</Typography>
+                </Box>
+              ))}
+            </Stack>
+            <Button fullWidth variant="contained" onClick={onClose}
+              sx={{ mt: 2, background: GOLD, color: '#06210F', fontWeight: 700, textTransform: 'none', '&:hover': { background: '#B8973F' } }}>Готово</Button>
+          </Box>
+        ) : (
+          <Stack spacing={2}>
+            <Typography sx={{ color: '#94A3B8', fontSize: 13 }}>{specsLine(property)} · {property.address || '—'}</Typography>
+            <TextField label="ВКД сделки, ₽" value={vkd} onChange={(e) => setVkd(e.target.value.replace(/[^\d]/g, ''))} size="small" fullWidth sx={fieldSx}
+              helperText={vkd ? priceFmt(vkdNum) : 'Валовый комиссионный доход всей сделки'} />
+            <Autocomplete size="small" options={agents.map((a) => ({ id: a.id, name: a.name }))} getOptionLabel={(o) => o.name}
+              value={buyerAgent} onChange={(_, v) => setBuyerAgent(v)} loading={agentsQ.isLoading} isOptionEqualToValue={(o, v) => o.id === v.id}
+              renderInput={(params) => <TextField {...params} label="Агент покупателя (co-broking) — необязательно" sx={fieldSx} />} />
+            {buyerAgent && (
+              <TextField label="Доля агента покупателя, %" value={share} onChange={(e) => setShare(e.target.value.replace(/[^\d]/g, ''))} size="small" fullWidth sx={fieldSx}
+                helperText="По умолчанию — с карточки объекта" />
+            )}
+            <Stack direction="row" spacing={1}>
+              <TextField label="Покупатель (имя)" value={buyerName} onChange={(e) => setBuyerName(e.target.value)} size="small" fullWidth sx={fieldSx} />
+              <TextField label="Телефон" value={buyerPhone} onChange={(e) => setBuyerPhone(e.target.value)} size="small" fullWidth sx={fieldSx} />
+            </Stack>
+            <TextField label="Дата сделки" type="date" value={date} onChange={(e) => setDate(e.target.value)} size="small" fullWidth sx={fieldSx} slotProps={{ inputLabel: { shrink: true } }} />
+            <TextField label="Примечание" value={notes} onChange={(e) => setNotes(e.target.value)} size="small" fullWidth multiline minRows={2} sx={fieldSx} />
+            {err && <Alert severity="error" sx={{ background: 'rgba(239,68,68,0.1)', color: '#FCA5A5' }}>{err}</Alert>}
+            <Typography sx={{ color: '#64748B', fontSize: 12 }}>
+              {buyerAgent ? `Совместная сделка: ВКД делится ${100 - (Number(share) || 0)}/${Number(share) || 0}, комиссия каждого агента — по его уровню.` : 'Одиночная сделка: вся комиссия — листинг-агенту.'} Объект перейдёт в статус «Продан».
+            </Typography>
+            <Button fullWidth variant="contained" disabled={!valid || busy} onClick={submit}
+              startIcon={busy ? <CircularProgress size={16} sx={{ color: '#06210F' }} /> : <HandshakeRoundedIcon />}
+              sx={{ background: GOLD, color: '#06210F', fontWeight: 700, textTransform: 'none', '&:hover': { background: '#B8973F' }, '&.Mui-disabled': { background: '#475569', color: '#1E293B' } }}>Провести сделку</Button>
+          </Stack>
+        )}
+      </Box>
+    </Dialog>
+  );
+}
+
+// Блок «Кабинет собственника» в карточке: выдать/скопировать/отозвать персональную ссылку.
+// Ссылку (сырой токен) бэк отдаёт только владельцу-агенту/super_admin (иначе link=null).
+function PortalLinkBlock({ propertyId }: { propertyId: number }) {
+  const { data, refetch, isLoading } = useQuery({ queryKey: ['mls-portal-link', propertyId], queryFn: () => getPortalLink(propertyId), staleTime: 30_000 });
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const link = data?.link;
+  async function issue(regenerate = false) { setBusy(true); try { await issuePortalLink(propertyId, regenerate); await refetch(); } finally { setBusy(false); } }
+  async function revoke() { setBusy(true); try { await revokePortalLink(propertyId); await refetch(); } finally { setBusy(false); } }
+  function copy() { if (link) { navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500); } }
+  if (isLoading || !data) return null;
+  return (
+    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.25)' }}>
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+        <LinkRoundedIcon sx={{ fontSize: 18, color: '#60A5FA' }} />
+        <Typography sx={{ color: '#93C5FD', fontWeight: 700, fontSize: 13 }}>Кабинет собственника</Typography>
+      </Stack>
+      {!data.has_owner ? (
+        <Typography sx={{ color: '#94A3B8', fontSize: 13 }}>Добавьте контакт собственника, чтобы выдать ссылку в личный кабинет.</Typography>
+      ) : !data.enabled ? (
+        <Button size="small" variant="outlined" disabled={busy} onClick={() => issue(false)}
+          sx={{ color: '#60A5FA', borderColor: 'rgba(96,165,250,0.4)', textTransform: 'none' }}>{busy ? 'Создаём…' : 'Выдать ссылку собственнику'}</Button>
+      ) : (
+        <>
+          {link ? (
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+              <TextField value={link} size="small" fullWidth slotProps={{ input: { readOnly: true } }}
+                sx={{ '& .MuiOutlinedInput-root': { color: '#CBD5E1', fontSize: 12, '& fieldset': { borderColor: 'rgba(96,165,250,0.3)' } } }} />
+              <Button size="small" onClick={copy} sx={{ color: '#60A5FA', textTransform: 'none', minWidth: 'auto' }}>{copied ? 'Скопировано' : 'Копировать'}</Button>
+            </Stack>
+          ) : (
+            <Typography sx={{ color: '#94A3B8', fontSize: 12, mb: 1 }}>Ссылка активна (видна только агенту объекта).</Typography>
+          )}
+          {data.last_seen_at && <Typography sx={{ color: '#64748B', fontSize: 11 }}>Был в кабинете: {data.last_seen_at.slice(0, 16).replace('T', ' ')}</Typography>}
+          <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+            <Button size="small" disabled={busy} onClick={() => issue(true)} sx={{ color: '#94A3B8', textTransform: 'none' }}>Обновить ссылку</Button>
+            <Button size="small" disabled={busy} onClick={revoke} sx={{ color: '#FCA5A5', textTransform: 'none' }}>Отозвать</Button>
+          </Stack>
+        </>
+      )}
+    </Box>
+  );
+}
+
 export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () => void; onEdit: () => void }) {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['mls-property', id],
@@ -114,6 +260,7 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
   const qc = useQueryClient();
   const [statusBusy, setStatusBusy] = useState(false);
   const [active, setActive] = useState(0);
+  const [sellOpen, setSellOpen] = useState(false);
 
   async function changeStatus(s: string) {
     setStatusBusy(true);
@@ -172,6 +319,11 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
                 {d.status === 'active' && (
                   <Button size="small" disabled={statusBusy} onClick={() => changeStatus('draft')} sx={{ color: '#94A3B8', textTransform: 'none' }}>В черновик</Button>
                 )}
+                {(d.status === 'active' || d.status === 'deposit') && (
+                  <Button size="small" variant="contained" onClick={() => setSellOpen(true)}
+                    startIcon={<HandshakeRoundedIcon sx={{ fontSize: 16 }} />}
+                    sx={{ background: GOLD, color: '#06210F', fontWeight: 700, textTransform: 'none', '&:hover': { background: '#B8973F' } }}>Провести сделку</Button>
+                )}
                 <Button size="small" startIcon={<EditRoundedIcon sx={{ fontSize: 16 }} />} onClick={onEdit}
                   sx={{ color: GOLD, textTransform: 'none', '&:hover': { background: `${GOLD}11` } }}>Редактировать</Button>
               </Stack>
@@ -223,6 +375,8 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
                   )}
                 </Stack>
               </Box>
+
+              <PortalLinkBlock propertyId={d.id} />
 
               <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
 
@@ -304,6 +458,10 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
                 ) : null}
               </Grid>
             </Box>
+            {sellOpen && (
+              <SellDialog property={d} onClose={() => setSellOpen(false)}
+                onDone={() => { refetch(); ['mls-properties', 'mls-count', 'mls-property-buyers', 'mls-readiness'].forEach((k) => qc.invalidateQueries({ queryKey: [k] })); }} />
+            )}
           </>
         )}
       </DialogContent>

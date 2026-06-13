@@ -152,6 +152,30 @@ export function getMlsReadiness(id: number, platform = 'avito'): Promise<Readine
   return api.get<Readiness>(`/api/mls/properties/${id}/readiness?platform=${platform}`);
 }
 
+// ── Co-broking / проведение сделки по объекту ──
+export interface SellDealRow {
+  id: number; agent_id: number; vkd: number; income: number; commission: number; share: number; is_main: boolean;
+}
+export interface SellResult {
+  ok: boolean; joint: boolean; deal_group_id: number | null; property_status: string; deals: SellDealRow[];
+}
+// body: { vkd, date?, buyer_agent_id?, buyer_side_share?, buyer:{name,phone}?, client_name?, notes? }
+export function sellMlsProperty(id: number, body: Record<string, unknown>): Promise<SellResult> {
+  return api.post<SellResult>(`/api/mls/properties/${id}/sell`, body);
+}
+
+// ── Кабинет собственника (персональная ссылка) ──
+export interface PortalLink { has_owner: boolean; enabled: boolean; token: string | null; link: string | null; last_seen_at?: string | null; }
+export function getPortalLink(id: number): Promise<PortalLink> {
+  return api.get<PortalLink>(`/api/mls/properties/${id}/portal-link`);
+}
+export function issuePortalLink(id: number, regenerate = false): Promise<PortalLink> {
+  return api.post<PortalLink>(`/api/mls/properties/${id}/portal-link${regenerate ? '?regenerate=1' : ''}`, {});
+}
+export function revokePortalLink(id: number): Promise<{ ok: boolean }> {
+  return api.del<{ ok: boolean }>(`/api/mls/properties/${id}/portal-link`);
+}
+
 // AI-описание объекта (переиспользует инструмент listing из /api/ai).
 export function generateAiListing(input: Record<string, unknown>): Promise<{ text: string }> {
   return api.post<{ text: string }>('/api/ai/generate', { tool: 'listing', input });
