@@ -180,7 +180,7 @@ export default function PropertyForm({ id, onClose, onSaved }: { id: number | nu
     );
   }
 
-  const dlgPaper = { sx: { background: 'linear-gradient(135deg, #0F1629 0%, #0A0E1A 100%)', border: `1px solid ${GOLD}22`, borderRadius: 3, backgroundImage: 'none' } };
+  const dlgPaper = { sx: { backgroundColor: '#0F1629', backgroundImage: 'linear-gradient(135deg, #0F1629 0%, #0A0E1A 100%)', border: `1px solid ${GOLD}22`, borderRadius: 3 } };
 
   return (
     <Dialog open onClose={onClose} maxWidth="md" fullWidth slotProps={{ paper: dlgPaper }}>
