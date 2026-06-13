@@ -20,7 +20,7 @@ import PropertyForm from './PropertyForm';
 import {
   listMlsProperties, getMlsProperty, getMlsFacets, type MlsListItem, type MlsDetail,
   TYPE_LABEL, DEAL_LABEL, ROOMS_LABEL, STATUS_LABEL, MARKET_LABEL, LAND_UNIT_LABEL,
-  PARAM_LABEL, PARAM_ENUM_LABEL, priceFmt,
+  PARAM_LABEL, PARAM_ENUM_LABEL, priceFmt, phoneFmt,
 } from '../../api/mls';
 import { ErrorState, PageSkeleton } from '../States';
 
@@ -195,11 +195,14 @@ function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () => void
                   <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
                   <Typography variant="caption" sx={{ color: '#64748B' }}>История цены</Typography>
                   <Stack sx={{ mt: 0.5 }}>
-                    {d.priceHistory.map((h, i) => (
-                      <Typography key={i} sx={{ color: '#94A3B8', fontSize: 13 }}>
-                        {h.created_at?.slice(0, 10)} — {priceFmt(h.new_price)}{h.reason ? ` (${h.reason})` : ''}
-                      </Typography>
-                    ))}
+                    {d.priceHistory.map((h, i) => {
+                      const tech = h.reason === 'manual' || h.reason === 'sputnik_import';
+                      return (
+                        <Typography key={i} sx={{ color: '#94A3B8', fontSize: 13 }}>
+                          {h.created_at?.slice(0, 10)} — {priceFmt(h.new_price)}{h.reason && !tech ? ` (${h.reason})` : ''}
+                        </Typography>
+                      );
+                    })}
                   </Stack>
                 </>
               )}
@@ -208,7 +211,12 @@ function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () => void
               <Grid container spacing={2}>
                 <Spec label="Агент" value={d.agent?.name} />
                 {d.owner ? (
-                  <Spec label="Собственник" value={`${d.owner.name || ''} ${d.owner.phone || ''}`.trim() || '—'} />
+                  <Spec label="Собственник" value={
+                    <Box component="span">
+                      {d.owner.name || ''}{d.owner.name && d.owner.phone ? ' · ' : ''}
+                      {d.owner.phone && <Link href={`tel:${d.owner.phone.replace(/\s/g, '')}`} underline="hover" sx={{ color: GOLD }}>{phoneFmt(d.owner.phone)}</Link>}
+                    </Box>
+                  } />
                 ) : d.owner_locked ? (
                   <Grid size={{ xs: 6, sm: 4 }}>
                     <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>Собственник</Typography>

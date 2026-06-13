@@ -195,3 +195,10 @@ export function priceFmt(n: number | null | undefined): string {
   if (n == null) return '—';
   return new Intl.NumberFormat('ru-RU').format(n) + ' ₽';
 }
+
+export function phoneFmt(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const d = String(raw).replace(/\D/g, '');
+  if (d.length === 11 && (d[0] === '7' || d[0] === '8')) return `+7 ${d.slice(1, 4)} ${d.slice(4, 7)}-${d.slice(7, 9)}-${d.slice(9)}`;
+  return String(raw);
+}
