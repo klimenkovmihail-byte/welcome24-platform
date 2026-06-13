@@ -174,6 +174,11 @@ export default function Dashboard() {
 
   // === Мои данные с бэка через react-query (кэш/дедуп между страницами) ===
   const meId = (() => { const id = getCurrentAgent()?.id; return typeof id === 'number' ? id : undefined; })();
+  // Фиксированный тариф комиссии (особые агенты вне годовой прогрессии). NULL = прогрессия по ВКД.
+  const fixedPct = (() => {
+    const v = (getCurrentAgent() as { commission_fixed?: number | null } | null)?.commission_fixed;
+    return typeof v === 'number' && v > 0 ? v : null;
+  })();
   const dealsQ = useDeals(meId);
   const teamQ = useTeam();
   const packetsQ = useSharePackets();
@@ -207,7 +212,15 @@ export default function Dashboard() {
   const yearTotalIncome = dealsThisYear.reduce((s, d) => s + d.income, 0);
   const yearTotalDeals  = dealsThisYear.length;
 
-  const commission = useMemo(() => commissionByVkd(yearTotalVkd, lvl1, lvl2), [yearTotalVkd, lvl1, lvl2]);
+  const commission = useMemo(() => {
+    // Фикс-тариф: показываем его как уровень, без прогрессии (toNext=0).
+    if (fixedPct) {
+      const lvl = (fixedPct >= 95 ? 3 : fixedPct >= 90 ? 2 : 1) as 1 | 2 | 3;
+      const c = fixedPct as 80 | 90 | 95;
+      return { level: lvl, commission: c, nextThreshold: lvl2, nextCommission: c, toNext: 0 };
+    }
+    return commissionByVkd(yearTotalVkd, lvl1, lvl2);
+  }, [yearTotalVkd, lvl1, lvl2, fixedPct]);
   const progressToNext = commission.toNext > 0
     ? Math.min(100, (yearTotalVkd / commission.nextThreshold) * 100)
     : 100;
@@ -294,7 +307,9 @@ export default function Dashboard() {
               {greeting.text}, {(getCurrentAgent()?.name || '').split(' ')[1] || 'агент'}! {greeting.emoji}
             </Typography>
             <Typography sx={{ color: '#94A3B8', mt: 0.5 }}>
-              {commission.toNext > 0 ? (
+              {fixedPct ? (
+                <>Ваш фиксированный тариф комиссии <b style={{ color: '#C9A84C' }}>{fixedPct}%</b></>
+              ) : commission.toNext > 0 ? (
                 <>До уровня <b style={{ color: '#C9A84C' }}>{commission.nextCommission}%</b> осталось <b style={{ color: '#C9A84C' }}>{fmt(commission.toNext)} ₽</b> ВКД</>
               ) : (
                 <>Вы достигли максимального уровня комиссии <b style={{ color: '#C9A84C' }}>{commission.commission}%</b></>
@@ -413,18 +428,26 @@ export default function Dashboard() {
                   <CommissionLevel percent={90} range={`${fmtMln(lvl1)}–${fmtMln(lvl2)}`} active={commission.level === 2} completed={commission.level > 2} />
                   <CommissionLevel percent={95} range={`от ${fmtMln(lvl2)}`} active={commission.level === 3} completed={false} />
                 </Box>
-                <Box sx={{ mb: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 600 }}>Текущий ВКД</Typography>
-                    <Typography variant="caption" sx={{ color: '#C9A84C', fontWeight: 700 }}>
-                      {fmt(yearTotalVkd)} / {fmt(commission.nextThreshold)} ₽
+                {fixedPct ? (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block' }}>
+                      Фиксированный тариф <b style={{ color: '#C9A84C' }}>{fixedPct}%</b> — вне годовой прогрессии по ВКД.
                     </Typography>
                   </Box>
-                  <LinearProgress variant="determinate" value={progressToNext} />
-                  <Typography variant="caption" sx={{ color: '#64748B', mt: 0.5, display: 'block' }}>
-                    До {commission.nextCommission}% осталось: <b style={{ color: '#F59E0B' }}>{fmt(commission.toNext)} ₽</b>
-                  </Typography>
-                </Box>
+                ) : (
+                  <Box sx={{ mb: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 600 }}>Текущий ВКД</Typography>
+                      <Typography variant="caption" sx={{ color: '#C9A84C', fontWeight: 700 }}>
+                        {fmt(yearTotalVkd)} / {fmt(commission.nextThreshold)} ₽
+                      </Typography>
+                    </Box>
+                    <LinearProgress variant="determinate" value={progressToNext} />
+                    <Typography variant="caption" sx={{ color: '#64748B', mt: 0.5, display: 'block' }}>
+                      До {commission.nextCommission}% осталось: <b style={{ color: '#F59E0B' }}>{fmt(commission.toNext)} ₽</b>
+                    </Typography>
+                  </Box>
+                )}
                 <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.08)' }} />
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Box>
