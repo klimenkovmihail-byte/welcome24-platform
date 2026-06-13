@@ -88,6 +88,12 @@ export default function Profile() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [refCopied, setRefCopied] = useState(false);
+  // Смена пароля (отдельное действие в диалоге профиля).
+  const [curPwd, setCurPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [pwdSaving, setPwdSaving] = useState(false);
+  const [pwdMsg, setPwdMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Загружаем актуального юзера с бэка (на старте + после save).
   const [user, setUser] = useState<Record<string, unknown> | null>(() => getCurrentAgent());
@@ -276,6 +282,21 @@ export default function Profile() {
     if (user?.id && user?.name) return buildReferralLink(user.id as number | string, user.name as string);
     return '';
   })();
+
+  const closeEdit = () => { setEditOpen(false); setCurPwd(''); setNewPwd(''); setConfirmPwd(''); setPwdMsg(null); };
+  const handleChangePassword = async () => {
+    setPwdMsg(null);
+    if (newPwd.length < 6) { setPwdMsg({ ok: false, text: 'Новый пароль — минимум 6 символов.' }); return; }
+    if (newPwd !== confirmPwd) { setPwdMsg({ ok: false, text: 'Новые пароли не совпадают.' }); return; }
+    setPwdSaving(true);
+    try {
+      await api.post('/api/auth/change-password', { currentPassword: curPwd, newPassword: newPwd });
+      setPwdMsg({ ok: true, text: 'Пароль изменён.' });
+      setCurPwd(''); setNewPwd(''); setConfirmPwd('');
+    } catch (e) {
+      setPwdMsg({ ok: false, text: e instanceof Error ? e.message : 'Не удалось сменить пароль' });
+    } finally { setPwdSaving(false); }
+  };
 
   const qc = useQueryClient();
   const handleSave = async () => {
@@ -844,10 +865,10 @@ export default function Profile() {
       )}
 
       {/* Edit profile dialog */}
-      <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={editOpen} onClose={closeEdit} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
           <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#F1F5F9' }}>Редактировать профиль</Typography>
-          <IconButton size="small" onClick={() => setEditOpen(false)} sx={{ color: '#64748B' }}><CloseRoundedIcon /></IconButton>
+          <IconButton size="small" onClick={closeEdit} sx={{ color: '#64748B' }}><CloseRoundedIcon /></IconButton>
         </DialogTitle>
         <Divider sx={{ borderColor: 'rgba(201,168,76,0.1)' }} />
         <DialogContent sx={{ pt: 3 }}>
@@ -966,10 +987,32 @@ export default function Profile() {
               slotProps={{ input: { startAdornment: <InputAdornment position="start"><ChatRoundedIcon sx={{ color: '#7C3AED', fontSize: 18 }} /></InputAdornment> } }}
             />
           </Stack>
+
+          {/* Смена пароля — отдельное действие, не зависит от «Сохранить изменения» */}
+          <Divider sx={{ my: 2.5, borderColor: 'rgba(201,168,76,0.12)' }} />
+          <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', mb: 1.5 }}>Сменить пароль</Typography>
+          <Stack spacing={1.5}>
+            <TextField fullWidth size="small" type="password" label="Текущий пароль" autoComplete="current-password"
+              value={curPwd} onChange={e => { setCurPwd(e.target.value); setPwdMsg(null); }} />
+            <TextField fullWidth size="small" type="password" label="Новый пароль (мин. 6 символов)" autoComplete="new-password"
+              value={newPwd} onChange={e => { setNewPwd(e.target.value); setPwdMsg(null); }} />
+            <TextField fullWidth size="small" type="password" label="Повторите новый пароль" autoComplete="new-password"
+              value={confirmPwd} onChange={e => { setConfirmPwd(e.target.value); setPwdMsg(null); }}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleChangePassword(); } }} />
+            {pwdMsg && <Alert severity={pwdMsg.ok ? 'success' : 'error'}>{pwdMsg.text}</Alert>}
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button variant="outlined" onClick={handleChangePassword}
+                disabled={pwdSaving || !curPwd || !newPwd || !confirmPwd}
+                sx={{ borderColor: 'rgba(201,168,76,0.3)', color: '#C9A84C', fontWeight: 700, '&:hover': { borderColor: '#C9A84C' } }}>
+                {pwdSaving ? 'Сохраняю…' : 'Сменить пароль'}
+              </Button>
+            </Box>
+          </Stack>
+
           {saveError && <Alert severity="error" sx={{ mt: 2 }}>{saveError}</Alert>}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={() => setEditOpen(false)} sx={{ color: '#64748B' }}>Отмена</Button>
+          <Button onClick={closeEdit} sx={{ color: '#64748B' }}>Отмена</Button>
           <Button variant="contained" onClick={handleSave} disabled={!form.name.trim() || !form.email.trim()}>
             Сохранить изменения
           </Button>
