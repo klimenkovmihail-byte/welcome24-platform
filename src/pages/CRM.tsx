@@ -1,8 +1,9 @@
 // CRM — зонтичный раздел операционной инфраструктуры MLS (скрыт, super_admin).
-// Под-навигация модулей: Объекты (живой) + Лиды/Заявки/Сделки/Клиенты (каркас «скоро»
-// по дорожной карте mls-fable-review §2). Гейт раздела — в isPortalPathAllowed (/crm).
-import { useState } from 'react';
-import { Box, Typography, Chip, Stack } from '@mui/material';
+// Хаб с ПЛИТКАМИ модулей: вход в CRM → плитки (Объекты живой + Лиды/Заявки/Сделки/Клиенты
+// каркас «скоро» по дорожной карте mls-fable-review §2) → клик по плитке → модуль.
+import { useState, type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Box, Typography, Chip, Stack, Card, CardContent, Grid, Button } from '@mui/material';
 import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded';
 import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 import ManageSearchRoundedIcon from '@mui/icons-material/ManageSearchRounded';
@@ -10,34 +11,68 @@ import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
 import ConstructionRoundedIcon from '@mui/icons-material/ConstructionRounded';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import ObjectsView from '../components/crm/ObjectsView';
+import { listMlsProperties } from '../api/mls';
 
 const GOLD = '#C9A84C';
 
 interface Module {
   key: string;
   label: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   ready?: boolean;
-  desc: string;     // что это / что будет
-  phase?: string;   // ориентир по дорожной карте
+  desc: string;
+  phase?: string;
 }
 
 const MODULES: Module[] = [
-  { key: 'objects', label: 'Объекты', icon: <ApartmentRoundedIcon />, ready: true, desc: 'База объектов агентства: витрина, фильтры, карточка с фото и характеристиками.' },
-  { key: 'leads', label: 'Лиды', icon: <CampaignRoundedIcon />, desc: 'Обращения с площадок (Авито/ЦИАН): AI-квалификация в чатах 24/7 и мгновенный пуш агенту объекта с SLA. Скорость на лиде — самый дешёвый рубль.', phase: 'Фаза 2' },
-  { key: 'requests', label: 'Заявки покупателей', icon: <ManageSearchRoundedIcon />, desc: 'Заявки-покупатели с критериями (из лидов + вручную) и AI-мэтчинг под объекты коллег: «на твой объект 3 покупателя».', phase: 'Фаза 4' },
-  { key: 'deals', label: 'Сделки (co-broking)', icon: <HandshakeRoundedIcon />, desc: 'Совместные сделки с защищённым платформой делёжом комиссии (ex-ante доля), межгородские рефералы — внутренняя биржа спроса.', phase: 'Фаза 4–5' },
-  { key: 'clients', label: 'Клиенты', icon: <GroupsRoundedIcon />, desc: 'Кабинет клиента (продавец/покупатель): этапы сделки, чат, отчёт собственнику + маркетплейс доп. услуг с долей агента.', phase: 'Фаза 4.5' },
+  { key: 'objects', label: 'Объекты', icon: <ApartmentRoundedIcon />, ready: true, desc: 'База объектов агентства: витрина, фильтры, карточка с фото, адресом и картой.' },
+  { key: 'leads', label: 'Лиды', icon: <CampaignRoundedIcon />, desc: 'Обращения с площадок (Авито/ЦИАН): AI-квалификация в чатах 24/7 и мгновенный пуш агенту объекта с SLA.', phase: 'Фаза 2' },
+  { key: 'requests', label: 'Заявки покупателей', icon: <ManageSearchRoundedIcon />, desc: 'Заявки-покупатели с критериями (из лидов + вручную) и AI-мэтчинг под объекты коллег.', phase: 'Фаза 4' },
+  { key: 'deals', label: 'Сделки (co-broking)', icon: <HandshakeRoundedIcon />, desc: 'Совместные сделки с защищённым делёжом комиссии, межгородские рефералы — внутренняя биржа спроса.', phase: 'Фаза 4–5' },
+  { key: 'clients', label: 'Клиенты', icon: <GroupsRoundedIcon />, desc: 'Кабинет клиента (продавец/покупатель): этапы сделки, чат, отчёт собственнику + маркетплейс услуг.', phase: 'Фаза 4.5' },
 ];
+
+function ModuleTile({ m, count, onOpen }: { m: Module; count?: number; onOpen: () => void }) {
+  return (
+    <Card onClick={onOpen}
+      sx={{
+        cursor: 'pointer', height: '100%', opacity: m.ready ? 1 : 0.9,
+        transition: 'transform .2s, box-shadow .2s, border-color .2s',
+        '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 14px 36px rgba(0,0,0,0.45)', borderColor: `${GOLD}44` },
+      }}>
+      <CardContent sx={{ p: 2.5 }}>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
+          <Box sx={{ display: 'inline-flex', p: 1.25, borderRadius: 2, background: m.ready ? `${GOLD}16` : 'rgba(148,163,184,0.1)', color: m.ready ? GOLD : '#94A3B8', '& svg': { fontSize: 26 } }}>
+            {m.icon}
+          </Box>
+          {m.ready ? (
+            <Chip label="Активен" size="small" sx={{ height: 20, fontSize: 11, fontWeight: 700, color: '#22C55E', background: 'rgba(34,197,94,0.12)' }} />
+          ) : (
+            <Chip label="скоро" size="small" sx={{ height: 20, fontSize: 11, fontWeight: 700, color: '#64748B', background: 'rgba(148,163,184,0.12)' }} />
+          )}
+        </Stack>
+        <Typography sx={{ fontWeight: 800, color: '#F1F5F9', fontSize: 17 }}>{m.label}</Typography>
+        {m.ready && count != null && (
+          <Typography sx={{ color: GOLD, fontWeight: 700, fontSize: 14, mt: 0.25 }}>{count} объектов</Typography>
+        )}
+        {!m.ready && m.phase && (
+          <Typography sx={{ color: '#64748B', fontSize: 12, fontWeight: 600, mt: 0.25 }}>{m.phase}</Typography>
+        )}
+        <Typography sx={{ color: '#94A3B8', fontSize: 13, mt: 1, lineHeight: 1.5 }}>{m.desc}</Typography>
+      </CardContent>
+    </Card>
+  );
+}
 
 function SoonPanel({ m }: { m: Module }) {
   return (
-    <Box sx={{ py: 8, px: 3, textAlign: 'center', maxWidth: 560, mx: 'auto' }}>
+    <Box sx={{ py: 7, px: 3, textAlign: 'center', maxWidth: 560, mx: 'auto' }}>
       <Box sx={{ display: 'inline-flex', p: 2, borderRadius: '50%', background: `${GOLD}14`, color: GOLD, mb: 2 }}>
         <ConstructionRoundedIcon sx={{ fontSize: 36 }} />
       </Box>
-      <Stack direction="row" spacing={1} justifyContent="center" alignItems="center" sx={{ mb: 1 }}>
+      <Stack direction="row" spacing={1} justifyContent="center" alignItems="center" sx={{ mb: 1, flexWrap: 'wrap' }}>
         <Typography variant="h6" sx={{ fontWeight: 800, color: '#F1F5F9' }}>{m.label}</Typography>
         <Chip label="в разработке" size="small" sx={{ height: 20, fontSize: 11, fontWeight: 700, color: GOLD, background: `${GOLD}1A`, border: `1px solid ${GOLD}33` }} />
         {m.phase && <Chip label={m.phase} size="small" sx={{ height: 20, fontSize: 11, fontWeight: 600, color: '#94A3B8', background: 'rgba(148,163,184,0.12)' }} />}
@@ -48,8 +83,11 @@ function SoonPanel({ m }: { m: Module }) {
 }
 
 export default function CRM() {
-  const [active, setActive] = useState('objects');
-  const mod = MODULES.find(m => m.key === active) || MODULES[0];
+  const [active, setActive] = useState<string | null>(null); // null = хаб (плитки)
+  const mod = MODULES.find(m => m.key === active) || null;
+
+  const countQ = useQuery({ queryKey: ['mls-count'], queryFn: () => listMlsProperties({ limit: 1 }), staleTime: 300_000 });
+  const objectsCount = countQ.data?.total;
 
   return (
     <Box>
@@ -58,30 +96,31 @@ export default function CRM() {
         <Chip icon={<VisibilityOffRoundedIcon sx={{ fontSize: 14 }} />} label="Скрытый раздел (только вы)" size="small"
           sx={{ height: 22, fontSize: 11, fontWeight: 600, color: GOLD, background: `${GOLD}1A`, border: `1px solid ${GOLD}33`, '& .MuiChip-icon': { color: GOLD } }} />
       </Box>
-      <Typography sx={{ color: '#64748B', fontSize: 13, mb: 2 }}>Операционная инфраструктура MLS</Typography>
+      <Typography sx={{ color: '#64748B', fontSize: 13, mb: 2.5 }}>Операционная инфраструктура MLS</Typography>
 
-      {/* Под-навигация модулей */}
-      <Stack direction="row" spacing={0.5} sx={{ mb: 2.5, borderBottom: '1px solid rgba(201,168,76,0.12)', overflowX: 'auto', '&::-webkit-scrollbar': { height: 4 }, '&::-webkit-scrollbar-thumb': { background: 'rgba(201,168,76,0.25)', borderRadius: 2 } }}>
-        {MODULES.map(m => {
-          const on = m.key === active;
-          return (
-            <Box key={m.key} onClick={() => setActive(m.key)}
-              sx={{
-                display: 'flex', alignItems: 'center', gap: 0.75, px: 1.75, py: 1.25, cursor: 'pointer',
-                whiteSpace: 'nowrap', borderBottom: on ? `2px solid ${GOLD}` : '2px solid transparent',
-                color: on ? GOLD : '#94A3B8', fontWeight: on ? 700 : 500, fontSize: 14,
-                transition: 'color .2s', '&:hover': { color: on ? GOLD : '#E2C97E' },
-                '& svg': { fontSize: 18 },
-              }}>
-              {m.icon}
-              {m.label}
-              {!m.ready && <Box component="span" sx={{ fontSize: 9, fontWeight: 700, color: '#64748B', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 1, px: 0.5, py: '1px' }}>скоро</Box>}
-            </Box>
-          );
-        })}
-      </Stack>
-
-      {mod.ready ? <ObjectsView /> : <SoonPanel m={mod} />}
+      {!mod ? (
+        // ── Хаб: плитки модулей ──
+        <Grid container spacing={2}>
+          {MODULES.map(m => (
+            <Grid key={m.key} size={{ xs: 12, sm: 6, md: 4 }}>
+              <ModuleTile m={m} count={m.key === 'objects' ? objectsCount : undefined} onOpen={() => setActive(m.key)} />
+            </Grid>
+          ))}
+        </Grid>
+      ) : (
+        // ── Модуль ──
+        <>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+            <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => setActive(null)} size="small"
+              sx={{ color: '#94A3B8', textTransform: 'none', '&:hover': { color: GOLD, background: 'transparent' } }}>
+              Все модули
+            </Button>
+            <Typography sx={{ color: '#475569' }}>/</Typography>
+            <Typography sx={{ color: '#F1F5F9', fontWeight: 700 }}>{mod.label}</Typography>
+          </Stack>
+          {mod.ready ? <ObjectsView /> : <SoonPanel m={mod} />}
+        </>
+      )}
     </Box>
   );
 }
