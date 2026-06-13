@@ -1,6 +1,6 @@
-// MLS «Объекты» — витрина базы объектов агентства (скрытый раздел, super_admin).
-// Первый UI MLS: сетка карточек + фильтры + карточка-диалог (галерея, характеристики,
-// история цены, изоляция контакта собственника). Данные — GET /api/mls/properties[/:id].
+// CRM → модуль «Объекты»: витрина базы объектов агентства (MLS).
+// Сетка карточек + фильтры + диалог карточки (галерея/характеристики/история цены/owner-lock).
+// Данные — GET /api/mls/properties[/:id]. Раздел скрыт (super_admin), гейт — в роутере/сайдбаре.
 import { useState, useMemo, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -16,8 +16,8 @@ import {
   listMlsProperties, getMlsProperty, type MlsListItem, type MlsDetail,
   TYPE_LABEL, DEAL_LABEL, ROOMS_LABEL, STATUS_LABEL, MARKET_LABEL, LAND_UNIT_LABEL,
   PARAM_LABEL, PARAM_ENUM_LABEL, priceFmt,
-} from '../api/mls';
-import { ErrorState, PageSkeleton } from '../components/States';
+} from '../../api/mls';
+import { ErrorState, PageSkeleton } from '../States';
 
 const TYPES = ['apartment', 'house', 'land', 'commercial', 'room', 'garage'];
 const GOLD = '#C9A84C';
@@ -117,7 +117,6 @@ function DetailDialog({ id, onClose }: { id: number; onClose: () => void }) {
         {error && <Box sx={{ p: 4 }}><ErrorState message={(error as Error).message} onRetry={() => refetch()} /></Box>}
         {d && (
           <>
-            {/* Галерея */}
             <Box sx={{ position: 'relative', background: '#05070F' }}>
               {main ? (
                 <Box component="img" src={main.url} alt=""
@@ -138,7 +137,7 @@ function DetailDialog({ id, onClose }: { id: number; onClose: () => void }) {
             )}
 
             <Box sx={{ p: 3 }}>
-              <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+              <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap', gap: 1 }}>
                 <Chip label={DEAL_LABEL[d.deal_type] || d.deal_type} size="small" sx={{ fontWeight: 700, color: GOLD, background: `${GOLD}22` }} />
                 <Chip label={STATUS_LABEL[d.status] || d.status} size="small" sx={{ fontWeight: 700, color: d.status === 'active' ? '#22C55E' : '#94A3B8', background: d.status === 'active' ? 'rgba(34,197,94,0.12)' : 'rgba(148,163,184,0.12)' }} />
                 {d.market_type && <Chip label={MARKET_LABEL[d.market_type] || d.market_type} size="small" sx={{ fontWeight: 600, color: '#94A3B8', background: 'rgba(148,163,184,0.12)' }} />}
@@ -152,7 +151,6 @@ function DetailDialog({ id, onClose }: { id: number; onClose: () => void }) {
 
               <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
 
-              {/* Характеристики */}
               <Grid container spacing={2}>
                 <Spec label="Общая площадь" value={d.total_area ? `${d.total_area} м²` : null} />
                 <Spec label="Жилая" value={d.living_area ? `${d.living_area} м²` : null} />
@@ -213,7 +211,7 @@ function DetailDialog({ id, onClose }: { id: number; onClose: () => void }) {
   );
 }
 
-export default function MLS() {
+export default function ObjectsView() {
   const [dealType, setDealType] = useState('');
   const [propType, setPropType] = useState('');
   const [sort, setSort] = useState<'new' | 'price_asc' | 'price_desc'>('new');
@@ -240,15 +238,10 @@ export default function MLS() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5, flexWrap: 'wrap' }}>
-        <Typography variant="h5" sx={{ fontWeight: 800, color: '#F1F5F9' }}>Объекты</Typography>
-        <Chip icon={<VisibilityOffRoundedIcon sx={{ fontSize: 14 }} />} label="Скрытый раздел (только вы)" size="small"
-          sx={{ height: 22, fontSize: 11, fontWeight: 600, color: GOLD, background: `${GOLD}1A`, border: `1px solid ${GOLD}33`, '& .MuiChip-icon': { color: GOLD } }} />
-        {data && <Typography sx={{ color: '#64748B', fontSize: 14 }}>{data.total} объектов</Typography>}
-      </Box>
-      <Typography sx={{ color: '#64748B', fontSize: 13, mb: 2.5 }}>База объектов агентства (миграция со «Спутника»). Фото — со «Спутника» до переноса в наше хранилище.</Typography>
+      <Typography sx={{ color: '#64748B', fontSize: 13, mb: 2 }}>
+        База объектов агентства (миграция со «Спутника»{data ? `, ${data.total}` : ''}). Фото — со «Спутника» до переноса в наше хранилище.
+      </Typography>
 
-      {/* Фильтры */}
       <Stack direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: 'wrap', gap: 1 }} alignItems="center">
         {chip('Все', propType === '', () => setPropType(''))}
         {TYPES.map(t => chip(TYPE_LABEL[t], propType === t, () => setPropType(propType === t ? '' : t)))}
