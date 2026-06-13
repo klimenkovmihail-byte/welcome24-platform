@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Box, Card, CardContent, Typography, LinearProgress, Chip, Grid, Divider, ToggleButtonGroup, ToggleButton, MenuItem, Select, FormControl, InputLabel, Tooltip } from '@mui/material';
 import { motion } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartTooltip, ResponsiveContainer } from 'recharts';
@@ -237,11 +237,18 @@ export default function Dashboard() {
   const sharesGrowthPct   = sharesCost > 0 ? Math.round((sharesValue - sharesCost) / sharesCost * 100) : 0;
 
   // Filter state: year + month ('all' = all months in year)
-  const availableYears = useMemo(
-    () => Array.from(new Set(myDeals.map(d => d.date.slice(0, 4)))).sort(),
+  // Годы со сделками + ТЕКУЩИЙ ГОД всегда (даже без сделок — агент должен видеть
+  // «этот год» в фильтре, иначе он пропадает у тех, кто ещё не закрыл сделку в году).
+  const dealYears = useMemo(
+    () => Array.from(new Set(myDeals.map(d => d.date.slice(0, 4)).filter(Boolean))).sort(),
     [myDeals],
   );
-  const [filterYear, setFilterYear] = useState<string>(String(new Date().getFullYear()));
+  const availableYears = useMemo(() => {
+    const set = new Set(dealYears);
+    set.add(currentYear);
+    return Array.from(set).sort();
+  }, [dealYears, currentYear]);
+  const [filterYear, setFilterYear] = useState<string>(currentYear);
 
   // График по месяцам ВЫБРАННОГО ГОДА (а не текущего). Синхронизирован с
   // фильтром «Отчёт по сделкам» — переключая 2024/2025/2026 в таблице,
@@ -259,11 +266,17 @@ export default function Dashboard() {
       };
     });
   }, [myDeals, filterYear]);
+  // При первой загрузке сделок: если в текущем году сделок ещё нет — открываем
+  // последний год СО сделками (но текущий год остаётся выбираемым в фильтре).
+  // Одноразово (ref-гард) — ручной выбор года потом не перетирается.
+  const didInitYear = useRef(false);
   useEffect(() => {
-    if (availableYears.length && !availableYears.includes(filterYear)) {
-      setFilterYear(availableYears[availableYears.length - 1]);
+    if (didInitYear.current || !myDeals.length) return;
+    didInitYear.current = true;
+    if (!dealYears.includes(currentYear) && dealYears.length) {
+      setFilterYear(dealYears[dealYears.length - 1]);
     }
-  }, [availableYears, filterYear]);
+  }, [myDeals, dealYears, currentYear]);
   const [filterMonth, setFilterMonth] = useState<string>('all');
 
   const filteredDeals = useMemo(() => myDeals.filter(d => {
