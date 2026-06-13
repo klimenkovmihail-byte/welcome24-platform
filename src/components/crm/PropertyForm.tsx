@@ -12,9 +12,11 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
 import AddPhotoAlternateRoundedIcon from '@mui/icons-material/AddPhotoAlternateRounded';
 import StarRoundedIcon from '@mui/icons-material/StarRounded';
+import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import {
   getMlsRegistry, getMlsProperty, createMlsProperty, updateMlsProperty, deleteMlsProperty,
-  suggestMlsAddress, dedupCheck, uploadMlsPhotos, deleteMlsPhoto,
+  suggestMlsAddress, dedupCheck, uploadMlsPhotos, deleteMlsPhoto, generateAiListing,
+  TYPE_LABEL, ROOMS_LABEL, PARAM_ENUM_LABEL,
   type RegistryField, type AddressSuggestion, type MlsPhoto,
 } from '../../api/mls';
 
@@ -37,6 +39,7 @@ export default function PropertyForm({ id, onClose, onSaved }: { id: number | nu
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [notice, setNotice] = useState('');
+  const [genLoading, setGenLoading] = useState(false);
 
   // Префилл при правке.
   useEffect(() => {
@@ -159,6 +162,25 @@ export default function PropertyForm({ id, onClose, onSaved }: { id: number | nu
     catch (e) { setErr((e as Error).message); setSaving(false); }
   }
 
+  async function genDescription() {
+    setGenLoading(true); setErr('');
+    try {
+      const input = {
+        propertyType: TYPE_LABEL[propertyType] || propertyType,
+        area: vals.total_area, rooms: ROOMS_LABEL[String(vals.rooms)] || vals.rooms,
+        floor: vals.floor, totalFloors: vals.floors,
+        address: addrInput || '', district: vals.district,
+        price: vals.price,
+        condition: PARAM_ENUM_LABEL.renovation?.[String(vals.renovation)] || vals.renovation || '',
+        features: Array.isArray(vals.features) ? (vals.features as string[]).join(', ') : (vals.features || ''),
+        format: 'avito', tone: 'expert',
+      };
+      const r = await generateAiListing(input);
+      if (r.text) set('description', r.text);
+    } catch (e) { setErr('AI: ' + (e as Error).message); }
+    finally { setGenLoading(false); }
+  }
+
   const inputSx = { '& .MuiOutlinedInput-root': { color: '#F1F5F9' }, '& .MuiInputLabel-root': { color: '#94A3B8' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(148,163,184,0.2)' } };
 
   function renderField(f: RegistryField) {
@@ -176,6 +198,22 @@ export default function PropertyForm({ id, onClose, onSaved }: { id: number | nu
     }
     if (f.kind === 'tags') {
       return <TextField size="small" fullWidth label={f.label + ' (через запятую)'} value={Array.isArray(v) ? (v as string[]).join(', ') : (v as string) ?? ''} onChange={(e) => set(f.key, e.target.value.split(',').map((x) => x.trim()).filter(Boolean))} sx={inputSx} />;
+    }
+    if (f.key === 'description') {
+      return (
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+            <Typography sx={{ color: '#94A3B8', fontSize: 13 }}>{f.label}</Typography>
+            <Button size="small" startIcon={genLoading ? <CircularProgress size={14} sx={{ color: GOLD }} /> : <AutoAwesomeRoundedIcon sx={{ fontSize: 16 }} />}
+              onClick={genDescription} disabled={genLoading}
+              sx={{ color: GOLD, textTransform: 'none', '&:hover': { background: `${GOLD}11` } }}>
+              {genLoading ? 'Генерация…' : 'AI-описание'}
+            </Button>
+          </Box>
+          <TextField size="small" fullWidth value={(v as string) ?? ''} multiline minRows={4}
+            onChange={(e) => set(f.key, e.target.value)} placeholder="Опишите объект или нажмите «AI-описание»" sx={inputSx} />
+        </Box>
+      );
     }
     const multiline = f.kind === 'multiline';
     return (

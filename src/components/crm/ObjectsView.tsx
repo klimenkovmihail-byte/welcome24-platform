@@ -16,9 +16,10 @@ import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
 import MapRoundedIcon from '@mui/icons-material/MapRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import PropertyForm from './PropertyForm';
 import {
-  listMlsProperties, getMlsProperty, getMlsFacets, type MlsListItem, type MlsDetail,
+  listMlsProperties, getMlsProperty, getMlsFacets, getMlsReadiness, type MlsListItem, type MlsDetail,
   TYPE_LABEL, DEAL_LABEL, ROOMS_LABEL, STATUS_LABEL, MARKET_LABEL, LAND_UNIT_LABEL,
   PARAM_LABEL, PARAM_ENUM_LABEL, priceFmt, phoneFmt,
 } from '../../api/mls';
@@ -106,6 +107,8 @@ function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () => void
     queryKey: ['mls-property', id],
     queryFn: () => getMlsProperty(id),
   });
+  const readyQ = useQuery({ queryKey: ['mls-readiness', id], queryFn: () => getMlsReadiness(id), staleTime: 60_000 });
+  const readiness = readyQ.data;
   const [active, setActive] = useState(0);
   const d = data as MlsDetail | undefined;
   const photos = d?.photos || [];
@@ -157,12 +160,31 @@ function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () => void
               <Typography sx={{ color: '#F1F5F9', fontWeight: 600, mt: 0.5 }}>{specsLine(d)}</Typography>
               <Typography sx={{ color: '#94A3B8', mt: 0.5 }}>{d.address || '—'}</Typography>
               {d.lat != null && d.lng != null && (
-                <Link href={`https://yandex.ru/maps/?ll=${d.lng}%2C${d.lat}&z=17&pt=${d.lng}%2C${d.lat}`}
-                  target="_blank" rel="noopener" underline="hover"
-                  sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mt: 0.5, color: GOLD, fontSize: 13 }}>
-                  <MapRoundedIcon sx={{ fontSize: 16 }} /> На карте
-                </Link>
+                <Box sx={{ mt: 1 }}>
+                  <Box component="iframe" title="Карта" loading="lazy"
+                    src={`https://yandex.ru/map-widget/v1/?ll=${d.lng}%2C${d.lat}&z=16&pt=${d.lng}%2C${d.lat},pm2rdm`}
+                    sx={{ width: '100%', height: 260, border: 0, borderRadius: 2, display: 'block' }} />
+                  <Link href={`https://yandex.ru/maps/?ll=${d.lng}%2C${d.lat}&z=17&pt=${d.lng}%2C${d.lat}`} target="_blank" rel="noopener" underline="hover"
+                    sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mt: 0.5, color: GOLD, fontSize: 13 }}>
+                    <MapRoundedIcon sx={{ fontSize: 16 }} /> Открыть в Яндекс.Картах
+                  </Link>
+                </Box>
               )}
+
+              {/* Готовность к публикации на площадке */}
+              {readiness && (readiness.ready ? (
+                <Box sx={{ mt: 2, display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.5, py: 0.75, borderRadius: 2, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)' }}>
+                  <CheckCircleRoundedIcon sx={{ fontSize: 18, color: '#22C55E' }} />
+                  <Typography sx={{ color: '#22C55E', fontWeight: 700, fontSize: 13 }}>Готов к публикации на Авито</Typography>
+                </Box>
+              ) : (
+                <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
+                  <Typography sx={{ color: '#F59E0B', fontWeight: 700, fontSize: 13, mb: 0.5 }}>Готовность к Авито — не хватает:</Typography>
+                  {readiness.issues.map((iss, i) => (
+                    <Typography key={i} sx={{ color: iss.severity === 'block' ? '#FCA5A5' : '#FCD34D', fontSize: 13 }}>• {iss.message}{iss.severity === 'warn' ? ' (необязательно)' : ''}</Typography>
+                  ))}
+                </Box>
+              ))}
 
               <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
 

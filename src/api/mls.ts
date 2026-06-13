@@ -146,6 +146,16 @@ export function dedupCheck(params: Record<string, string | number | null | undef
   return api.get<{ duplicates: DedupHit[] }>(`/api/mls/properties/dedup-check?${q.toString()}`);
 }
 
+export interface Readiness { ready: boolean; issues: { field: string; severity: string; message: string }[]; photos: number; platform: string; }
+export function getMlsReadiness(id: number, platform = 'avito'): Promise<Readiness> {
+  return api.get<Readiness>(`/api/mls/properties/${id}/readiness?platform=${platform}`);
+}
+
+// AI-описание объекта (переиспользует инструмент listing из /api/ai).
+export function generateAiListing(input: Record<string, unknown>): Promise<{ text: string }> {
+  return api.post<{ text: string }>('/api/ai/generate', { tool: 'listing', input });
+}
+
 // Загрузка фото — multipart (apiClient шлёт JSON, поэтому свой fetch с токеном).
 export async function uploadMlsPhotos(id: number, files: File[]): Promise<{ photos: MlsPhoto[] }> {
   const fd = new FormData();
