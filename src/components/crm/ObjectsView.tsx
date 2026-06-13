@@ -19,7 +19,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import PropertyForm from './PropertyForm';
 import {
-  listMlsProperties, getMlsProperty, getMlsFacets, getMlsReadiness, type MlsListItem, type MlsDetail,
+  listMlsProperties, getMlsProperty, getMlsFacets, getMlsReadiness, getPropertyBuyers, type MlsListItem, type MlsDetail,
   TYPE_LABEL, DEAL_LABEL, ROOMS_LABEL, STATUS_LABEL, MARKET_LABEL, LAND_UNIT_LABEL,
   PARAM_LABEL, PARAM_ENUM_LABEL, priceFmt, phoneFmt,
 } from '../../api/mls';
@@ -40,7 +40,7 @@ function specsLine(p: MlsListItem | MlsDetail): string {
 
 const photoOf = (p: MlsListItem) => p.photo_thumb || p.photo_url;
 
-function PropertyCard({ p, onOpen }: { p: MlsListItem; onOpen: () => void }) {
+export function PropertyCard({ p, onOpen }: { p: MlsListItem; onOpen: () => void }) {
   const img = photoOf(p);
   return (
     <Card
@@ -102,13 +102,15 @@ function Spec({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () => void; onEdit: () => void }) {
+export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () => void; onEdit: () => void }) {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['mls-property', id],
     queryFn: () => getMlsProperty(id),
   });
   const readyQ = useQuery({ queryKey: ['mls-readiness', id], queryFn: () => getMlsReadiness(id), staleTime: 60_000 });
   const readiness = readyQ.data;
+  const buyersQ = useQuery({ queryKey: ['mls-property-buyers', id], queryFn: () => getPropertyBuyers(id), staleTime: 60_000 });
+  const buyers = buyersQ.data;
   const [active, setActive] = useState(0);
   const d = data as MlsDetail | undefined;
   const photos = d?.photos || [];
@@ -225,6 +227,24 @@ function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () => void
                         </Typography>
                       );
                     })}
+                  </Stack>
+                </>
+              )}
+
+              {/* Покупатели на этот объект (reverse-match: «на твой объект N покупателей») */}
+              {buyers && buyers.total > 0 && (
+                <>
+                  <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
+                  <Typography sx={{ color: GOLD, fontWeight: 700, fontSize: 14, mb: 1 }}>Покупатели на этот объект — {buyers.total}</Typography>
+                  <Stack spacing={1}>
+                    {buyers.items.map((b) => (
+                      <Box key={b.id} sx={{ p: 1.25, borderRadius: 1.5, background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.18)' }}>
+                        <Typography sx={{ color: '#CBD5E1', fontSize: 13 }}>
+                          {[b.deal_type && DEAL_LABEL[b.deal_type], b.property_types?.map((t) => TYPE_LABEL[t] || t).join('/'), b.rooms?.map((r) => ROOMS_LABEL[r] || r).join('/'), (b.price_min || b.price_max) ? `${b.price_min ? priceFmt(b.price_min) : '0'}–${b.price_max ? priceFmt(b.price_max) : '∞'}` : '', b.localities?.join(', ')].filter(Boolean).join(' · ')}
+                        </Typography>
+                        <Typography sx={{ color: '#64748B', fontSize: 11 }}>агент: {b.agent_name}{b.note ? ` · ${b.note}` : ''}</Typography>
+                      </Box>
+                    ))}
                   </Stack>
                 </>
               )}

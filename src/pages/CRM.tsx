@@ -13,6 +13,7 @@ import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
 import ConstructionRoundedIcon from '@mui/icons-material/ConstructionRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import ObjectsView from '../components/crm/ObjectsView';
+import RequestsView from '../components/crm/RequestsView';
 import { listMlsProperties } from '../api/mls';
 
 const GOLD = '#C9A84C';
@@ -29,7 +30,7 @@ interface Module {
 const MODULES: Module[] = [
   { key: 'objects', label: 'Объекты', icon: <ApartmentRoundedIcon />, ready: true, desc: 'База объектов агентства: витрина, фильтры, карточка с фото, адресом и картой.' },
   { key: 'leads', label: 'Лиды', icon: <CampaignRoundedIcon />, desc: 'Обращения с площадок (Авито/ЦИАН): AI-квалификация в чатах 24/7 и мгновенный пуш агенту объекта с SLA.', phase: 'Фаза 2' },
-  { key: 'requests', label: 'Заявки покупателей', icon: <ManageSearchRoundedIcon />, desc: 'Заявки-покупатели с критериями (из лидов + вручную) и AI-мэтчинг под объекты коллег.', phase: 'Фаза 4' },
+  { key: 'requests', label: 'Заявки покупателей', icon: <ManageSearchRoundedIcon />, ready: true, desc: 'Заявки-спрос с критериями (+ AI-разбор текста) и мэтчинг: подбор объектов под заявку и покупателей под объект.' },
   { key: 'deals', label: 'Сделки (co-broking)', icon: <HandshakeRoundedIcon />, desc: 'Совместные сделки с защищённым делёжом комиссии, межгородские рефералы — внутренняя биржа спроса.', phase: 'Фаза 4–5' },
   { key: 'clients', label: 'Клиенты', icon: <GroupsRoundedIcon />, desc: 'Кабинет клиента (продавец/покупатель): этапы сделки, чат, отчёт собственнику + маркетплейс услуг.', phase: 'Фаза 4.5' },
 ];
@@ -118,7 +119,7 @@ export default function CRM() {
             <Typography sx={{ color: '#475569' }}>/</Typography>
             <Typography sx={{ color: '#F1F5F9', fontWeight: 700 }}>{mod.label}</Typography>
           </Stack>
-          {mod.ready ? <ObjectsView /> : <SoonPanel m={mod} />}
+          {mod.key === 'objects' ? <ObjectsView /> : mod.key === 'requests' ? <RequestsView /> : <SoonPanel m={mod} />}
         </>
       )}
     </Box>

@@ -206,6 +206,35 @@ export function priceFmt(n: number | null | undefined): string {
   return new Intl.NumberFormat('ru-RU').format(n) + ' ₽';
 }
 
+// ── Заявки покупателей (спрос) + мэтчинг ──
+export interface BuyerRequest {
+  id: number; agent_id: number; agent_name?: string; contact_id: number | null;
+  status: string; deal_type: string | null;
+  property_types: string[] | null; rooms: string[] | null; localities: string[] | null;
+  market_type: string | null;
+  price_min: number | null; price_max: number | null; area_min: number | null; area_max: number | null;
+  land_area_min: number | null; land_area_max: number | null;
+  note: string | null; source: string; raw_text: string | null;
+  buyer_name?: string | null; created_at: string; updated_at: string; match_count?: number;
+}
+export interface BuyerRequestDetail extends BuyerRequest {
+  agent: { id: number; name: string; phone: string | null };
+  buyer: MlsContact | null; buyer_locked: boolean;
+}
+export function listMlsRequests(f: { status?: string; deal_type?: string; limit?: number; offset?: number }): Promise<{ total: number; limit: number; offset: number; items: BuyerRequest[] }> {
+  const q = new URLSearchParams();
+  Object.entries(f).forEach(([k, v]) => { if (v != null && v !== '') q.set(k, String(v)); });
+  return api.get(`/api/mls/requests?${q.toString()}`);
+}
+export function getMlsRequest(id: number): Promise<BuyerRequestDetail> { return api.get(`/api/mls/requests/${id}`); }
+export function getRequestMatches(id: number): Promise<{ total: number; items: MlsListItem[] }> { return api.get(`/api/mls/requests/${id}/matches`); }
+export function createMlsRequest(body: Record<string, unknown>): Promise<{ id: number }> { return api.post('/api/mls/requests', body); }
+export function updateMlsRequest(id: number, body: Record<string, unknown>): Promise<{ ok: boolean }> { return api.put(`/api/mls/requests/${id}`, body); }
+export function deleteMlsRequest(id: number): Promise<{ ok: boolean }> { return api.del(`/api/mls/requests/${id}`); }
+export function aiParseRequest(text: string): Promise<{ criteria: Record<string, unknown>; raw_text: string }> { return api.post('/api/mls/requests/ai-parse', { text }); }
+export interface PropertyBuyer { id: number; agent_id: number; agent_name: string; deal_type: string | null; property_types: string[] | null; rooms: string[] | null; localities: string[] | null; price_min: number | null; price_max: number | null; note: string | null; }
+export function getPropertyBuyers(id: number): Promise<{ total: number; items: PropertyBuyer[] }> { return api.get(`/api/mls/properties/${id}/buyers`); }
+
 export function phoneFmt(raw: string | null | undefined): string {
   if (!raw) return '';
   const d = String(raw).replace(/\D/g, '');
