@@ -207,6 +207,23 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
                 </Box>
               ))}
 
+              {/* Co-broking: условия для агента покупателя + контакт агента объекта */}
+              <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: `${GOLD}0E`, border: `1px solid ${GOLD}33` }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+                  <Box>
+                    <Typography sx={{ color: '#94A3B8', fontSize: 12 }}>Комиссия агенту покупателя (co-broking)</Typography>
+                    <Typography sx={{ color: GOLD, fontWeight: 800, fontSize: 22 }}>{d.buyer_side_share != null ? `${d.buyer_side_share}%` : '—'}</Typography>
+                  </Box>
+                  {d.agent && (
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography sx={{ color: '#94A3B8', fontSize: 12 }}>Агент объекта</Typography>
+                      <Typography sx={{ color: '#F1F5F9', fontWeight: 600, fontSize: 14 }}>{d.agent.name}</Typography>
+                      {d.agent.phone && <Link href={`tel:${d.agent.phone.replace(/\s/g, '')}`} underline="hover" sx={{ color: GOLD, fontSize: 14, fontWeight: 700 }}>{phoneFmt(d.agent.phone)}</Link>}
+                    </Box>
+                  )}
+                </Stack>
+              </Box>
+
               <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
 
               <Grid container spacing={2}>
@@ -270,7 +287,6 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
 
               <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
               <Grid container spacing={2}>
-                <Spec label="Агент" value={d.agent?.name} />
                 {d.owner ? (
                   <Spec label="Собственник" value={
                     <Box component="span">

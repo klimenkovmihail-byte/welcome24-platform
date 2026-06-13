@@ -72,6 +72,7 @@ export interface MlsDetail extends MlsListItem {
   note: string | null;
   video_url: string | null;
   cadastral_number: string | null;
+  buyer_side_share: number | null;
   created_at: string;
   params: Record<string, unknown>;
   owner: MlsContact | null;
