@@ -24,6 +24,7 @@ const Shares = lazy(() => import('./pages/Shares'));
 const Docs = lazy(() => import('./pages/Docs'));
 const AI = lazy(() => import('./pages/AI'));
 const Requests = lazy(() => import('./pages/Requests'));
+const MLS = lazy(() => import('./pages/MLS'));
 
 function PageLoader() {
   return (
@@ -76,6 +77,7 @@ export default function App() {
                   <Suspense fallback={<PageLoader />}>
                     <Routes>
                       <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/mls" element={<MLS />} />
                       <Route path="/rating" element={<Rating />} />
                       <Route path="/academy" element={<Academy />} />
                       <Route path="/news" element={<News />} />

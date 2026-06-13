@@ -10,6 +10,11 @@ export type PortalRole = 'agent' | 'admin' | 'employee' | 'referral_partner' | s
 export const REFERRAL_PARTNER_PATHS = ['/team', '/shares', '/profile'];
 
 export function isPortalPathAllowed(role: string | undefined, path: string): boolean {
+  // MLS («Объекты») — скрытый раздел: до полного запуска виден ТОЛЬКО super_admin (CEO).
+  // Гейт фронта (прячет навигацию + редиректит роут); реальная защита — на бэке (requireMlsAccess).
+  if (path === '/mls' || path.startsWith('/mls/')) {
+    return role === 'super_admin';
+  }
   if (role === 'referral_partner') {
     return REFERRAL_PARTNER_PATHS.some(p => path === p || path.startsWith(p + '/'));
   }

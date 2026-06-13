@@ -18,6 +18,7 @@ import AccountTreeRoundedIcon from '@mui/icons-material/AccountTreeRounded';
 import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
+import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded';
 import Logo, { LogoIcon } from '../Logo';
 import { logoutAgent, isPortalPathAllowed } from '../../auth/auth';
 import { useMe } from '../../hooks/useMe';
@@ -26,6 +27,7 @@ import { useRequestsData } from '../../hooks/useRequestsData';
 
 const navItems = [
   { path: '/dashboard', label: 'Дашборд', icon: <DashboardRoundedIcon /> },
+  { path: '/mls', label: 'Объекты', icon: <ApartmentRoundedIcon /> },
   { path: '/cases', label: 'Заявки', icon: <AssignmentRoundedIcon /> },
   { path: '/academy', label: 'Академия', icon: <SchoolRoundedIcon /> },
   { path: '/news', label: 'Новости', icon: <ArticleRoundedIcon /> },
