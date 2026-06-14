@@ -86,7 +86,9 @@ export function AdSimpleRequestsTab({ initialOpenId, kinds = OBJECT_KINDS, creat
   const [meta, setMeta] = useState<AdMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [createOpen, setCreateOpen] = useState(!!autoCreateKind);
+  // Не открываем форму автоматически при входе в раздел — показываем список заявок/ответов.
+  // Форма создания — только по кнопке «Новая заявка» (пресет вида заявки сохраняется ниже).
+  const [createOpen, setCreateOpen] = useState(false);
   const [fromPkgOpen, setFromPkgOpen] = useState(!!autoFromPackage);
   const [detail, setDetail] = useState<AdRequest | null>(null);
   const [q, setQ] = useState('');

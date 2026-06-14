@@ -260,7 +260,7 @@ export default function Team() {
                       </Box>
                       <LinearProgress variant="determinate" value={progress} sx={{ height: 8, borderRadius: 4 }} />
                       <Typography variant="caption" sx={{ color: '#94A3B8', mt: 0.8, display: 'block' }}>
-                        Осталось привлечь <b style={{ color: '#F59E0B' }}>{need} {need === 1 ? 'агента' : need < 5 ? 'агента' : 'агентов'}</b> на 1 уровень с сделками
+                        Осталось привлечь <b style={{ color: '#F59E0B' }}>{need} {need === 1 ? 'агента' : need < 5 ? 'агента' : 'агентов'}</b> на 1 уровень со сделками
                       </Typography>
                     </Box>
                   );
@@ -282,7 +282,7 @@ export default function Team() {
               <Box>
                 <Typography variant="h6" sx={{ fontWeight: 700, color: '#F1F5F9' }}>Маркетинговый план</Typography>
                 <Typography variant="caption" sx={{ color: '#64748B' }}>
-                  Чем больше агентов на 1 уровне с сделкой — тем больше уровней дохода открыто
+                  Чем больше агентов на 1 уровне со сделкой — тем больше уровней дохода открыто
                 </Typography>
               </Box>
             </Box>
@@ -344,7 +344,7 @@ export default function Team() {
                             <Typography variant="caption" sx={{ color: '#64748B' }}>всегда активен</Typography>
                           ) : (
                             <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                              {l.required} агентов на У1 с сделкой
+                              {l.required} агентов на У1 со сделкой
                             </Typography>
                           )}
                         </TableCell>
@@ -360,7 +360,7 @@ export default function Team() {
                               sx={{ background: 'rgba(34,197,94,0.15)', color: '#22C55E', fontWeight: 700, fontSize: 11, '& .MuiChip-icon': { color: '#22C55E' } }}
                             />
                           ) : (
-                            <Tooltip title={`Нужно ещё ${l.required! - l1AgentsWithDeals} агентов с сделкой на У1`}>
+                            <Tooltip title={`Нужно ещё ${l.required! - l1AgentsWithDeals} агентов со сделкой на У1`}>
                               <Chip
                                 size="small"
                                 icon={<LockRoundedIcon sx={{ fontSize: 14 }} />}

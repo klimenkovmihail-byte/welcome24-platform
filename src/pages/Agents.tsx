@@ -7,6 +7,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { PageSkeleton } from '../components/States';
 import SmartAvatar from '../components/SmartAvatar';
+import { vkUrl, maxUrl } from '../lib/socials';
 import { useAgents } from '../api/queries';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import PhoneRoundedIcon from '@mui/icons-material/PhoneRounded';
@@ -122,10 +123,10 @@ function SocialsRow({ agent, size = 'small' }: SocialsRowProps) {
         <SocialButton label={`@${agent.socials.instagram}`} color="#E4405F" bg="rgba(228,64,95,0.1)" href={`https://instagram.com/${agent.socials.instagram}`} icon={<InstagramIcon fontSize={size} />} />
       )}
       {agent.socials.vk && (
-        <SocialButton label={`vk.com/${agent.socials.vk}`} color="#0077FF" bg="rgba(0,119,255,0.1)" href={`https://vk.com/${agent.socials.vk}`} icon={<VkIcon fontSize={size} />} />
+        <SocialButton label={`vk.com/${agent.socials.vk}`} color="#0077FF" bg="rgba(0,119,255,0.1)" href={vkUrl(agent.socials.vk)} icon={<VkIcon fontSize={size} />} />
       )}
       {agent.socials.max && (
-        <SocialButton label={`MAX: ${agent.socials.max}`} color="#7C3AED" bg="rgba(124,58,237,0.1)" href={`https://max.ru/${agent.socials.max.replace('@', '')}`} icon={<ChatRoundedIcon fontSize={size} />} />
+        <SocialButton label="MAX" color="#7C3AED" bg="rgba(124,58,237,0.1)" href={maxUrl(agent.socials.max)} icon={<ChatRoundedIcon fontSize={size} />} />
       )}
       {agent.socials.youtube && (
         <SocialButton label={agent.socials.youtube} color="#FF0000" bg="rgba(255,0,0,0.1)" href={`https://youtube.com/${agent.socials.youtube.replace('@', '@')}`} icon={<YouTubeIcon fontSize={size} />} />
