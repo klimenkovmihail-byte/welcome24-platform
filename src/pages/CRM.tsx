@@ -18,6 +18,7 @@ import ObjectsView from '../components/crm/ObjectsView';
 import RequestsView from '../components/crm/RequestsView';
 import OwnerChatsView from '../components/crm/OwnerChatsView';
 import ServicesAdminView from '../components/crm/ServicesAdminView';
+import LeadsView from '../components/crm/LeadsView';
 import { listMlsProperties, getClientChats } from '../api/mls';
 
 const GOLD = '#C9A84C';
@@ -33,7 +34,7 @@ interface Module {
 
 const MODULES: Module[] = [
   { key: 'objects', label: 'Объекты', icon: <ApartmentRoundedIcon />, ready: true, desc: 'База объектов агентства: витрина, фильтры, карточка с фото, адресом и картой.' },
-  { key: 'leads', label: 'Лиды', icon: <CampaignRoundedIcon />, desc: 'Обращения с площадок (Авито/ЦИАН): AI-квалификация в чатах 24/7 и мгновенный пуш агенту объекта с SLA.', phase: 'Фаза 2' },
+  { key: 'leads', label: 'Лиды', icon: <CampaignRoundedIcon />, ready: true, desc: 'Обращения покупателей: очередь + speed-to-lead агенту + SLA + квалификация и конвертация в заявку. Площадки/АТС — позже.' },
   { key: 'requests', label: 'Заявки покупателей', icon: <ManageSearchRoundedIcon />, ready: true, desc: 'Заявки-спрос с критериями (+ AI-разбор текста) и мэтчинг: подбор объектов под заявку и покупателей под объект.' },
   { key: 'chats', label: 'Чаты собственников', icon: <ChatRoundedIcon />, ready: true, desc: 'Инбокс переписок с собственниками по объектам: непрочитанные сверху, счётчик, переход в чат — не открывая каждую карточку.' },
   { key: 'services', label: 'Услуги (маркетплейс)', icon: <StorefrontRoundedIcon />, ready: true, desc: 'Очередь заказов услуг от клиентов (взять/статус) + каталог с CRUD и рейтингом партнёров.' },
@@ -95,8 +96,9 @@ function SoonPanel({ m }: { m: Module }) {
 }
 
 export default function CRM() {
-  const deepChat = new URLSearchParams(window.location.search).get('chat'); // deep-link из уведомления
-  const [active, setActive] = useState<string | null>(deepChat ? 'chats' : null); // null = хаб (плитки)
+  const params = new URLSearchParams(window.location.search); // deep-link из уведомлений
+  const deepChat = params.get('chat');
+  const [active, setActive] = useState<string | null>(deepChat ? 'chats' : params.get('leads') ? 'leads' : null); // null = хаб (плитки)
   const mod = MODULES.find(m => m.key === active) || null;
 
   const countQ = useQuery({ queryKey: ['mls-count'], queryFn: () => listMlsProperties({ limit: 1 }), staleTime: 300_000 });
@@ -133,7 +135,7 @@ export default function CRM() {
             <Typography sx={{ color: '#475569' }}>/</Typography>
             <Typography sx={{ color: '#F1F5F9', fontWeight: 700 }}>{mod.label}</Typography>
           </Stack>
-          {mod.key === 'objects' ? <ObjectsView /> : mod.key === 'requests' ? <RequestsView /> : mod.key === 'chats' ? <OwnerChatsView initialChatId={deepChat ? Number(deepChat) : null} /> : mod.key === 'services' ? <ServicesAdminView /> : <SoonPanel m={mod} />}
+          {mod.key === 'objects' ? <ObjectsView /> : mod.key === 'requests' ? <RequestsView /> : mod.key === 'chats' ? <OwnerChatsView initialChatId={deepChat ? Number(deepChat) : null} /> : mod.key === 'services' ? <ServicesAdminView /> : mod.key === 'leads' ? <LeadsView /> : <SoonPanel m={mod} />}
         </>
       )}
     </Box>

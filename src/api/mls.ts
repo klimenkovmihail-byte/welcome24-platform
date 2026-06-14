@@ -149,6 +149,27 @@ export interface PropViewing { id: number; status: string; preferred_date: strin
 export function getPropertyViewings(propertyId: number): Promise<{ items: PropViewing[] }> { return api.get<{ items: PropViewing[] }>(`/api/mls/properties/${propertyId}/viewing-requests`); }
 export function patchViewing(propertyId: number, vid: number, data: { status: string; preferred_date?: string }): Promise<{ ok: boolean }> { return api.patch<{ ok: boolean }>(`/api/mls/properties/${propertyId}/viewing-requests/${vid}`, data); }
 
+// Lead-движок (Фаза 2): очередь обращений + claim + конвертация в заявку.
+export interface Lead {
+  id: number; status: string; source: string; name: string | null; phone: string | null; raw_text: string | null; note: string | null;
+  property_id: number | null; agent_id: number | null; first_response_at: string | null; converted_request_id: number | null;
+  created_at: string; contact_name: string | null; agent_name: string | null; property_address: string | null; overdue?: boolean;
+}
+export interface LeadEvent { type: string; detail: string | null; created_at: string; agent_name: string | null; }
+export interface LeadDetail extends Lead { contact_phone: string | null; events: LeadEvent[]; }
+export function getLeads(params?: { status?: string; mine?: boolean }): Promise<{ items: Lead[] }> {
+  const q = new URLSearchParams();
+  if (params?.status) q.set('status', params.status);
+  if (params?.mine) q.set('mine', '1');
+  return api.get<{ items: Lead[] }>(`/api/mls/leads${q.toString() ? '?' + q.toString() : ''}`);
+}
+export function getLead(id: number): Promise<LeadDetail> { return api.get<LeadDetail>(`/api/mls/leads/${id}`); }
+export function createLead(body: { name?: string; phone?: string; raw_text?: string; property_id?: number; note?: string }): Promise<{ id: number }> { return api.post<{ id: number }>('/api/mls/leads', body); }
+export function patchLead(id: number, body: { claim?: boolean; first_response?: boolean; status?: string }): Promise<{ ok: boolean }> { return api.patch<{ ok: boolean }>(`/api/mls/leads/${id}`, body); }
+export function convertLead(id: number, criteria: Record<string, unknown>): Promise<{ request_id: number }> { return api.post<{ request_id: number }>(`/api/mls/leads/${id}/convert`, { criteria }); }
+export function getIntakeToken(): Promise<{ token: string | null }> { return api.get<{ token: string | null }>('/api/mls/leads-intake-token'); }
+export function regenIntakeToken(): Promise<{ token: string }> { return api.post<{ token: string }>('/api/mls/leads-intake-token/regenerate', {}); }
+
 export function createMlsProperty(body: Record<string, unknown>): Promise<{ id: number }> {
   return api.post<{ id: number }>('/api/mls/properties', body);
 }
