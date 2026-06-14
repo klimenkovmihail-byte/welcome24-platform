@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Box, Typography, TextField, IconButton, CircularProgress, Chip, Link, Menu, MenuItem, ListItemIcon } from '@mui/material';
+import { Box, Typography, TextField, IconButton, CircularProgress, Chip, Link, Menu, MenuItem, ListItemIcon, Checkbox, FormControlLabel } from '@mui/material';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
@@ -83,7 +83,8 @@ export default function Thread({ apiBase, myId, myRole = 'agent', fillHeight, ma
   const base = `/api${apiBase}`;
   const [messages, setMessages] = useState<Msg[]>([]);
   const [text, setText] = useState('');
-  const [pending, setPending] = useState<{ url: string; name: string } | null>(null);
+  const [pending, setPending] = useState<{ url: string; name: string }[]>([]); // до 5 вложений
+  const [sendOnEnter, setSendOnEnter] = useState<boolean>(() => { try { return localStorage.getItem('w24_send_on_enter') !== '0'; } catch { return true; } });
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [attachError, setAttachError] = useState<string | null>(null);
@@ -185,12 +186,18 @@ export default function Thread({ apiBase, myId, myRole = 'agent', fillHeight, ma
   }, [apiBase, poll, reload, myId]);
 
   const handleAttach = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const room = 5 - pending.length;
+    if (room <= 0) { setAttachError('Можно прикрепить не более 5 файлов.'); e.target.value = ''; return; }
+    const toAdd = files.slice(0, room);
     setBusy(true);
-    setAttachError(null);
-    try { setPending(await uploadFile(file)); }
-    catch { setAttachError('Не удалось загрузить файл — попробуйте ещё раз.'); }
+    setAttachError(files.length > room ? 'Можно прикрепить не более 5 файлов — лишние не добавлены.' : null);
+    try {
+      const uploaded: { url: string; name: string }[] = [];
+      for (const f of toAdd) uploaded.push(await uploadFile(f));
+      setPending(prev => [...prev, ...uploaded]);
+    } catch { setAttachError('Не удалось загрузить файл — попробуйте ещё раз.'); }
     finally { setBusy(false); e.target.value = ''; }
   };
 
@@ -210,13 +217,8 @@ export default function Thread({ apiBase, myId, myRole = 'agent', fillHeight, ma
     } finally { setBusy(false); }
   };
 
-  // Оптимистичная отправка: сообщение появляется мгновенно со статусом «отправка…».
-  const send = () => {
-    const body = text.trim();
-    // busy в guard'е: Enter не проверяет disabled кнопки → без него дубли при автоповторе клавиши.
-    if ((!body && !pending) || busy) return;
-    const att = pending;
-    const rep = replyTo;
+  // Одно оптимистичное сообщение (текст и/или одно вложение) + доставка с повтором.
+  const sendOne = (body: string, att: { url: string; name: string } | null, rep: Msg | null) => {
     const tmpId = tmpRef.current--;
     const optimistic: Msg = {
       id: tmpId, sender_id: myId, sender_name: 'Вы', sender_role: myRole,
@@ -226,9 +228,22 @@ export default function Thread({ apiBase, myId, myRole = 'agent', fillHeight, ma
       reply_attachment_name: rep?.attachment_name ?? null, reply_sender_name: rep?.sender_name ?? null,
     };
     setMessages(prev => [...prev, optimistic]);
-    setText(''); setPending(null); setReplyTo(null);
-    setTimeout(scrollDown, 50);
     deliver(tmpId, body, att, rep?.id ?? null);
+  };
+
+  // Оптимистичная отправка. Несколько вложений (до 5) → текст с первым файлом,
+  // остальные файлы — отдельными сообщениями (схема thread_messages хранит одно вложение).
+  const send = () => {
+    const body = text.trim();
+    const atts = pending;
+    // busy в guard'е: Enter не проверяет disabled кнопки → без него дубли при автоповторе клавиши.
+    if ((!body && atts.length === 0) || busy) return;
+    const rep = replyTo;
+    setText(''); setPending([]); setReplyTo(null);
+    setTimeout(scrollDown, 50);
+    if (atts.length === 0) { sendOne(body, null, rep); return; }
+    sendOne(body, atts[0], rep);
+    for (let i = 1; i < atts.length; i++) sendOne('', atts[i], null);
   };
 
   const retry = (m: Msg) => {
@@ -293,7 +308,7 @@ export default function Thread({ apiBase, myId, myRole = 'agent', fillHeight, ma
               <Box sx={{ position: 'relative', px: 1.5, py: 0.8, borderRadius: 2, background: `${c}1A`, border: `1px solid ${c}38`, opacity: m._status === 'sending' ? 0.65 : 1, '&:hover .msg-menu': { opacity: 1 } }}>
                 {!deleted && !m._status && (
                   <IconButton className="msg-menu" size="small" onClick={e => openMenu(e, m)}
-                    sx={{ position: 'absolute', top: 2, right: 2, p: 0.2, color: '#64748B', opacity: { xs: 0.5, md: 0 }, transition: 'opacity .15s' }}>
+                    sx={{ position: 'absolute', top: 2, right: 2, p: 0.2, color: '#64748B', opacity: 0.55, transition: 'opacity .15s' }}>
                     <MoreHorizRoundedIcon sx={{ fontSize: 16 }} />
                   </IconButton>
                 )}
@@ -375,28 +390,42 @@ export default function Thread({ apiBase, myId, myRole = 'agent', fillHeight, ma
           <IconButton size="small" onClick={cancelEdit} sx={{ color: '#64748B' }}><CloseRoundedIcon sx={{ fontSize: 16 }} /></IconButton>
         </Box>
       )}
-      {pending && (
-        <Chip icon={<DescriptionRoundedIcon />} label={pending.name} onDelete={() => setPending(null)} deleteIcon={<CloseRoundedIcon />}
-          sx={{ mt: 1, maxWidth: '100%', background: 'rgba(201,168,76,0.12)', color: '#E2C97E', '& .MuiChip-icon': { color: '#C9A84C' } }} />
+      {pending.length > 0 && (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
+          {pending.map((p, i) => (
+            <Chip key={i} icon={<DescriptionRoundedIcon />} label={p.name} onDelete={() => setPending(prev => prev.filter((_, j) => j !== i))} deleteIcon={<CloseRoundedIcon />}
+              sx={{ maxWidth: '100%', background: 'rgba(201,168,76,0.12)', color: '#E2C97E', '& .MuiChip-icon': { color: '#C9A84C' } }} />
+          ))}
+        </Box>
       )}
       {attachError && (
         <Typography variant="caption" sx={{ color: '#EF4444', mt: 1, display: 'block' }}>{attachError}</Typography>
       )}
-      <Box sx={{ display: 'flex', gap: 1, mt: 1, alignItems: 'center' }}>
-        <IconButton component="label" disabled={busy || !!editing} sx={{ color: '#64748B', '&:hover': { color: '#C9A84C' } }}>
+      <Box sx={{ display: 'flex', gap: 1, mt: 1, alignItems: 'flex-end' }}>
+        <IconButton component="label" disabled={busy || !!editing || pending.length >= 5} sx={{ color: '#64748B', '&:hover': { color: '#C9A84C' } }}>
           <AttachFileRoundedIcon />
-          <input type="file" hidden onChange={handleAttach} />
+          <input type="file" hidden multiple onChange={handleAttach} />
         </IconButton>
-        <TextField size="small" fullWidth placeholder={editing ? 'Исправьте текст…' : 'Написать сообщение…'} value={text}
+        <TextField size="small" fullWidth multiline maxRows={6} placeholder={editing ? 'Исправьте текст…' : 'Написать сообщение…'} value={text}
           onChange={e => onType(e.target.value)}
           onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); editing ? saveEdit() : send(); }
+            if (e.key === 'Enter' && !e.shiftKey && (editing || sendOnEnter)) { e.preventDefault(); editing ? saveEdit() : send(); }
             if (e.key === 'Escape' && editing) cancelEdit();
           }} />
-        <IconButton onClick={editing ? saveEdit : send} disabled={busy || (!text.trim() && !pending)} sx={{ color: editing ? '#60A5FA' : '#C9A84C' }}>
+        <IconButton onClick={editing ? saveEdit : send} disabled={busy || (!text.trim() && pending.length === 0)} sx={{ color: editing ? '#60A5FA' : '#C9A84C' }}>
           {busy ? <CircularProgress size={18} /> : editing ? <DoneRoundedIcon /> : <SendRoundedIcon />}
         </IconButton>
       </Box>
+      {!editing && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 0.3 }}>
+          <FormControlLabel
+            control={<Checkbox size="small" checked={sendOnEnter}
+              onChange={e => { setSendOnEnter(e.target.checked); try { localStorage.setItem('w24_send_on_enter', e.target.checked ? '1' : '0'); } catch { /* ignore */ } }}
+              sx={{ color: '#64748B', p: 0.4, '&.Mui-checked': { color: '#C9A84C' } }} />}
+          label={<Typography variant="caption" sx={{ color: '#64748B' }}>Отправлять по Enter · Shift+Enter — перенос</Typography>}
+          sx={{ m: 0 }} />
+        </Box>
+      )}
 
       <Menu anchorEl={menu?.anchor} open={!!menu} onClose={() => setMenu(null)}
         slotProps={{ paper: { sx: { background: '#0F172A', border: '1px solid rgba(201,168,76,0.2)' } } }}>

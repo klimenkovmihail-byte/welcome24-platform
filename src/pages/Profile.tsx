@@ -10,6 +10,7 @@ export const PROPERTY_TYPES = ['Вторичная', 'Первичная', 'Ар
 import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import SmartAvatar from '../components/SmartAvatar';
+import { vkName, vkUrl, maxToken, maxUrl } from '../lib/socials';
 import LocationOnRoundedIcon from '@mui/icons-material/LocationOnRounded';
 import EmailRoundedIcon from '@mui/icons-material/EmailRounded';
 import PhoneRoundedIcon from '@mui/icons-material/PhoneRounded';
@@ -524,15 +525,15 @@ export default function Profile() {
                       )}
                       {currentUser.socials?.vk && (
                         <Tooltip title={`vk.com/${currentUser.socials.vk}`}>
-                          <IconButton size="small" component="a" href={`https://vk.com/${currentUser.socials.vk}`} target="_blank" rel="noopener"
+                          <IconButton size="small" component="a" href={vkUrl(currentUser.socials.vk)} target="_blank" rel="noopener"
                             sx={{ color: '#0077FF', background: 'rgba(0,119,255,0.1)', border: '1px solid rgba(0,119,255,0.2)', '&:hover': { background: 'rgba(0,119,255,0.2)' } }}>
                             <svg width={18} height={18} viewBox="0 0 24 24" fill="currentColor"><path d="M15.07 2H8.93C3.33 2 2 3.33 2 8.93v6.13C2 20.67 3.33 22 8.93 22h6.13c5.6 0 6.93-1.33 6.93-6.93V8.93C22 3.33 20.67 2 15.07 2zm3.07 14.27h-1.45c-.55 0-.72-.44-1.71-1.42-.86-.84-1.23-.94-1.45-.94-.3 0-.39.09-.39.51v1.31c0 .36-.12.58-1.07.58-1.59 0-3.35-.96-4.59-2.76-1.86-2.61-2.37-4.57-2.37-4.97 0-.22.09-.42.51-.42h1.45c.38 0 .52.17.66.58.71 2.07 1.91 3.88 2.4 3.88.18 0 .27-.09.27-.55v-2.13c-.06-.98-.58-1.07-.58-1.42 0-.17.14-.34.36-.34h2.28c.32 0 .43.17.43.55v2.87c0 .32.14.43.23.43.18 0 .33-.11.66-.44 1.02-1.14 1.74-2.9 1.74-2.9.09-.21.26-.4.64-.4h1.45c.44 0 .53.22.44.55-.18.85-1.96 3.36-1.96 3.36-.15.24-.21.36 0 .64.15.21.66.65 1 1.04.62.71 1.1 1.31 1.23 1.72.12.42-.09.62-.51.62z" /></svg>
                           </IconButton>
                         </Tooltip>
                       )}
                       {currentUser.socials?.max && (
-                        <Tooltip title={`MAX: ${currentUser.socials.max}`}>
-                          <IconButton size="small" component="a" href={`https://max.ru/${currentUser.socials.max.replace('@', '')}`} target="_blank" rel="noopener"
+                        <Tooltip title="Открыть в MAX">
+                          <IconButton size="small" component="a" href={maxUrl(currentUser.socials.max)} target="_blank" rel="noopener"
                             sx={{ color: '#7C3AED', background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)', '&:hover': { background: 'rgba(124,58,237,0.2)' } }}>
                             <ChatRoundedIcon fontSize="small" />
                           </IconButton>
@@ -975,14 +976,14 @@ export default function Profile() {
             />
             <TextField
               fullWidth size="small" label="ВКонтакте"
-              value={form.vk} onChange={e => setForm(f => ({ ...f, vk: e.target.value.replace(/^https?:\/\/vk\.com\//, '') }))}
-              placeholder="username или id"
+              value={form.vk} onChange={e => setForm(f => ({ ...f, vk: vkName(e.target.value) }))}
+              placeholder="@username, id или vk.com/username"
               slotProps={{ input: { startAdornment: <InputAdornment position="start"><Box sx={{ color: '#0077FF', display: 'flex' }}><svg width={18} height={18} viewBox="0 0 24 24" fill="currentColor"><path d="M15.07 2H8.93C3.33 2 2 3.33 2 8.93v6.13C2 20.67 3.33 22 8.93 22h6.13c5.6 0 6.93-1.33 6.93-6.93V8.93C22 3.33 20.67 2 15.07 2zm3.07 14.27h-1.45c-.55 0-.72-.44-1.71-1.42-.86-.84-1.23-.94-1.45-.94-.3 0-.39.09-.39.51v1.31c0 .36-.12.58-1.07.58-1.59 0-3.35-.96-4.59-2.76-1.86-2.61-2.37-4.57-2.37-4.97 0-.22.09-.42.51-.42h1.45c.38 0 .52.17.66.58.71 2.07 1.91 3.88 2.4 3.88.18 0 .27-.09.27-.55v-2.13c-.06-.98-.58-1.07-.58-1.42 0-.17.14-.34.36-.34h2.28c.32 0 .43.17.43.55v2.87c0 .32.14.43.23.43.18 0 .33-.11.66-.44 1.02-1.14 1.74-2.9 1.74-2.9.09-.21.26-.4.64-.4h1.45c.44 0 .53.22.44.55-.18.85-1.96 3.36-1.96 3.36-.15.24-.21.36 0 .64.15.21.66.65 1 1.04.62.71 1.1 1.31 1.23 1.72.12.42-.09.62-.51.62z" /></svg></Box></InputAdornment> } }}
             />
             <TextField
               fullWidth size="small" label="MAX мессенджер"
-              value={form.max} onChange={e => setForm(f => ({ ...f, max: e.target.value.replace(/^@/, '') }))}
-              placeholder="username"
+              value={form.max} onChange={e => setForm(f => ({ ...f, max: maxToken(e.target.value) }))}
+              placeholder="ссылка max.ru/u/… или токен"
               slotProps={{ input: { startAdornment: <InputAdornment position="start"><ChatRoundedIcon sx={{ color: '#7C3AED', fontSize: 18 }} /></InputAdornment> } }}
             />
           </Stack>
