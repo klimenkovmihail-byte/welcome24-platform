@@ -176,6 +176,31 @@ export function revokePortalLink(id: number): Promise<{ ok: boolean }> {
   return api.del<{ ok: boolean }>(`/api/mls/properties/${id}/portal-link`);
 }
 
+// ── Заявки специалистам по объекту (этапы сделки) ──
+export interface PropertyCaseTrack { track: string; track_label: string; status: string; stage_label: string; }
+export interface PropertyCase { id: number; status: string; created_at: string; tracks: PropertyCaseTrack[]; }
+export function getPropertyCases(id: number): Promise<{ items: PropertyCase[] }> {
+  return api.get<{ items: PropertyCase[] }>(`/api/mls/properties/${id}/cases`);
+}
+// Создать заявку специалисту по объекту. taskType: doc_check (юрист) | mortgage (ипотека).
+export function createPropertyCase(id: number, taskType: string): Promise<{ id: number }> {
+  return api.post<{ id: number }>(`/api/cases`, { propertyId: id, taskType });
+}
+
+// ── Документы клиента по объекту (загружены клиентом из кабинета) ──
+export interface ClientDocMeta { id: number; name: string; content_type: string | null; size_bytes: number | null; created_at: string; }
+export function getPropertyDocuments(id: number): Promise<{ items: ClientDocMeta[] }> {
+  return api.get<{ items: ClientDocMeta[] }>(`/api/mls/properties/${id}/documents`);
+}
+// Приватное скачивание через blob (заголовок авторизации нельзя поставить на <a>).
+export async function openClientDocument(id: number): Promise<void> {
+  const r = await fetch(`${API_BASE_URL}/api/mls/documents/${id}/file`, { headers: { Authorization: `Bearer ${getToken()}` } });
+  if (!r.ok) throw new Error('Не удалось открыть документ');
+  const url = URL.createObjectURL(await r.blob());
+  window.open(url, '_blank');
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 // AI-описание объекта (переиспользует инструмент listing из /api/ai).
 export function generateAiListing(input: Record<string, unknown>): Promise<{ text: string }> {
   return api.post<{ text: string }>('/api/ai/generate', { tool: 'listing', input });
@@ -204,7 +229,7 @@ export const ROOMS_LABEL: Record<string, string> = {
   studio: 'Студия', '1': '1-комн', '2': '2-комн', '3': '3-комн', '4': '4-комн', '5plus': '5+ комн', free: 'Своб. план.',
 };
 export const STATUS_LABEL: Record<string, string> = {
-  active: 'Активен', draft: 'Черновик', deposit: 'Задаток', sold: 'Продан', withdrawn: 'Снят', archived: 'Архив',
+  active: 'Активен', draft: 'Черновик', deposit: 'Задаток', sold: 'Продан', sold_external: 'Продано не нами', withdrawn: 'Снят с продажи', archived: 'Архив',
 };
 export const MARKET_LABEL: Record<string, string> = { secondary: 'Вторичка', newbuilding: 'Новостройка' };
 export const LAND_UNIT_LABEL: Record<string, string> = { sotka: 'сот.', hectare: 'га', sqm: 'м²' };

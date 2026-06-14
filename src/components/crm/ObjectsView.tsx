@@ -19,10 +19,12 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
+import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
 import PropertyForm from './PropertyForm';
 import {
   listMlsProperties, getMlsProperty, getMlsFacets, getMlsReadiness, getPropertyBuyers, updateMlsProperty, sellMlsProperty,
-  getPortalLink, issuePortalLink, revokePortalLink,
+  getPortalLink, issuePortalLink, revokePortalLink, getPropertyCases, createPropertyCase,
+  getPropertyDocuments, openClientDocument,
   type MlsListItem, type MlsDetail, type SellResult,
   TYPE_LABEL, DEAL_LABEL, ROOMS_LABEL, STATUS_LABEL, MARKET_LABEL, LAND_UNIT_LABEL,
   PARAM_LABEL, PARAM_ENUM_LABEL, priceFmt, phoneFmt,
@@ -248,6 +250,66 @@ function PortalLinkBlock({ propertyId }: { propertyId: number }) {
   );
 }
 
+// Заявки специалистам (юрист/брокер) по объекту — этапы сделки: показ текущего этапа + создание.
+function CasesBlock({ propertyId }: { propertyId: number }) {
+  const { data, refetch, isLoading } = useQuery({ queryKey: ['mls-property-cases', propertyId], queryFn: () => getPropertyCases(propertyId), staleTime: 30_000 });
+  const [busy, setBusy] = useState('');
+  async function create(taskType: string) {
+    setBusy(taskType);
+    try { await createPropertyCase(propertyId, taskType); await refetch(); } finally { setBusy(''); }
+  }
+  if (isLoading || !data) return null;
+  return (
+    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.2)' }}>
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+        <AssignmentRoundedIcon sx={{ fontSize: 18, color: '#22C55E' }} />
+        <Typography sx={{ color: '#86EFAC', fontWeight: 700, fontSize: 13 }}>Заявки специалистам (этапы сделки)</Typography>
+      </Stack>
+      {data.items.length > 0 ? (
+        <Stack spacing={1} sx={{ mb: 1 }}>
+          {data.items.map((c) => (
+            <Box key={c.id} sx={{ p: 1, borderRadius: 1.5, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(148,163,184,0.12)' }}>
+              <Typography sx={{ color: '#F1F5F9', fontSize: 13, fontWeight: 600 }}>Заявка #{c.id}</Typography>
+              <Stack direction="row" spacing={0.75} flexWrap="wrap" gap={0.75} sx={{ mt: 0.5 }}>
+                {c.tracks.length ? c.tracks.map((t) => (
+                  <Chip key={t.track} size="small" label={`${t.track_label}: ${t.stage_label}`} sx={{ fontSize: 11, color: '#CBD5E1', background: 'rgba(148,163,184,0.12)' }} />
+                )) : <Typography sx={{ color: '#64748B', fontSize: 12 }}>в очереди</Typography>}
+              </Stack>
+            </Box>
+          ))}
+        </Stack>
+      ) : (
+        <Typography sx={{ color: '#94A3B8', fontSize: 13, mb: 1 }}>Заявок по объекту пока нет.</Typography>
+      )}
+      <Stack direction="row" spacing={1}>
+        <Button size="small" variant="outlined" disabled={!!busy} onClick={() => create('doc_check')}
+          sx={{ color: '#22C55E', borderColor: 'rgba(34,197,94,0.4)', textTransform: 'none' }}>{busy === 'doc_check' ? '…' : '+ Юрист'}</Button>
+        <Button size="small" variant="outlined" disabled={!!busy} onClick={() => create('mortgage')}
+          sx={{ color: '#22C55E', borderColor: 'rgba(34,197,94,0.4)', textTransform: 'none' }}>{busy === 'mortgage' ? '…' : '+ Ипотека'}</Button>
+      </Stack>
+    </Box>
+  );
+}
+
+// Документы, загруженные КЛИЕНТОМ по объекту (для агента/юриста). Скачивание — приватно через blob.
+function ClientDocsBlock({ propertyId }: { propertyId: number }) {
+  const { data, isLoading } = useQuery({ queryKey: ['mls-property-docs', propertyId], queryFn: () => getPropertyDocuments(propertyId), staleTime: 30_000 });
+  if (isLoading || !data || data.items.length === 0) return null;
+  return (
+    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.25)' }}>
+      <Typography sx={{ color: '#C4B5FD', fontWeight: 700, fontSize: 13, mb: 1 }}>Документы от клиента</Typography>
+      <Stack spacing={0.75}>
+        {data.items.map((d) => (
+          <Stack key={d.id} direction="row" alignItems="center" spacing={1}>
+            <Link component="button" onClick={() => openClientDocument(d.id).catch(() => {})} underline="hover" sx={{ color: '#C4B5FD', fontSize: 13, textAlign: 'left' }}>{d.name}</Link>
+            <Typography sx={{ color: '#64748B', fontSize: 11 }}>{d.created_at?.slice(0, 10)}</Typography>
+          </Stack>
+        ))}
+      </Stack>
+    </Box>
+  );
+}
+
 export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () => void; onEdit: () => void }) {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['mls-property', id],
@@ -311,13 +373,13 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
                 {d.market_type && <Chip label={MARKET_LABEL[d.market_type] || d.market_type} size="small" sx={{ fontWeight: 600, color: '#94A3B8', background: 'rgba(148,163,184,0.12)' }} />}
                 {d.exclusive_type && d.exclusive_type !== 'none' && <Chip label="Эксклюзив" size="small" sx={{ fontWeight: 700, color: '#3B82F6', background: 'rgba(59,130,246,0.12)' }} />}
                 <Box sx={{ flex: 1 }} />
-                {d.status === 'draft' && (
-                  <Button size="small" variant="contained" disabled={statusBusy} onClick={() => changeStatus('active')}
-                    startIcon={statusBusy ? <CircularProgress size={14} sx={{ color: '#06210F' }} /> : <CheckCircleRoundedIcon sx={{ fontSize: 16 }} />}
-                    sx={{ background: '#22C55E', color: '#06210F', fontWeight: 700, textTransform: 'none', '&:hover': { background: '#16A34A' } }}>Активировать</Button>
-                )}
-                {d.status === 'active' && (
-                  <Button size="small" disabled={statusBusy} onClick={() => changeStatus('draft')} sx={{ color: '#94A3B8', textTransform: 'none' }}>В черновик</Button>
+                {d.status !== 'sold' && (
+                  <Select size="small" value={d.status} disabled={statusBusy} onChange={(e) => changeStatus(e.target.value as string)}
+                    sx={{ minWidth: 160, height: 32, color: '#F1F5F9', fontSize: 13, '& .MuiOutlinedInput-notchedOutline': { borderColor: `${GOLD}33` }, '& .MuiSvgIcon-root': { color: '#94A3B8' } }}>
+                    {['draft', 'active', 'deposit', 'withdrawn', 'sold_external', 'archived'].map((s) => (
+                      <MenuItem key={s} value={s} sx={{ fontSize: 13 }}>{STATUS_LABEL[s]}</MenuItem>
+                    ))}
+                  </Select>
                 )}
                 {(d.status === 'active' || d.status === 'deposit') && (
                   <Button size="small" variant="contained" onClick={() => setSellOpen(true)}
@@ -376,6 +438,8 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
                 </Stack>
               </Box>
 
+              <CasesBlock propertyId={d.id} />
+              <ClientDocsBlock propertyId={d.id} />
               <PortalLinkBlock propertyId={d.id} />
 
               <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
