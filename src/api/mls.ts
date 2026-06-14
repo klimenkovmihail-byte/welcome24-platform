@@ -144,6 +144,11 @@ export function createService(s: Partial<SvcCatalogItem>): Promise<{ id: number 
 export function updateService(id: number, s: Partial<SvcCatalogItem>): Promise<{ ok: boolean }> { return api.put<{ ok: boolean }>(`/api/services/${id}`, s); }
 export function deleteService(id: number): Promise<{ ok: boolean }> { return api.del<{ ok: boolean }>(`/api/services/${id}`); }
 
+// Заявки на показ объекта (покупатели) — агентская сторона.
+export interface PropViewing { id: number; status: string; preferred_date: string | null; note: string | null; confirmed_at: string | null; created_at: string; buyer_name: string | null; buyer_phone: string | null; }
+export function getPropertyViewings(propertyId: number): Promise<{ items: PropViewing[] }> { return api.get<{ items: PropViewing[] }>(`/api/mls/properties/${propertyId}/viewing-requests`); }
+export function patchViewing(propertyId: number, vid: number, data: { status: string; preferred_date?: string }): Promise<{ ok: boolean }> { return api.patch<{ ok: boolean }>(`/api/mls/properties/${propertyId}/viewing-requests/${vid}`, data); }
+
 export function createMlsProperty(body: Record<string, unknown>): Promise<{ id: number }> {
   return api.post<{ id: number }>('/api/mls/properties', body);
 }

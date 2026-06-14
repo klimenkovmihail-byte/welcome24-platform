@@ -30,6 +30,7 @@ import {
   type MlsListItem, type MlsDetail, type SellResult,
   TYPE_LABEL, DEAL_LABEL, ROOMS_LABEL, STATUS_LABEL, MARKET_LABEL, LAND_UNIT_LABEL,
   PARAM_LABEL, PARAM_ENUM_LABEL, priceFmt, phoneFmt,
+  getPropertyViewings, patchViewing,
 } from '../../api/mls';
 import { agentsApi } from '../../api/agents';
 import { ErrorState, PageSkeleton } from '../States';
@@ -322,6 +323,33 @@ function OwnerChatBlock({ propertyId, myId }: { propertyId: number; myId: number
   );
 }
 
+// Заявки на показ объекта от покупателей (агентская сторона) — подтвердить/отклонить.
+function ViewingsBlock({ propertyId }: { propertyId: number }) {
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ['mls-viewings', propertyId], queryFn: () => getPropertyViewings(propertyId), refetchInterval: 30_000 });
+  const items = (data?.items || []).filter((v) => v.status === 'pending' || v.status === 'confirmed');
+  if (items.length === 0) return null;
+  const act = async (vid: number, status: string) => { await patchViewing(propertyId, vid, { status }); qc.invalidateQueries({ queryKey: ['mls-viewings', propertyId] }); };
+  return (
+    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.25)' }}>
+      <Typography sx={{ color: '#93C5FD', fontWeight: 700, fontSize: 13, mb: 1 }}>Заявки на показ от покупателей</Typography>
+      <Stack spacing={1}>
+        {items.map((v) => (
+          <Stack key={v.id} direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap' }} useFlexGap>
+            <Typography sx={{ color: '#F1F5F9', fontSize: 14, fontWeight: 600 }}>{v.buyer_name || 'Покупатель'}</Typography>
+            {v.buyer_phone && <Link href={`tel:${v.buyer_phone.replace(/\s/g, '')}`} underline="hover" sx={{ color: GOLD, fontSize: 13 }}>{v.buyer_phone}</Link>}
+            <Chip label={v.status === 'confirmed' ? 'Подтверждён' : 'Ожидает'} size="small" sx={{ background: v.status === 'confirmed' ? 'rgba(34,197,94,0.14)' : 'rgba(245,158,11,0.14)', color: v.status === 'confirmed' ? '#22C55E' : '#F59E0B', fontSize: 11, fontWeight: 700 }} />
+            {v.preferred_date && <Typography sx={{ color: '#94A3B8', fontSize: 12 }}>{v.preferred_date}</Typography>}
+            <Box sx={{ flex: 1 }} />
+            {v.status === 'pending' && <Button size="small" onClick={() => act(v.id, 'confirmed')} sx={{ color: '#22C55E', textTransform: 'none', minWidth: 0 }}>Подтвердить</Button>}
+            <Button size="small" onClick={() => act(v.id, 'cancelled')} sx={{ color: '#EF4444', textTransform: 'none', minWidth: 0 }}>{v.status === 'confirmed' ? 'Отменить' : 'Отклонить'}</Button>
+          </Stack>
+        ))}
+      </Stack>
+    </Box>
+  );
+}
+
 export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () => void; onEdit: () => void }) {
   const myId = getCurrentAgent()?.id ?? null;
   const { data, isLoading, error, refetch } = useQuery({
@@ -455,6 +483,7 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
               <ClientDocsBlock propertyId={d.id} />
               <PortalLinkBlock propertyId={d.id} />
               {(d.owner || d.owner_locked) && <OwnerChatBlock propertyId={d.id} myId={myId} />}
+              <ViewingsBlock propertyId={d.id} />
 
               <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
 
