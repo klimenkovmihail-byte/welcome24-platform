@@ -1,14 +1,14 @@
 // CRM → модуль «Объекты»: витрина базы объектов агентства (MLS).
 // Сетка карточек + фильтры + диалог карточки (галерея/характеристики/история цены/owner-lock).
 // Данные — GET /api/mls/properties[/:id]. Раздел скрыт (super_admin), гейт — в роутере/сайдбаре.
-import { useState, useMemo, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Thread from '../Thread';
 import { getCurrentAgent } from '../../auth/auth';
 import {
   Box, Typography, Card, CardContent, Chip, Grid, Select, MenuItem, Button,
   Dialog, DialogContent, IconButton, Divider, CircularProgress, Stack, Tooltip,
-  Autocomplete, TextField, Link, Alert,
+  Autocomplete, TextField, Link, Alert, Checkbox, FormControlLabel,
 } from '@mui/material';
 import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded';
 import PhotoLibraryRoundedIcon from '@mui/icons-material/PhotoLibraryRounded';
@@ -22,16 +22,19 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
+import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
 import PropertyForm from './PropertyForm';
 import {
   listMlsProperties, getMlsProperty, getMlsFacets, getMlsReadiness, getPropertyBuyers, updateMlsProperty, sellMlsProperty,
   getPortalLink, issuePortalLink, revokePortalLink, getPropertyCases, createPropertyCase,
   getPropertyDocuments, openClientDocument,
-  type MlsListItem, type MlsDetail, type SellResult,
+  logShowing, getPropertyClaims, releaseClaim, resolveDispute,
+  type MlsListItem, type MlsDetail, type SellResult, type BuyerClaim,
   TYPE_LABEL, DEAL_LABEL, ROOMS_LABEL, STATUS_LABEL, MARKET_LABEL, LAND_UNIT_LABEL,
   PARAM_LABEL, PARAM_ENUM_LABEL, priceFmt, phoneFmt,
   getPropertyViewings, patchViewing,
 } from '../../api/mls';
+import { ApiError } from '../../api/apiClient';
 import { agentsApi } from '../../api/agents';
 import { ErrorState, PageSkeleton } from '../States';
 
@@ -127,26 +130,47 @@ function SellDialog({ property, onClose, onDone }: { property: MlsDetail; onClos
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [result, setResult] = useState<SellResult | null>(null);
+  // Procuring cause: подсказка/предзаполнение агента из активного закрепления + override при конфликте.
+  const [conflict, setConflict] = useState<{ disputed: boolean; hard: boolean } | null>(null);
+  const [override, setOverride] = useState(false);
+  const [overrideReason, setOverrideReason] = useState('');
+  const [touchedAgent, setTouchedAgent] = useState(false);
+  const claimsQ = useQuery({ queryKey: ['mls-claims', property.id], queryFn: () => getPropertyClaims(property.id), staleTime: 20_000 });
+  const activeClaim = useMemo<BuyerClaim | undefined>(() => (claimsQ.data?.items || []).find((c) => c.status === 'active'), [claimsQ.data]);
+  // Предзаполняем агента покупателя из закрепления (если пользователь сам ещё не выбрал).
+  useEffect(() => {
+    if (!touchedAgent && activeClaim && !buyerAgent) setBuyerAgent({ id: activeClaim.agent_id, name: activeClaim.agent_name || `Агент #${activeClaim.agent_id}` });
+  }, [activeClaim, touchedAgent, buyerAgent]);
 
   const vkdNum = Number(String(vkd).replace(/\s/g, ''));
   const valid = Number.isFinite(vkdNum) && vkdNum > 0;
   const fieldSx = { '& .MuiOutlinedInput-root': { color: '#F1F5F9', '& fieldset': { borderColor: `${GOLD}33` }, '&:hover fieldset': { borderColor: `${GOLD}66` } }, '& .MuiInputLabel-root': { color: '#94A3B8' }, '& .MuiFormHelperText-root': { color: '#64748B' } };
 
   async function submit() {
-    setErr(''); setBusy(true);
+    setErr('');
+    if (conflict && override && !overrideReason.trim()) { setErr('Укажите причину override'); return; }
+    setBusy(true);
     try {
       const r = await sellMlsProperty(property.id, {
         vkd: vkdNum,
         date,
         buyer_agent_id: buyerAgent?.id ?? null,
-        buyer_side_share: buyerAgent ? Number(share) : undefined,
+        buyer_side_share: buyerAgent ? (share.trim() === '' ? 0 : Number(share)) : undefined,
         buyer: (buyerName.trim() || buyerPhone.trim()) ? { name: buyerName.trim(), phone: buyerPhone.trim() } : undefined,
         client_name: buyerName.trim() || undefined,
         notes: notes.trim() || undefined,
+        override: conflict && override ? true : undefined,
+        override_reason: conflict && override ? overrideReason.trim() : undefined,
       });
       setResult(r);
       onDone();
-    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409 && (e.body as { code?: string })?.code === 'procuring_conflict') {
+        const body = e.body as { disputed?: boolean; hard?: boolean };
+        setConflict({ disputed: !!body.disputed, hard: !!body.hard });
+      }
+      setErr((e as Error).message);
+    } finally { setBusy(false); }
   }
 
   const agentName = (aid: number) => agents.find((a) => a.id === aid)?.name || (aid === property.agent_id ? property.agent?.name : null) || `Агент #${aid}`;
@@ -183,8 +207,14 @@ function SellDialog({ property, onClose, onDone }: { property: MlsDetail; onClos
             <TextField label="ВКД сделки, ₽" value={vkd} onChange={(e) => setVkd(e.target.value.replace(/[^\d]/g, ''))} size="small" fullWidth sx={fieldSx}
               helperText={vkd ? priceFmt(vkdNum) : 'Валовый комиссионный доход всей сделки'} />
             <Autocomplete size="small" options={agents.map((a) => ({ id: a.id, name: a.name }))} getOptionLabel={(o) => o.name}
-              value={buyerAgent} onChange={(_, v) => setBuyerAgent(v)} loading={agentsQ.isLoading} isOptionEqualToValue={(o, v) => o.id === v.id}
+              value={buyerAgent} onChange={(_, v) => { setBuyerAgent(v); setTouchedAgent(true); setConflict(null); setOverride(false); setOverrideReason(''); }} loading={agentsQ.isLoading} isOptionEqualToValue={(o, v) => o.id === v.id}
               renderInput={(params) => <TextField {...params} label="Агент покупателя (co-broking) — необязательно" sx={fieldSx} />} />
+            {activeClaim && (
+              <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.5, borderRadius: 1.5, background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.25)' }}>
+                <GavelRoundedIcon sx={{ fontSize: 15, color: '#C084FC' }} />
+                <Typography sx={{ color: '#C084FC', fontSize: 12 }}>Покупатель закреплён за {activeClaim.agent_name || `агентом #${activeClaim.agent_id}`} (procuring cause) — подставлен автоматически</Typography>
+              </Box>
+            )}
             {buyerAgent && (
               <TextField label="Доля агента покупателя, %" value={share} onChange={(e) => setShare(e.target.value.replace(/[^\d]/g, ''))} size="small" fullWidth sx={fieldSx}
                 helperText="По умолчанию — с карточки объекта" />
@@ -196,6 +226,16 @@ function SellDialog({ property, onClose, onDone }: { property: MlsDetail; onClos
             <TextField label="Дата сделки" type="date" value={date} onChange={(e) => setDate(e.target.value)} size="small" fullWidth sx={fieldSx} slotProps={{ inputLabel: { shrink: true } }} />
             <TextField label="Примечание" value={notes} onChange={(e) => setNotes(e.target.value)} size="small" fullWidth multiline minRows={2} sx={fieldSx} />
             {err && <Alert severity="error" sx={{ background: 'rgba(239,68,68,0.1)', color: '#FCA5A5' }}>{err}</Alert>}
+            {conflict && !conflict.hard && (
+              <Box sx={{ p: 1.25, borderRadius: 1.5, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)' }}>
+                <FormControlLabel sx={{ m: 0 }} control={<Checkbox checked={override} onChange={(e) => setOverride(e.target.checked)} size="small" sx={{ color: '#F59E0B', '&.Mui-checked': { color: '#F59E0B' } }} />}
+                  label={<Typography sx={{ color: '#FCD34D', fontSize: 13, fontWeight: 600 }}>Провести в обход закрепления (override)</Typography>} />
+                {override && (
+                  <TextField label="Причина override (для арбитра)" value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} size="small" fullWidth sx={{ ...fieldSx, mt: 1 }} />
+                )}
+              </Box>
+            )}
+            {conflict?.hard && <Typography sx={{ color: '#FCA5A5', fontSize: 12 }}>Жёсткий блок включён в настройках — обойти закрепление нельзя. Разрешите спор в арбитраже (модуль «Закрепления»).</Typography>}
             <Typography sx={{ color: '#64748B', fontSize: 12 }}>
               {buyerAgent ? `Совместная сделка: ВКД делится ${100 - (Number(share) || 0)}/${Number(share) || 0}, комиссия каждого агента — по его уровню.` : 'Одиночная сделка: вся комиссия — листинг-агенту.'} Объект перейдёт в статус «Продан».
             </Typography>
@@ -350,6 +390,114 @@ function ViewingsBlock({ propertyId }: { propertyId: number }) {
   );
 }
 
+const CLAIM_STATUS = {
+  active: { label: 'Закреплён', color: '#22C55E', bg: 'rgba(34,197,94,0.14)' },
+  disputed: { label: 'Спор', color: '#F59E0B', bg: 'rgba(245,158,11,0.16)' },
+  honored: { label: 'Реализован', color: '#60A5FA', bg: 'rgba(96,165,250,0.14)' },
+} as const;
+const BASIS_LABEL: Record<string, string> = { showing: 'Показ', viewing_request: 'Заявка на показ', buyer_request: 'Заявка покупателя', manual: 'Вручную' };
+
+// Блок «Показы и закрепление покупателя» (procuring cause). Закрепление даёт агенту
+// покупателя право на co-broking-долю; защита окно N дней; спор решает арбитр (листинг-
+// менеджер/super_admin). Контакт покупателя виден только своему агенту/арбитру (152-ФЗ).
+function ProcuringBlock({ property }: { property: MlsDetail }) {
+  const qc = useQueryClient();
+  const me = getCurrentAgent();
+  const isArbiter = me?.role === 'super_admin' || me?.role === 'listing_manager';
+  const sellable = property.status === 'active' || property.status === 'deposit';
+  const { data } = useQuery({ queryKey: ['mls-claims', property.id], queryFn: () => getPropertyClaims(property.id), staleTime: 20_000 });
+  const claims = data?.items || [];
+
+  const agentsQ = useQuery({ queryKey: ['agents-active-list'], queryFn: () => agentsApi.list({ role: 'agent', status: 'active' }), staleTime: 300_000, enabled: sellable });
+  const agents = useMemo(() => (agentsQ.data || []).filter((a) => a.id !== property.agent_id), [agentsQ.data, property.agent_id]);
+
+  const [open, setOpen] = useState(false);
+  const [buyerAgent, setBuyerAgent] = useState<{ id: number; name: string } | null>(null);
+  const [bName, setBName] = useState('');
+  const [bPhone, setBPhone] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  const invalidate = () => { ['mls-claims', 'mls-showings'].forEach((k) => qc.invalidateQueries({ queryKey: [k, property.id] })); };
+
+  async function submitShowing() {
+    setErr('');
+    if (!buyerAgent) { setErr('Выберите агента покупателя'); return; }
+    if (!bName.trim() && !bPhone.trim()) { setErr('Укажите покупателя (имя/телефон)'); return; }
+    setBusy(true);
+    try {
+      await logShowing(property.id, { buyer_agent_id: buyerAgent.id, buyer: { name: bName.trim(), phone: bPhone.trim() } });
+      setOpen(false); setBuyerAgent(null); setBName(''); setBPhone(''); invalidate();
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  }
+  async function doRelease(claimId: number) { await releaseClaim(claimId); invalidate(); }
+  async function doResolve(claimId: number) { await resolveDispute(claimId); invalidate(); }
+
+  if (!sellable && claims.length === 0) return null;
+  const fieldSx = { '& .MuiOutlinedInput-root': { color: '#F1F5F9', '& fieldset': { borderColor: `${GOLD}33` } }, '& .MuiInputLabel-root': { color: '#94A3B8' } };
+
+  return (
+    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.22)' }}>
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: claims.length || open ? 1 : 0 }}>
+        <GavelRoundedIcon sx={{ fontSize: 18, color: '#C084FC' }} />
+        <Typography sx={{ color: '#C084FC', fontWeight: 700, fontSize: 13, flex: 1 }}>Показы и закрепление покупателя</Typography>
+        {sellable && <Button size="small" onClick={() => setOpen((v) => !v)} sx={{ color: '#C084FC', textTransform: 'none', minWidth: 0 }}>{open ? 'Скрыть' : 'Записать показ'}</Button>}
+      </Stack>
+
+      {open && (
+        <Stack spacing={1} sx={{ mb: claims.length ? 1.5 : 0 }}>
+          <Autocomplete size="small" options={agents.map((a) => ({ id: a.id, name: a.name }))} getOptionLabel={(o) => o.name}
+            value={buyerAgent} onChange={(_, v) => setBuyerAgent(v)} loading={agentsQ.isLoading} isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderInput={(params) => <TextField {...params} label="Агент покупателя" sx={fieldSx} />} />
+          <Stack direction="row" spacing={1}>
+            <TextField label="Покупатель (имя)" value={bName} onChange={(e) => setBName(e.target.value)} size="small" fullWidth sx={fieldSx} />
+            <TextField label="Телефон" value={bPhone} onChange={(e) => setBPhone(e.target.value)} size="small" fullWidth sx={fieldSx} />
+          </Stack>
+          {err && <Typography sx={{ color: '#FCA5A5', fontSize: 12 }}>{err}</Typography>}
+          <Button size="small" variant="contained" disabled={busy} onClick={submitShowing}
+            sx={{ background: '#A855F7', color: '#fff', fontWeight: 700, textTransform: 'none', alignSelf: 'flex-start', '&:hover': { background: '#9333EA' } }}>
+            {busy ? 'Закрепляю…' : 'Зафиксировать показ + закрепить'}
+          </Button>
+          <Typography sx={{ color: '#64748B', fontSize: 11 }}>Закрепление даёт агенту покупателя право на co-broking-долю. Если покупатель уже закреплён за другим — откроется спор для арбитра.</Typography>
+        </Stack>
+      )}
+
+      <Stack spacing={1}>
+        {claims.map((c) => {
+          const st = CLAIM_STATUS[c.status as keyof typeof CLAIM_STATUS] || { label: c.status, color: '#94A3B8', bg: 'rgba(148,163,184,0.12)' };
+          const mine = me?.id === c.agent_id;
+          return (
+            <Box key={c.id} sx={{ p: 1, borderRadius: 1.5, background: 'rgba(15,22,41,0.5)', border: '1px solid rgba(168,85,247,0.16)' }}>
+              <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
+                <Chip label={st.label} size="small" sx={{ height: 20, fontSize: 11, fontWeight: 700, color: st.color, background: st.bg }} />
+                <Typography sx={{ color: '#F1F5F9', fontSize: 13, fontWeight: 600 }}>{c.agent_name || `Агент #${c.agent_id}`}</Typography>
+                {c.verified && <Tooltip title="Подтверждённый показ"><CheckCircleRoundedIcon sx={{ fontSize: 14, color: '#22C55E' }} /></Tooltip>}
+                <Typography sx={{ color: '#64748B', fontSize: 11 }}>{BASIS_LABEL[c.basis] || c.basis}{c.status === 'active' ? ` · до ${c.protected_until?.slice(0, 10)}` : ''}</Typography>
+                <Box sx={{ flex: 1 }} />
+                {mine && (c.status === 'active' || c.status === 'disputed') && (
+                  <Button size="small" onClick={() => doRelease(c.id)} sx={{ color: '#EF4444', textTransform: 'none', minWidth: 0, fontSize: 12 }}>Отпустить</Button>
+                )}
+                {isArbiter && c.status === 'disputed' && (
+                  <Button size="small" onClick={() => doResolve(c.id)} sx={{ color: '#22C55E', textTransform: 'none', minWidth: 0, fontSize: 12 }}>Признать победителем</Button>
+                )}
+              </Stack>
+              {c.buyer_locked ? (
+                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: '#94A3B8', mt: 0.25 }}>
+                  <LockRoundedIcon sx={{ fontSize: 12 }} /><Typography sx={{ fontSize: 12 }}>Контакт покупателя скрыт</Typography>
+                </Stack>
+              ) : c.buyer ? (
+                <Typography sx={{ color: '#94A3B8', fontSize: 12, mt: 0.25 }}>
+                  {c.buyer.name || 'Покупатель'}{c.buyer.phone ? ` · ${phoneFmt(c.buyer.phone)}` : ''}
+                </Typography>
+              ) : null}
+            </Box>
+          );
+        })}
+      </Stack>
+    </Box>
+  );
+}
+
 export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () => void; onEdit: () => void }) {
   const myId = getCurrentAgent()?.id ?? null;
   const { data, isLoading, error, refetch } = useQuery({
@@ -484,6 +632,7 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
               <PortalLinkBlock propertyId={d.id} />
               {(d.owner || d.owner_locked) && <OwnerChatBlock propertyId={d.id} myId={myId} />}
               <ViewingsBlock propertyId={d.id} />
+              <ProcuringBlock property={d} />
 
               <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
 

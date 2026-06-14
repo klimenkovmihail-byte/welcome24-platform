@@ -14,11 +14,13 @@ import ConstructionRoundedIcon from '@mui/icons-material/ConstructionRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import ChatRoundedIcon from '@mui/icons-material/ChatRounded';
 import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
+import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
 import ObjectsView from '../components/crm/ObjectsView';
 import RequestsView from '../components/crm/RequestsView';
 import OwnerChatsView from '../components/crm/OwnerChatsView';
 import ServicesAdminView from '../components/crm/ServicesAdminView';
 import LeadsView from '../components/crm/LeadsView';
+import ClaimsView from '../components/crm/ClaimsView';
 import { listMlsProperties, getClientChats } from '../api/mls';
 
 const GOLD = '#C9A84C';
@@ -38,6 +40,7 @@ const MODULES: Module[] = [
   { key: 'requests', label: 'Заявки покупателей', icon: <ManageSearchRoundedIcon />, ready: true, desc: 'Заявки-спрос с критериями (+ AI-разбор текста) и мэтчинг: подбор объектов под заявку и покупателей под объект.' },
   { key: 'chats', label: 'Чаты собственников', icon: <ChatRoundedIcon />, ready: true, desc: 'Инбокс переписок с собственниками по объектам: непрочитанные сверху, счётчик, переход в чат — не открывая каждую карточку.' },
   { key: 'services', label: 'Услуги (маркетплейс)', icon: <StorefrontRoundedIcon />, ready: true, desc: 'Очередь заказов услуг от клиентов (взять/статус) + каталог с CRUD и рейтингом партнёров.' },
+  { key: 'claims', label: 'Закрепления (procuring)', icon: <GavelRoundedIcon />, ready: true, desc: 'Procuring cause: мои закрепления покупателей + очередь споров о закреплении для арбитра (выбор победителя).' },
   { key: 'deals', label: 'Сделки (co-broking)', icon: <HandshakeRoundedIcon />, desc: 'Совместные сделки с защищённым делёжом комиссии, межгородские рефералы — внутренняя биржа спроса.', phase: 'Фаза 4–5' },
   { key: 'clients', label: 'Клиенты', icon: <GroupsRoundedIcon />, desc: 'Кабинет клиента (продавец/покупатель): этапы сделки, чат, отчёт собственнику + маркетплейс услуг.', phase: 'Фаза 4.5' },
 ];
@@ -135,7 +138,7 @@ export default function CRM() {
             <Typography sx={{ color: '#475569' }}>/</Typography>
             <Typography sx={{ color: '#F1F5F9', fontWeight: 700 }}>{mod.label}</Typography>
           </Stack>
-          {mod.key === 'objects' ? <ObjectsView /> : mod.key === 'requests' ? <RequestsView /> : mod.key === 'chats' ? <OwnerChatsView initialChatId={deepChat ? Number(deepChat) : null} /> : mod.key === 'services' ? <ServicesAdminView /> : mod.key === 'leads' ? <LeadsView /> : <SoonPanel m={mod} />}
+          {mod.key === 'objects' ? <ObjectsView /> : mod.key === 'requests' ? <RequestsView /> : mod.key === 'chats' ? <OwnerChatsView initialChatId={deepChat ? Number(deepChat) : null} /> : mod.key === 'services' ? <ServicesAdminView /> : mod.key === 'leads' ? <LeadsView /> : mod.key === 'claims' ? <ClaimsView /> : <SoonPanel m={mod} />}
         </>
       )}
     </Box>

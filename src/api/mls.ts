@@ -206,11 +206,47 @@ export interface SellDealRow {
 }
 export interface SellResult {
   ok: boolean; joint: boolean; deal_group_id: number | null; property_status: string; deals: SellDealRow[];
+  procuring?: { buyer_agent_id: number; auto_substituted: boolean; override: boolean } | null;
 }
-// body: { vkd, date?, buyer_agent_id?, buyer_side_share?, buyer:{name,phone}?, client_name?, notes? }
+// body: { vkd, date?, buyer_agent_id?, buyer_side_share?, buyer:{name,phone}?, client_name?, notes?, override?, override_reason? }
 export function sellMlsProperty(id: number, body: Record<string, unknown>): Promise<SellResult> {
   return api.post<SellResult>(`/api/mls/properties/${id}/sell`, body);
 }
+
+// ── Procuring cause / закрепление покупателя (co-broking) ──
+export interface BuyerClaim {
+  id: number; property_id: number; agent_id: number; agent_name: string | null;
+  basis: string; verified: boolean; status: string;
+  established_at: string; protected_until: string; note: string | null;
+  buyer: { name: string | null; phone: string | null } | null; buyer_locked: boolean;
+}
+export interface ShowingRow {
+  id: number; created_at: string; actor_id: number | null; actor_name: string | null;
+  buyer_agent_id: number | null; buyer_agent_name: string | null; basis: string; cobroking: boolean; claim_id: number | null;
+}
+export interface MyClaim {
+  id: number; property_id: number; property_address: string | null; locality: string | null;
+  buyer_name: string | null; buyer_phone: string | null; basis: string; verified: boolean;
+  status: string; established_at: string; protected_until: string; note: string | null;
+}
+export interface DisputeClaimant { claim_id: number; agent_id: number; agent_name: string | null; basis: string; verified: boolean; established_at: string; note: string | null; }
+export interface DisputeGroup {
+  property_id: number; property_address: string | null; locality: string | null;
+  listing_agent_id: number | null; listing_agent_name: string | null;
+  buyer_contact_id: number; buyer_name: string | null; buyer_phone: string | null;
+  claimants: DisputeClaimant[];
+}
+// Залогировать показ (+ закрепить, если указан отдельный агент покупателя).
+export function logShowing(id: number, body: { buyer_agent_id?: number | null; buyer?: { name?: string; phone?: string }; buyer_contact_id?: number; basis?: string; note?: string }): Promise<{ ok: boolean; cobroking: boolean; dispute: boolean; claim_id: number | null }> {
+  return api.post(`/api/mls/properties/${id}/showings`, body);
+}
+export function getShowings(id: number): Promise<{ items: ShowingRow[] }> { return api.get(`/api/mls/properties/${id}/showings`); }
+export function getPropertyClaims(id: number): Promise<{ items: BuyerClaim[] }> { return api.get(`/api/mls/properties/${id}/claims`); }
+export function getMyClaims(): Promise<{ items: MyClaim[] }> { return api.get('/api/mls/claims/mine'); }
+export function releaseClaim(id: number): Promise<{ ok: boolean }> { return api.post(`/api/mls/claims/${id}/release`, {}); }
+export function getClaimDisputes(): Promise<{ items: DisputeGroup[] }> { return api.get('/api/mls/claims/disputes'); }
+// :id = ПОБЕДИВШИЙ claim (арбитр).
+export function resolveDispute(winningClaimId: number): Promise<{ ok: boolean; winner_agent_id: number }> { return api.post(`/api/mls/claims/${winningClaimId}/resolve`, {}); }
 
 // ── Кабинет собственника (персональная ссылка) ──
 export interface PortalLink { has_owner: boolean; enabled: boolean; token: string | null; link: string | null; last_seen_at?: string | null; }
