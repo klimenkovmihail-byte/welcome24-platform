@@ -122,6 +122,28 @@ export interface RegistrySchema {
 }
 export function getMlsRegistry(): Promise<RegistrySchema> { return api.get<RegistrySchema>('/api/mls/registry'); }
 
+// Инбокс «Чаты с собственниками» (агрегат непрочитанных по объектам).
+export interface OwnerChatRow { property_id: number; address: string | null; owner_name: string; preview: string; last_from: string; last_at: string; unread: number; }
+export function getClientChats(): Promise<{ items: OwnerChatRow[] }> { return api.get<{ items: OwnerChatRow[] }>('/api/mls/client-chats'); }
+
+// Маркетплейс услуг — координаторская сторона (каталог + очередь заказов).
+export interface SvcCatalogItem {
+  id: number; slug: string | null; category: string; name: string; description: string | null; kind: string;
+  price_note: string | null; agent_share_pct: number | null; partner_commission_pct: number | null;
+  city: string | null; sort: number; active: number; reviews_count: number; rating: number | null; orders_count: number;
+}
+export interface SvcOrder {
+  id: number; status: string; service_name: string | null; note: string | null; property_id: number | null;
+  created_at: string; updated_at: string; client_name: string | null; client_phone: string | null;
+  agent_name: string | null; coordinator_name: string | null; review_rating: number | null; review_text: string | null;
+}
+export function getServicesCatalog(): Promise<{ items: SvcCatalogItem[] }> { return api.get<{ items: SvcCatalogItem[] }>('/api/services'); }
+export function getServiceOrders(status?: string): Promise<{ items: SvcOrder[] }> { return api.get<{ items: SvcOrder[] }>(`/api/services/orders${status ? `?status=${status}` : ''}`); }
+export function patchServiceOrder(id: number, data: { status?: string; take?: boolean }): Promise<{ ok: boolean }> { return api.patch<{ ok: boolean }>(`/api/services/orders/${id}`, data); }
+export function createService(s: Partial<SvcCatalogItem>): Promise<{ id: number }> { return api.post<{ id: number }>('/api/services', s); }
+export function updateService(id: number, s: Partial<SvcCatalogItem>): Promise<{ ok: boolean }> { return api.put<{ ok: boolean }>(`/api/services/${id}`, s); }
+export function deleteService(id: number): Promise<{ ok: boolean }> { return api.del<{ ok: boolean }>(`/api/services/${id}`); }
+
 export function createMlsProperty(body: Record<string, unknown>): Promise<{ id: number }> {
   return api.post<{ id: number }>('/api/mls/properties', body);
 }

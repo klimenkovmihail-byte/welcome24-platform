@@ -3,6 +3,8 @@
 // Данные — GET /api/mls/properties[/:id]. Раздел скрыт (super_admin), гейт — в роутере/сайдбаре.
 import { useState, useMemo, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import Thread from '../Thread';
+import { getCurrentAgent } from '../../auth/auth';
 import {
   Box, Typography, Card, CardContent, Chip, Grid, Select, MenuItem, Button,
   Dialog, DialogContent, IconButton, Divider, CircularProgress, Stack, Tooltip,
@@ -310,7 +312,18 @@ function ClientDocsBlock({ propertyId }: { propertyId: number }) {
   );
 }
 
+// Чат с собственником по объекту (агентская сторона) — переиспользует портальный Thread.
+function OwnerChatBlock({ propertyId, myId }: { propertyId: number; myId: number | null }) {
+  return (
+    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.22)' }}>
+      <Typography sx={{ color: '#4ade80', fontWeight: 700, fontSize: 13, mb: 1 }}>Чат с собственником</Typography>
+      <Thread apiBase={`/mls/properties/${propertyId}/client-chat`} myId={myId} myRole="agent" maxHeight={300} emptyText="Сообщений пока нет. Напишите собственнику." />
+    </Box>
+  );
+}
+
 export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () => void; onEdit: () => void }) {
+  const myId = getCurrentAgent()?.id ?? null;
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['mls-property', id],
     queryFn: () => getMlsProperty(id),
@@ -441,6 +454,7 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
               <CasesBlock propertyId={d.id} />
               <ClientDocsBlock propertyId={d.id} />
               <PortalLinkBlock propertyId={d.id} />
+              {(d.owner || d.owner_locked) && <OwnerChatBlock propertyId={d.id} myId={myId} />}
 
               <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
 
