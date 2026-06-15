@@ -109,7 +109,7 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
 
         {/* Nav */}
         <List sx={{ flex: 1, minHeight: 0, overflowY: 'auto', px: 1.5, py: 2, gap: 0.5, display: 'flex', flexDirection: 'column', '&::-webkit-scrollbar': { width: 4 }, '&::-webkit-scrollbar-thumb': { background: 'rgba(201,168,76,0.25)', borderRadius: 2 } }}>
-          {navItems.filter((item) => isPortalPathAllowed(agent?.role, item.path)).map((item) => {
+          {navItems.filter((item) => isPortalPathAllowed(agent ?? undefined, item.path)).map((item) => {
             const active = location.pathname === item.path;
             const badge = item.path === '/cases' ? casesUnread : 0;
             return (

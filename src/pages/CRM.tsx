@@ -1,9 +1,17 @@
 // CRM — зонтичный раздел операционной инфраструктуры MLS (скрыт, super_admin).
 // Хаб с ПЛИТКАМИ модулей: вход в CRM → плитки (Объекты живой + Лиды/Заявки/Сделки/Клиенты
 // каркас «скоро» по дорожной карте mls-fable-review §2) → клик по плитке → модуль.
-import { useState, type ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Box, Typography, Chip, Stack, Card, CardContent, Grid, Button } from '@mui/material';
+import { useState, useMemo, type ReactNode } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  Box, Typography, Chip, Stack, Card, CardContent, Grid, Button,
+  Dialog, DialogContent, IconButton, Autocomplete, TextField, Divider, CircularProgress,
+} from '@mui/material';
+import LockOpenRoundedIcon from '@mui/icons-material/LockOpenRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import { getCurrentAgent } from '../auth/auth';
+import { agentsApi } from '../api/agents';
+import { getMlsWhitelist, updateMlsWhitelist } from '../api/mls';
 import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded';
 import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 import ManageSearchRoundedIcon from '@mui/icons-material/ManageSearchRounded';
@@ -21,6 +29,8 @@ import OwnerChatsView from '../components/crm/OwnerChatsView';
 import ServicesAdminView from '../components/crm/ServicesAdminView';
 import LeadsView from '../components/crm/LeadsView';
 import ClaimsView from '../components/crm/ClaimsView';
+import DealsView from '../components/crm/DealsView';
+import ClientsView from '../components/crm/ClientsView';
 import { listMlsProperties, getClientChats } from '../api/mls';
 
 const GOLD = '#C9A84C';
@@ -41,8 +51,8 @@ const MODULES: Module[] = [
   { key: 'chats', label: 'Чаты собственников', icon: <ChatRoundedIcon />, ready: true, desc: 'Инбокс переписок с собственниками по объектам: непрочитанные сверху, счётчик, переход в чат — не открывая каждую карточку.' },
   { key: 'services', label: 'Услуги (маркетплейс)', icon: <StorefrontRoundedIcon />, ready: true, desc: 'Очередь заказов услуг от клиентов (взять/статус) + каталог с CRUD и рейтингом партнёров.' },
   { key: 'claims', label: 'Закрепления (procuring)', icon: <GavelRoundedIcon />, ready: true, desc: 'Procuring cause: мои закрепления покупателей + очередь споров о закреплении для арбитра (выбор победителя).' },
-  { key: 'deals', label: 'Сделки (co-broking)', icon: <HandshakeRoundedIcon />, desc: 'Совместные сделки с защищённым делёжом комиссии, межгородские рефералы — внутренняя биржа спроса.', phase: 'Фаза 4–5' },
-  { key: 'clients', label: 'Клиенты', icon: <GroupsRoundedIcon />, desc: 'Кабинет клиента (продавец/покупатель): этапы сделки, чат, отчёт собственнику + маркетплейс услуг.', phase: 'Фаза 4.5' },
+  { key: 'deals', label: 'Сделки (co-broking)', icon: <HandshakeRoundedIcon />, ready: true, desc: 'Проведённые сделки по объектам: совместные (co-broking) с раскладкой по агентам, ВКД/доход, статус, отмена группы.' },
+  { key: 'clients', label: 'Клиенты', icon: <GroupsRoundedIcon />, ready: true, desc: 'Единая база контактов: собственники, покупатели, лиды — роли, счётчики и связанные объекты/заявки/сделки. (Кабинет клиента — отдельное приложение …/client/.)' },
 ];
 
 function ModuleTile({ m, count, badge, onOpen }: { m: Module; count?: number; badge?: number; onOpen: () => void }) {
@@ -98,6 +108,55 @@ function SoonPanel({ m }: { m: Module }) {
   );
 }
 
+const fieldSx = { '& .MuiOutlinedInput-root': { color: '#F1F5F9', '& fieldset': { borderColor: `${GOLD}33` } }, '& .MuiInputLabel-root': { color: '#94A3B8' } };
+
+// Управление доступом к CRM (super_admin): кто из агентов видит раздел (settings.mls.whitelist).
+function WhitelistDialog({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({ queryKey: ['mls-whitelist'], queryFn: getMlsWhitelist, staleTime: 30_000 });
+  const agentsQ = useQuery({ queryKey: ['agents-active-list'], queryFn: () => agentsApi.list({ role: 'agent', status: 'active' }), staleTime: 300_000 });
+  const current = data?.items || [];
+  const options = useMemo(() => {
+    const have = new Set(data?.ids || []);
+    return (agentsQ.data || []).filter((a) => !have.has(a.id)).map((a) => ({ id: a.id, name: a.name }));
+  }, [agentsQ.data, data]);
+  const [picked, setPicked] = useState<{ id: number; name: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const add = async () => { if (!picked) return; setBusy(true); try { await updateMlsWhitelist({ add: picked.id }); setPicked(null); qc.invalidateQueries({ queryKey: ['mls-whitelist'] }); } finally { setBusy(false); } };
+  const remove = async (id: number) => { await updateMlsWhitelist({ remove: id }); qc.invalidateQueries({ queryKey: ['mls-whitelist'] }); };
+  return (
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth slotProps={{ paper: { sx: { background: 'linear-gradient(135deg,#0F1629,#0A0E1A)', border: `1px solid ${GOLD}33`, borderRadius: 3 } } }}>
+      <DialogContent sx={{ p: 3 }}>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+          <LockOpenRoundedIcon sx={{ color: GOLD }} />
+          <Typography sx={{ color: GOLD, fontWeight: 800, fontSize: 18, flex: 1 }}>Доступ к CRM</Typography>
+          <IconButton onClick={onClose} sx={{ color: '#94A3B8' }}><CloseRoundedIcon /></IconButton>
+        </Stack>
+        <Typography sx={{ color: '#94A3B8', fontSize: 13, mb: 2 }}>Агенты из списка видят раздел CRM (MLS) помимо вас. Всем остальным он скрыт.</Typography>
+        <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+          <Autocomplete size="small" sx={{ flex: 1 }} options={options} getOptionLabel={(o) => o.name} value={picked} onChange={(_, v) => setPicked(v)} loading={agentsQ.isLoading} isOptionEqualToValue={(o, v) => o.id === v.id}
+            renderInput={(params) => <TextField {...params} label="Добавить агента" sx={fieldSx} />} />
+          <Button variant="contained" disabled={!picked || busy} onClick={add} sx={{ background: GOLD, color: '#06210F', fontWeight: 700, textTransform: 'none', '&.Mui-disabled': { background: '#475569', color: '#1E293B' } }}>Дать доступ</Button>
+        </Stack>
+        <Divider sx={{ my: 1, borderColor: 'rgba(201,168,76,0.1)' }} />
+        {isLoading ? <CircularProgress sx={{ color: GOLD }} size={24} />
+          : current.length === 0 ? <Typography sx={{ color: '#64748B', fontSize: 13 }}>Пока доступ только у вас (super_admin).</Typography>
+          : (
+            <Stack spacing={1}>
+              {current.map((a) => (
+                <Stack key={a.id} direction="row" alignItems="center" spacing={1} sx={{ p: 1, borderRadius: 1.5, background: `${GOLD}0A` }}>
+                  <Typography sx={{ color: '#F1F5F9', fontSize: 14, fontWeight: 600, flex: 1 }}>{a.name}</Typography>
+                  {a.city && <Typography sx={{ color: '#64748B', fontSize: 12 }}>{a.city}</Typography>}
+                  <Button size="small" onClick={() => remove(a.id)} sx={{ color: '#EF4444', textTransform: 'none', minWidth: 0 }}>Убрать</Button>
+                </Stack>
+              ))}
+            </Stack>
+          )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function CRM() {
   const params = new URLSearchParams(window.location.search); // deep-link из уведомлений
   const deepChat = params.get('chat');
@@ -109,19 +168,28 @@ export default function CRM() {
   const chatsQ = useQuery({ queryKey: ['mls-client-chats'], queryFn: getClientChats, staleTime: 60_000, refetchInterval: 30_000 });
   const chatsUnread = (chatsQ.data?.items || []).reduce((s, r) => s + (r.unread || 0), 0);
 
+  const me = getCurrentAgent();
+  const isStaff = me?.role === 'super_admin' || me?.role === 'admin' || me?.role === 'manager';
+  const isSuper = me?.role === 'super_admin';
+  const [wlOpen, setWlOpen] = useState(false);
+  // Помодульная видимость: «Услуги» — координаторский (staff) модуль; рядовому агенту скрываем.
+  const modules = MODULES.filter((m) => m.key !== 'services' || isStaff);
+
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5, flexWrap: 'wrap' }}>
         <Typography variant="h5" sx={{ fontWeight: 800, color: '#F1F5F9' }}>CRM</Typography>
-        <Chip icon={<VisibilityOffRoundedIcon sx={{ fontSize: 14 }} />} label="Скрытый раздел (только вы)" size="small"
+        <Chip icon={<VisibilityOffRoundedIcon sx={{ fontSize: 14 }} />} label="Скрытый раздел" size="small"
           sx={{ height: 22, fontSize: 11, fontWeight: 600, color: GOLD, background: `${GOLD}1A`, border: `1px solid ${GOLD}33`, '& .MuiChip-icon': { color: GOLD } }} />
+        <Box sx={{ flex: 1 }} />
+        {isSuper && <Button size="small" startIcon={<LockOpenRoundedIcon sx={{ fontSize: 16 }} />} onClick={() => setWlOpen(true)} sx={{ color: GOLD, textTransform: 'none', '&:hover': { background: `${GOLD}11` } }}>Доступ</Button>}
       </Box>
       <Typography sx={{ color: '#64748B', fontSize: 13, mb: 2.5 }}>Операционная инфраструктура MLS</Typography>
 
       {!mod ? (
         // ── Хаб: плитки модулей ──
         <Grid container spacing={2}>
-          {MODULES.map(m => (
+          {modules.map(m => (
             <Grid key={m.key} size={{ xs: 12, sm: 6, md: 4 }}>
               <ModuleTile m={m} count={m.key === 'objects' ? objectsCount : undefined} badge={m.key === 'chats' ? chatsUnread : undefined} onOpen={() => setActive(m.key)} />
             </Grid>
@@ -138,9 +206,10 @@ export default function CRM() {
             <Typography sx={{ color: '#475569' }}>/</Typography>
             <Typography sx={{ color: '#F1F5F9', fontWeight: 700 }}>{mod.label}</Typography>
           </Stack>
-          {mod.key === 'objects' ? <ObjectsView /> : mod.key === 'requests' ? <RequestsView /> : mod.key === 'chats' ? <OwnerChatsView initialChatId={deepChat ? Number(deepChat) : null} /> : mod.key === 'services' ? <ServicesAdminView /> : mod.key === 'leads' ? <LeadsView /> : mod.key === 'claims' ? <ClaimsView /> : <SoonPanel m={mod} />}
+          {mod.key === 'objects' ? <ObjectsView /> : mod.key === 'requests' ? <RequestsView /> : mod.key === 'chats' ? <OwnerChatsView initialChatId={deepChat ? Number(deepChat) : null} /> : mod.key === 'services' ? <ServicesAdminView /> : mod.key === 'leads' ? <LeadsView /> : mod.key === 'claims' ? <ClaimsView /> : mod.key === 'deals' ? <DealsView /> : mod.key === 'clients' ? <ClientsView /> : <SoonPanel m={mod} />}
         </>
       )}
+      {wlOpen && <WhitelistDialog onClose={() => setWlOpen(false)} />}
     </Box>
   );
 }

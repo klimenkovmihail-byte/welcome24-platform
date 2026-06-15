@@ -46,9 +46,9 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 // редиректит на его стартовую страницу (/team).
 function RoleGate({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const role = getCurrentAgent()?.role;
-  if (!isPortalPathAllowed(role, location.pathname)) {
-    return <Navigate to={portalDefaultPath(role)} replace />;
+  const user = getCurrentAgent();
+  if (!isPortalPathAllowed(user ?? undefined, location.pathname)) {
+    return <Navigate to={portalDefaultPath(user?.role)} replace />;
   }
   return <>{children}</>;
 }

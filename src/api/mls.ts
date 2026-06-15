@@ -248,6 +248,42 @@ export function getClaimDisputes(): Promise<{ items: DisputeGroup[] }> { return 
 // :id = ПОБЕДИВШИЙ claim (арбитр).
 export function resolveDispute(winningClaimId: number): Promise<{ ok: boolean; winner_agent_id: number }> { return api.post(`/api/mls/claims/${winningClaimId}/resolve`, {}); }
 
+// ── Агрегированный вид «Сделки» (MLS, co-broking сгруппированы) ──
+export interface MlsDealAgent { deal_id: number; agent_id: number; agent_name: string | null; vkd: number; income: number; commission: number; }
+export interface MlsDealGroup {
+  group_id: number; joint: boolean; property_id: number | null; property_address: string | null; locality: string | null;
+  date: string; status: string; client_name: string | null; total_vkd: number; total_income: number; agents: MlsDealAgent[];
+}
+export function getMlsDeals(f?: { status?: string; agent_id?: number; year?: string }): Promise<{ items: MlsDealGroup[] }> {
+  const p = new URLSearchParams();
+  if (f?.status) p.set('status', f.status);
+  if (f?.agent_id) p.set('agent_id', String(f.agent_id));
+  if (f?.year) p.set('year', f.year);
+  const qs = p.toString();
+  return api.get(`/api/mls/deals${qs ? `?${qs}` : ''}`);
+}
+// Отмена сделки (group-aware на бэке): передаём любой deal_id группы. Гейт — раздел /deals (admin).
+export function cancelMlsDeal(dealId: number): Promise<{ ok: boolean; cancelled: number }> { return api.post(`/api/deals/${dealId}/cancel`, {}); }
+
+// ── Агрегированный вид «Клиенты» (контакты: роли + счётчики) ──
+export interface MlsContact { id: number; name: string | null; phone: string | null; email: string | null; owned: number; requests: number; leads: number; buy_deals: number; }
+export function getMlsContacts(q?: string): Promise<{ items: MlsContact[]; total: number }> { return api.get(`/api/mls/contacts${q ? `?q=${encodeURIComponent(q)}` : ''}`); }
+export interface MlsContactDetail {
+  contact: { id: number; name: string | null; phone: string | null; email: string | null; note: string | null; created_at: string };
+  properties: { id: number; address: string | null; locality: string | null; status: string; price: number | null }[];
+  requests: { id: number; status: string; deal_type: string | null; price_min: number | null; price_max: number | null }[];
+  leads: { id: number; status: string; source: string; created_at: string }[];
+  deals: { id: number; property_id: number | null; vkd: number; status: string; date: string }[];
+}
+export function getMlsContact(id: number): Promise<MlsContactDetail> { return api.get(`/api/mls/contacts/${id}`); }
+
+// ── Управление доступом к MLS/CRM (whitelist, super_admin) ──
+export interface WhitelistAgent { id: number; name: string; role: string; city: string | null; status: string; }
+export function getMlsWhitelist(): Promise<{ ids: number[]; items: WhitelistAgent[] }> { return api.get('/api/mls/whitelist'); }
+export function updateMlsWhitelist(body: { add?: number; remove?: number; ids?: number[] }): Promise<{ ids: number[]; items: WhitelistAgent[] }> {
+  return api.post('/api/mls/whitelist', body);
+}
+
 // ── Кабинет собственника (персональная ссылка) ──
 export interface PortalLink { has_owner: boolean; enabled: boolean; token: string | null; link: string | null; last_seen_at?: string | null; }
 export function getPortalLink(id: number): Promise<PortalLink> {
