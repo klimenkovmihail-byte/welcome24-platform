@@ -10,7 +10,7 @@ export const PROPERTY_TYPES = ['Вторичная', 'Первичная', 'Ар
 import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import SmartAvatar from '../components/SmartAvatar';
-import { vkName, vkUrl, maxToken, maxUrl } from '../lib/socials';
+import { vkName, vkUrl, maxToken, maxUrl, siteName, siteUrl } from '../lib/socials';
 import LocationOnRoundedIcon from '@mui/icons-material/LocationOnRounded';
 import EmailRoundedIcon from '@mui/icons-material/EmailRounded';
 import PhoneRoundedIcon from '@mui/icons-material/PhoneRounded';
@@ -26,6 +26,9 @@ import TelegramIcon from '@mui/icons-material/Telegram';
 import InstagramIcon from '@mui/icons-material/Instagram';
 import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 import ChatRoundedIcon from '@mui/icons-material/ChatRounded';
+import LanguageRoundedIcon from '@mui/icons-material/LanguageRounded';
+import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
+import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
 import InputAdornment from '@mui/material/InputAdornment';
 import { currentUser as mockUser, type Achievement } from '../data/mockData';
 import { fetchMe, getCurrentAgent } from '../auth/auth';
@@ -94,6 +97,7 @@ export default function Profile() {
   const [confirmPwd, setConfirmPwd] = useState('');
   const [pwdSaving, setPwdSaving] = useState(false);
   const [pwdMsg, setPwdMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [showPwd, setShowPwd] = useState(false);   // показать вводимые пароли (видно текст и раскладку)
 
   // Загружаем актуального юзера с бэка (на старте + после save).
   const [user, setUser] = useState<Record<string, unknown> | null>(() => getCurrentAgent());
@@ -146,7 +150,7 @@ export default function Profile() {
     experienceYears: '',
     bio: '',
     photo: '' as string | null,
-    telegram: '', telegramChannel: '', instagram: '', vk: '', max: '',
+    telegram: '', telegramChannel: '', instagram: '', vk: '', max: '', website: '',
   });
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -207,6 +211,7 @@ export default function Profile() {
       instagram: currentUser.socials?.instagram || '',
       vk: currentUser.socials?.vk || '',
       max: currentUser.socials?.max || '',
+      website: currentUser.socials?.website || '',
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -318,6 +323,7 @@ export default function Profile() {
           instagram: form.instagram || undefined,
           vk: form.vk || undefined,
           max: form.max || undefined,
+          website: form.website ? siteName(form.website) : undefined,
         },
       });
       // Приводим snake_case → camelCase минимально для использования в Profile.
@@ -495,7 +501,7 @@ export default function Profile() {
                   </Box>
                 </Box>
                 {/* Socials */}
-                {(currentUser.socials?.telegram || currentUser.socials?.telegramChannel || currentUser.socials?.instagram || currentUser.socials?.vk || currentUser.socials?.max) && (
+                {(currentUser.socials?.telegram || currentUser.socials?.telegramChannel || currentUser.socials?.instagram || currentUser.socials?.vk || currentUser.socials?.max || currentUser.socials?.website) && (
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 600, display: 'block', mb: 1 }}>Соцсети</Typography>
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -536,6 +542,14 @@ export default function Profile() {
                           <IconButton size="small" component="a" href={maxUrl(currentUser.socials.max)} target="_blank" rel="noopener"
                             sx={{ color: '#7C3AED', background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)', '&:hover': { background: 'rgba(124,58,237,0.2)' } }}>
                             <ChatRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {currentUser.socials?.website && (
+                        <Tooltip title={siteName(currentUser.socials.website)}>
+                          <IconButton size="small" component="a" href={siteUrl(currentUser.socials.website)} target="_blank" rel="noopener"
+                            sx={{ color: '#C9A84C', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.2)', '&:hover': { background: 'rgba(201,168,76,0.2)' } }}>
+                            <LanguageRoundedIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       )}
@@ -986,19 +1000,43 @@ export default function Profile() {
               placeholder="ссылка max.ru/u/… или токен"
               slotProps={{ input: { startAdornment: <InputAdornment position="start"><ChatRoundedIcon sx={{ color: '#7C3AED', fontSize: 18 }} /></InputAdornment> } }}
             />
+            <TextField
+              fullWidth size="small" label="Мой сайт"
+              value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))}
+              placeholder="например, mysite.ru"
+              slotProps={{ input: { startAdornment: <InputAdornment position="start"><LanguageRoundedIcon sx={{ color: '#C9A84C', fontSize: 18 }} /></InputAdornment> } }}
+            />
           </Stack>
 
           {/* Смена пароля — отдельное действие, не зависит от «Сохранить изменения» */}
           <Divider sx={{ my: 2.5, borderColor: 'rgba(201,168,76,0.12)' }} />
           <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', mb: 1.5 }}>Сменить пароль</Typography>
           <Stack spacing={1.5}>
-            <TextField fullWidth size="small" type="password" label="Текущий пароль" autoComplete="current-password"
-              value={curPwd} onChange={e => { setCurPwd(e.target.value); setPwdMsg(null); }} />
-            <TextField fullWidth size="small" type="password" label="Новый пароль (мин. 6 символов)" autoComplete="new-password"
-              value={newPwd} onChange={e => { setNewPwd(e.target.value); setPwdMsg(null); }} />
-            <TextField fullWidth size="small" type="password" label="Повторите новый пароль" autoComplete="new-password"
-              value={confirmPwd} onChange={e => { setConfirmPwd(e.target.value); setPwdMsg(null); }}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleChangePassword(); } }} />
+            {(() => {
+              // Глаз «показать/скрыть» — один тумблер на все три поля. Видно введённый
+              // текст (и раскладку клавиатуры), чтобы не задать пароль вслепую.
+              const eye = (
+                <InputAdornment position="end">
+                  <IconButton size="small" tabIndex={-1} onClick={() => setShowPwd(s => !s)} edge="end"
+                    aria-label={showPwd ? 'Скрыть пароль' : 'Показать пароль'} sx={{ color: '#64748B' }}>
+                    {showPwd ? <VisibilityOffRoundedIcon sx={{ fontSize: 18 }} /> : <VisibilityRoundedIcon sx={{ fontSize: 18 }} />}
+                  </IconButton>
+                </InputAdornment>
+              );
+              const t = showPwd ? 'text' : 'password';
+              return (<>
+                <TextField fullWidth size="small" type={t} label="Текущий пароль" autoComplete="current-password"
+                  value={curPwd} onChange={e => { setCurPwd(e.target.value); setPwdMsg(null); }}
+                  slotProps={{ input: { endAdornment: eye } }} />
+                <TextField fullWidth size="small" type={t} label="Новый пароль (мин. 6 символов)" autoComplete="new-password"
+                  value={newPwd} onChange={e => { setNewPwd(e.target.value); setPwdMsg(null); }}
+                  slotProps={{ input: { endAdornment: eye } }} />
+                <TextField fullWidth size="small" type={t} label="Повторите новый пароль" autoComplete="new-password"
+                  value={confirmPwd} onChange={e => { setConfirmPwd(e.target.value); setPwdMsg(null); }}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleChangePassword(); } }}
+                  slotProps={{ input: { endAdornment: eye } }} />
+              </>);
+            })()}
             {pwdMsg && <Alert severity={pwdMsg.ok ? 'success' : 'error'}>{pwdMsg.text}</Alert>}
             <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
               <Button variant="outlined" onClick={handleChangePassword}

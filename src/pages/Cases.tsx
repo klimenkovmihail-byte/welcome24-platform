@@ -55,7 +55,11 @@ export default function Cases({ track, initialOpenId }: { track?: TaskTrack; ini
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [stateFilter, setStateFilter] = useState<'active' | 'done' | 'all'>('all');
+  // Фильтр «Все/Активные/Завершённые» запоминаем — чтобы не сбрасывался при каждом входе/обновлении.
+  const [stateFilter, setStateFilter] = useState<'active' | 'done' | 'all'>(() => {
+    try { const v = localStorage.getItem('w24_cases_state_filter'); return v === 'active' || v === 'done' ? v : 'all'; } catch { return 'all'; }
+  });
+  useEffect(() => { try { localStorage.setItem('w24_cases_state_filter', stateFilter); } catch { /* ignore */ } }, [stateFilter]);
 
   // Диалог новой заявки.
   const [open, setOpen] = useState(false);
@@ -165,7 +169,12 @@ export default function Cases({ track, initialOpenId }: { track?: TaskTrack; ini
     const closed = isCaseClosed(c);
     const matchState = stateFilter === 'all' || (stateFilter === 'active' && !closed) || (stateFilter === 'done' && closed);
     return matchTrack && matchQ && matchType && matchState;
-  }).sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  }).sort((a, b) => {
+    // Закрытые/завершённые заявки — всегда вниз, активные — сверху; внутри группы — по дате.
+    const ca = isCaseClosed(a) ? 1 : 0, cb = isCaseClosed(b) ? 1 : 0;
+    if (ca !== cb) return ca - cb;
+    return (b.created_at || '').localeCompare(a.created_at || '');
+  });
 
   const headerTitle = track === 'legal' ? 'Юристы' : track === 'mortgage' ? 'Ипотека' : 'Заявки специалистам';
   const headerSub = track === 'legal'

@@ -108,7 +108,7 @@ export const currentUser = {
     instagram: 'mikhail.klimenkov',
     vk: 'klimenkov_mk',
     max: 'mk_w24',
-  } as { telegram?: string; telegramChannel?: string; instagram?: string; vk?: string; max?: string },
+  } as { telegram?: string; telegramChannel?: string; instagram?: string; vk?: string; max?: string; website?: string },
 };
 
 export const agentRating = [
@@ -627,6 +627,7 @@ export interface AgentSocials {
   vk?: string;                // короткое имя или id
   max?: string;               // MAX-мессенджер, username
   youtube?: string;
+  website?: string;           // личный сайт агента, без схемы (siteName)
 }
 
 export interface AgentBaseRecord {
