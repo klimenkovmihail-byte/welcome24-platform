@@ -69,7 +69,7 @@ function OrdersTab() {
   );
 }
 
-const EMPTY: Partial<SvcCatalogItem> = { name: '', category: 'other', kind: 'partner', price_note: '', description: '', city: '', sort: 0, active: 1 };
+const EMPTY: Partial<SvcCatalogItem> = { name: '', category: 'other', kind: 'partner', price_note: '', description: '', city: '', sort: 0, active: 1, agent_share_pct: 40 };
 
 function EditDialog({ svc, onClose, onSaved }: { svc: SvcCatalogItem | 'new'; onClose: () => void; onSaved: () => void }) {
   const isNew = svc === 'new';
