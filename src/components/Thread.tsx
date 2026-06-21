@@ -61,6 +61,17 @@ const roleColor = (r?: string | null) => ROLE_COLOR[r || ''] || '#94A3B8';
 
 // Картинка → превью + лайтбокс; прочие файлы — ссылкой.
 const isImage = (url?: string | null) => !!url && /\.(jpe?g|png|gif|webp|avif|bmp)(\?|$)/i.test(url);
+// URL внутри текста сообщения → кликабельная ссылка (ссылки на оплату рекламы и пр.
+// присылают текстом — без этого их приходилось копировать вручную).
+const URL_RE = /(https?:\/\/[^\s]+)/g;
+function linkify(text: string): React.ReactNode {
+  return text.split(URL_RE).map((part, i) =>
+    /^https?:\/\//i.test(part)
+      ? <Link key={i} href={part} target="_blank" rel="noopener noreferrer"
+          sx={{ color: '#8AB4F8', textDecoration: 'underline', wordBreak: 'break-all' }}>{part}</Link>
+      : part,
+  );
+}
 // Локальная метка времени в формате сервера ('YYYY-MM-DD HH:MM:SS', UTC).
 const nowStamp = () => new Date().toISOString().slice(0, 19).replace('T', ' ');
 const fmtTime = (s: string) =>
@@ -102,8 +113,12 @@ export default function Thread({ apiBase, myId, myRole = 'agent', fillHeight, ma
   // Актуальный apiBase: при смене заявки без размонтирования (deep-link ?open=N)
   // поздний ответ старого чата не должен дописываться в новый.
   const baseRef = useRef(apiBase);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const scrollDown = () => bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollRef = useRef<HTMLDivElement>(null);          // скролл-контейнер ленты
+  const didInitialScrollRef = useRef(false);               // первый скролл в самый низ — мгновенно
+  const [dragOver, setDragOver] = useState(false);         // подсветка зоны drop
+  // Скроллим САМ контейнер ленты (не scrollIntoView — он дёргал и всю страницу).
+  const jumpToBottom = () => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight; };
+  const scrollDown = () => { const el = scrollRef.current; if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }); };
 
   // Дедупликация по id: перекрывающиеся ответы поллинга (медленная сеть)
   // и гонка poll↔send давали задвоенные сообщения.
@@ -149,8 +164,20 @@ export default function Thread({ apiBase, myId, myRole = 'agent', fillHeight, ma
     baseRef.current = apiBase;
     setMessages([]); lastIdRef.current = 0; setLoading(true);
     setReadUpTo(0); setTypingBy(null); setReplyTo(null); setEditing(null);
+    didInitialScrollRef.current = false;
     poll().finally(() => setLoading(false));
   }, [poll, apiBase]);
+
+  // При первом открытии заявки — сразу к последним сообщениям (мгновенно, без анимации).
+  // Повторяем после догрузки картинок: их высота меняет общую высоту ленты.
+  useEffect(() => {
+    if (loading || didInitialScrollRef.current || messages.length === 0) return;
+    didInitialScrollRef.current = true;
+    jumpToBottom();
+    const t1 = setTimeout(jumpToBottom, 150);
+    const t2 = setTimeout(jumpToBottom, 500);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [loading, messages.length]);
 
   // Фоллбэк-поллинг отдельным эффектом: смена частоты (live) не сбрасывает чат.
   useEffect(() => {
@@ -185,11 +212,11 @@ export default function Thread({ apiBase, myId, myRole = 'agent', fillHeight, ma
     };
   }, [apiBase, poll, reload, myId]);
 
-  const handleAttach = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
+  // Общая загрузка вложений — из кнопки «скрепка», drag-drop и вставки из буфера.
+  const addFiles = async (files: File[]) => {
+    if (!files.length || editing) return;       // в режиме правки вложения недоступны
     const room = 5 - pending.length;
-    if (room <= 0) { setAttachError('Можно прикрепить не более 5 файлов.'); e.target.value = ''; return; }
+    if (room <= 0) { setAttachError('Можно прикрепить не более 5 файлов.'); return; }
     const toAdd = files.slice(0, room);
     setBusy(true);
     setAttachError(files.length > room ? 'Можно прикрепить не более 5 файлов — лишние не добавлены.' : null);
@@ -198,7 +225,22 @@ export default function Thread({ apiBase, myId, myRole = 'agent', fillHeight, ma
       for (const f of toAdd) uploaded.push(await uploadFile(f));
       setPending(prev => [...prev, ...uploaded]);
     } catch { setAttachError('Не удалось загрузить файл — попробуйте ещё раз.'); }
-    finally { setBusy(false); e.target.value = ''; }
+    finally { setBusy(false); }
+  };
+  const handleAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
+    addFiles(Array.from(e.target.files || []));
+    e.target.value = '';
+  };
+  // Перетаскивание файла в окно чата.
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    addFiles(Array.from(e.dataTransfer?.files || []));
+  };
+  // Вставка из буфера (Ctrl+V) — скрин/файл сразу уходит во вложения.
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const files = Array.from(e.clipboardData?.files || []);
+    if (files.length) { e.preventDefault(); addFiles(files); }
   };
 
   // Доставка с повтором: меняет временное сообщение на настоящее либо метит «не доставлено».
@@ -292,8 +334,18 @@ export default function Thread({ apiBase, myId, myRole = 'agent', fillHeight, ma
   const openMenu = (e: React.MouseEvent<HTMLElement>, msg: Msg) => { e.stopPropagation(); setMenu({ anchor: e.currentTarget as HTMLElement, msg }); };
 
   return (
-    <Box sx={fillHeight ? { display: 'flex', flexDirection: 'column', height: '100%' } : undefined}>
-      <Box sx={{ ...(fillHeight ? { flex: 1, minHeight: 0 } : { maxHeight }), overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1, p: 1, borderRadius: 2, background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)' }}>
+    <Box
+      onDragEnter={e => { e.preventDefault(); if (!editing) setDragOver(true); }}
+      onDragOver={e => { e.preventDefault(); if (!editing) setDragOver(true); }}
+      onDragLeave={e => { e.preventDefault(); if (e.currentTarget === e.target) setDragOver(false); }}
+      onDrop={handleDrop}
+      sx={{ position: 'relative', ...(fillHeight ? { display: 'flex', flexDirection: 'column', height: '100%' } : {}) }}>
+      {dragOver && (
+        <Box sx={{ position: 'absolute', inset: 0, zIndex: 5, borderRadius: 2, border: '2px dashed #C9A84C', background: 'rgba(201,168,76,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+          <Typography variant="body2" sx={{ color: '#E2C97E', fontWeight: 700 }}>Отпустите файл, чтобы прикрепить</Typography>
+        </Box>
+      )}
+      <Box ref={scrollRef} sx={{ ...(fillHeight ? { flex: 1, minHeight: 0 } : { maxHeight }), overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1, p: 1, borderRadius: 2, background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)' }}>
         {loading ? (
           <Box sx={{ textAlign: 'center', py: 2 }}><CircularProgress size={20} sx={{ color: '#C9A84C' }} /></Box>
         ) : messages.length === 0 ? (
@@ -329,7 +381,7 @@ export default function Thread({ apiBase, myId, myRole = 'agent', fillHeight, ma
                   <Typography variant="body2" sx={{ color: '#64748B', fontStyle: 'italic' }}>Сообщение удалено</Typography>
                 ) : (
                   <>
-                    {m.body && m.body !== '[object Object]' && <Typography variant="body2" sx={{ color: '#E2E8F0', whiteSpace: 'pre-wrap' }}>{m.body}</Typography>}
+                    {m.body && m.body !== '[object Object]' && <Typography variant="body2" sx={{ color: '#E2E8F0', whiteSpace: 'pre-wrap' }}>{linkify(m.body)}</Typography>}
                     {m.attachment_url && (img ? (
                       <Box component="img" src={m.attachment_url} alt={m.attachment_name || ''} loading="lazy"
                         onClick={() => setLightbox(m.attachment_url!)}
@@ -368,7 +420,6 @@ export default function Thread({ apiBase, myId, myRole = 'agent', fillHeight, ma
             {typingBy} печатает…
           </Typography>
         )}
-        <div ref={bottomRef} />
       </Box>
 
       {replyTo && !editing && (
@@ -408,6 +459,7 @@ export default function Thread({ apiBase, myId, myRole = 'agent', fillHeight, ma
         </IconButton>
         <TextField size="small" fullWidth multiline maxRows={6} placeholder={editing ? 'Исправьте текст…' : 'Написать сообщение…'} value={text}
           onChange={e => onType(e.target.value)}
+          onPaste={handlePaste}
           onKeyDown={e => {
             if (e.key === 'Enter' && !e.shiftKey && (editing || sendOnEnter)) { e.preventDefault(); editing ? saveEdit() : send(); }
             if (e.key === 'Escape' && editing) cancelEdit();

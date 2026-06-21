@@ -25,3 +25,16 @@ export function maxToken(raw?: string | null): string {
     .replace(/\/+$/, '');
 }
 export const maxUrl = (raw?: string | null): string => `https://max.ru/u/${maxToken(raw)}`;
+
+// Сайт агента: принимаем с http(s):// или без, любой домен/путь. Храним без схемы
+// (компактно), рендерим всегда с https://. Пустую/мусорную строку → ''.
+export function siteName(raw?: string | null): string {
+  return String(raw || '').trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/^\/+/, '')
+    .replace(/\/+$/, '');
+}
+export const siteUrl = (raw?: string | null): string => {
+  const n = siteName(raw);
+  return n ? `https://${n}` : '';
+};

@@ -92,7 +92,11 @@ export function AdSimpleRequestsTab({ initialOpenId, kinds = OBJECT_KINDS, creat
   const [fromPkgOpen, setFromPkgOpen] = useState(!!autoFromPackage);
   const [detail, setDetail] = useState<AdRequest | null>(null);
   const [q, setQ] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | AdStatus>('all');
+  // Запоминаем выбранный статус-фильтр — не сбрасывается при входе/обновлении.
+  const [statusFilter, setStatusFilter] = useState<'all' | AdStatus>(() => {
+    try { return (localStorage.getItem('w24_adreq_status_filter') as 'all' | AdStatus) || 'all'; } catch { return 'all'; }
+  });
+  useEffect(() => { try { localStorage.setItem('w24_adreq_status_filter', statusFilter); } catch { /* ignore */ } }, [statusFilter]);
   const kindsKey = kinds.join(',');
   // В обычном «+Новая заявка» from_package не предлагаем — у него своя форma.
   const genericCreateKinds = createKinds || kinds.filter(k => k !== 'from_package');
@@ -143,11 +147,17 @@ export function AdSimpleRequestsTab({ initialOpenId, kinds = OBJECT_KINDS, creat
       <Stack spacing={1.2}>
         {(() => {
           const term = q.trim().toLowerCase();
+          const isClosed = (s: AdStatus) => s === 'done' || s === 'cancelled';
           const filtered = items.filter(r =>
             (statusFilter === 'all' || r.status === statusFilter) &&
             (!term || (r.object_ref || '').toLowerCase().includes(term) || (r.region || '').toLowerCase().includes(term)
               || (r.kind_label || '').toLowerCase().includes(term) || (r.comment || '').toLowerCase().includes(term))
-          );
+          ).sort((a, b) => {
+            // Готовые/отменённые заявки — вниз, активные — сверху; внутри группы — по дате.
+            const ca = isClosed(a.status) ? 1 : 0, cb = isClosed(b.status) ? 1 : 0;
+            if (ca !== cb) return ca - cb;
+            return (b.updated_at || b.created_at || '').localeCompare(a.updated_at || a.created_at || '');
+          });
           if (items.length === 0) return <Typography sx={{ color: '#64748B', py: 4, textAlign: 'center' }}>Заявок пока нет. Создайте первую.</Typography>;
           if (filtered.length === 0) return <Typography sx={{ color: '#64748B', py: 4, textAlign: 'center' }}>Ничего не найдено по фильтру.</Typography>;
           return filtered.map(r => (
