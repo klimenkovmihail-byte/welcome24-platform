@@ -18,6 +18,7 @@ import AccountTreeRoundedIcon from '@mui/icons-material/AccountTreeRounded';
 import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
+import HubRoundedIcon from '@mui/icons-material/HubRounded';
 import Logo, { LogoIcon } from '../Logo';
 import { logoutAgent, isPortalPathAllowed } from '../../auth/auth';
 import { useMe } from '../../hooks/useMe';
@@ -26,6 +27,7 @@ import { useRequestsData } from '../../hooks/useRequestsData';
 
 const navItems = [
   { path: '/dashboard', label: 'Дашборд', icon: <DashboardRoundedIcon /> },
+  { path: '/crm', label: 'CRM', icon: <HubRoundedIcon /> },
   { path: '/cases', label: 'Заявки', icon: <AssignmentRoundedIcon /> },
   { path: '/academy', label: 'Академия', icon: <SchoolRoundedIcon /> },
   { path: '/news', label: 'Новости', icon: <ArticleRoundedIcon /> },
@@ -107,7 +109,7 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
 
         {/* Nav */}
         <List sx={{ flex: 1, minHeight: 0, overflowY: 'auto', px: 1.5, py: 2, gap: 0.5, display: 'flex', flexDirection: 'column', '&::-webkit-scrollbar': { width: 4 }, '&::-webkit-scrollbar-thumb': { background: 'rgba(201,168,76,0.25)', borderRadius: 2 } }}>
-          {navItems.filter((item) => isPortalPathAllowed(agent?.role, item.path)).map((item) => {
+          {navItems.filter((item) => isPortalPathAllowed(agent ?? undefined, item.path)).map((item) => {
             const active = location.pathname === item.path;
             const badge = item.path === '/cases' ? casesUnread : 0;
             return (

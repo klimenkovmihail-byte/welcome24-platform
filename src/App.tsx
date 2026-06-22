@@ -24,6 +24,7 @@ const Shares = lazy(() => import('./pages/Shares'));
 const Docs = lazy(() => import('./pages/Docs'));
 const AI = lazy(() => import('./pages/AI'));
 const Requests = lazy(() => import('./pages/Requests'));
+const CRM = lazy(() => import('./pages/CRM'));
 
 function PageLoader() {
   return (
@@ -45,9 +46,9 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 // редиректит на его стартовую страницу (/team).
 function RoleGate({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const role = getCurrentAgent()?.role;
-  if (!isPortalPathAllowed(role, location.pathname)) {
-    return <Navigate to={portalDefaultPath(role)} replace />;
+  const user = getCurrentAgent();
+  if (!isPortalPathAllowed(user ?? undefined, location.pathname)) {
+    return <Navigate to={portalDefaultPath(user?.role)} replace />;
   }
   return <>{children}</>;
 }
@@ -76,6 +77,8 @@ export default function App() {
                   <Suspense fallback={<PageLoader />}>
                     <Routes>
                       <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/crm" element={<CRM />} />
+                      <Route path="/mls" element={<Navigate to="/crm" replace />} />
                       <Route path="/rating" element={<Rating />} />
                       <Route path="/academy" element={<Academy />} />
                       <Route path="/news" element={<News />} />

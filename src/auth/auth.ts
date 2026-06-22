@@ -9,7 +9,15 @@ export type PortalRole = 'agent' | 'admin' | 'employee' | 'referral_partner' | s
 // Партнёр привлечения видит только эти разделы (+ привязка ботов в Профиле скрыта).
 export const REFERRAL_PARTNER_PATHS = ['/team', '/shares', '/profile'];
 
-export function isPortalPathAllowed(role: string | undefined, path: string): boolean {
+export function isPortalPathAllowed(user: { role?: string; mls_access?: boolean } | string | undefined, path: string): boolean {
+  // Принимаем и объект пользователя (с mls_access), и просто строку-роль (обратная совместимость).
+  const role = typeof user === 'string' ? user : user?.role;
+  const mlsAccess = typeof user === 'object' ? !!user?.mls_access : false;
+  // CRM (MLS-инфраструктура) — скрытый раздел: super_admin (CEO) ИЛИ агент из whitelist
+  // (settings.mls.whitelist, /me.mls_access). Гейт фронта; реальная защита — requireMlsAccess на бэке.
+  if (path === '/crm' || path.startsWith('/crm/') || path === '/mls' || path.startsWith('/mls/')) {
+    return role === 'super_admin' || mlsAccess;
+  }
   if (role === 'referral_partner') {
     return REFERRAL_PARTNER_PATHS.some(p => path === p || path.startsWith(p + '/'));
   }
