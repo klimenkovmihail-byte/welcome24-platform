@@ -10,6 +10,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
 import { API_BASE_URL, getToken } from '../api/apiClient';
+import { uploadErr } from '../lib/uploadError';
 import {
   adRequestsApi, type AdRequest, type AdKind, type AdPlatform, type AdMeta,
   type AdEvent, type AdStatus, AD_STATUS_RU, PLATFORM_LABEL,
@@ -27,7 +28,7 @@ async function uploadFile(file: File): Promise<{ url: string; name: string }> {
   fd.append('file', file);
   fd.append('type', 'doc');
   const res = await fetch(`${API_BASE_URL}/api/upload`, { method: 'POST', headers: { Authorization: `Bearer ${getToken()}` }, body: fd });
-  if (!res.ok) throw new Error('Не удалось загрузить файл');
+  if (!res.ok) throw new Error(await uploadErr(res));
   const data = await res.json();
   return { url: data.url, name: file.name };
 }

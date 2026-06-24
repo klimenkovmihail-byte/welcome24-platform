@@ -325,8 +325,8 @@ function MonthCalendar({ events, selectedDate, onSelectDate, viewDate, setViewDa
           <IconButton onClick={nextMonth} size="small" sx={{ color: '#94A3B8' }}><ChevronRightRoundedIcon /></IconButton>
         </Box>
 
-        {/* Weekdays */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', mb: 1 }}>
+        {/* Weekdays — тот же gap, что и у сетки дат ниже, иначе колонки разъезжаются вправо */}
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.5, mb: 1 }}>
           {RU_WEEKDAYS_SHORT.map((w, i) => (
             <Typography key={w} variant="caption" sx={{ textAlign: 'center', color: i >= 5 ? '#EF4444' : '#64748B', fontWeight: 700, fontSize: 11 }}>{w}</Typography>
           ))}

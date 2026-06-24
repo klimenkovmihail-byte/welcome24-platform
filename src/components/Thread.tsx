@@ -14,6 +14,7 @@ import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import DoneAllRoundedIcon from '@mui/icons-material/DoneAllRounded';
 import { api, API_BASE_URL, getToken } from '../api/apiClient';
 import { sseSubscribe, sseConnected } from '../lib/sse';
+import { uploadErr } from '../lib/uploadError';
 
 // Единый чат заявки (Фазы Б–Г): один компонент вместо копий CaseChat + инлайн-чатов
 // рекламы. Параметризуется доменным путём apiBase ('/cases/14' | '/ad-requests/31') —
@@ -84,7 +85,7 @@ async function uploadFile(file: File): Promise<{ url: string; name: string }> {
   const res = await fetch(`${API_BASE_URL}/api/upload`, {
     method: 'POST', headers: { Authorization: `Bearer ${getToken()}` }, body: fd,
   });
-  if (!res.ok) throw new Error('Не удалось загрузить файл');
+  if (!res.ok) throw new Error(await uploadErr(res));
   const data = await res.json();
   return { url: data.url, name: file.name };
 }
@@ -224,7 +225,7 @@ export default function Thread({ apiBase, myId, myRole = 'agent', fillHeight, ma
       const uploaded: { url: string; name: string }[] = [];
       for (const f of toAdd) uploaded.push(await uploadFile(f));
       setPending(prev => [...prev, ...uploaded]);
-    } catch { setAttachError('Не удалось загрузить файл — попробуйте ещё раз.'); }
+    } catch (e) { setAttachError(e instanceof Error ? e.message : 'Не удалось загрузить файл.'); }
     finally { setBusy(false); }
   };
   const handleAttach = (e: React.ChangeEvent<HTMLInputElement>) => {

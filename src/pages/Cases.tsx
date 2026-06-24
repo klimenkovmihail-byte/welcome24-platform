@@ -15,6 +15,7 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { Link } from '@mui/material';
 import { casesApi, type CaseItem, type TaskTypeMeta, type TaskType, type TaskTrack, STATUS_RU } from '../api/cases';
 import { API_BASE_URL, getToken } from '../api/apiClient';
+import { uploadErr } from '../lib/uploadError';
 import { getCurrentAgent } from '../auth/auth';
 import Thread from '../components/Thread';
 import CaseTimeline from '../components/CaseTimeline';
@@ -27,7 +28,7 @@ async function uploadCaseFile(file: File): Promise<{ url: string; name: string; 
   const res = await fetch(`${API_BASE_URL}/api/upload`, {
     method: 'POST', headers: { Authorization: `Bearer ${getToken()}` }, body: fd,
   });
-  if (!res.ok) throw new Error('Не удалось загрузить файл');
+  if (!res.ok) throw new Error(await uploadErr(res));
   const data = await res.json();
   return { url: data.url, name: file.name, size: file.size };
 }
@@ -138,21 +139,32 @@ export default function Cases({ track, initialOpenId }: { track?: TaskTrack; ini
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialOpenId]);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !detail) return;
+  const [dragDoc, setDragDoc] = useState(false);
+  // Загрузка одного и более файлов в заявку — общая для кнопки «Прикрепить» и перетаскивания.
+  const uploadCaseFiles = async (files: File[]) => {
+    if (!files.length || !detail) return;
     setUploading(true);
     try {
-      const meta = await uploadCaseFile(file);
-      const updated = await casesApi.addAttachment(detail.id, meta);
-      setDetail(updated);
+      let cur = detail;
+      for (const f of files) {
+        const meta = await uploadCaseFile(f);
+        cur = await casesApi.addAttachment(detail.id, meta);
+      }
+      setDetail(cur);
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка загрузки');
+      setError(err instanceof Error ? err.message : 'Не удалось загрузить файл.');
     } finally {
       setUploading(false);
-      e.target.value = '';
     }
+  };
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    uploadCaseFiles(Array.from(e.target.files || []));
+    e.target.value = '';
+  };
+  const handleDocDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setDragDoc(false);
+    uploadCaseFiles(Array.from(e.dataTransfer?.files || []));
   };
 
   const q = search.trim().toLowerCase();
@@ -329,19 +341,24 @@ export default function Cases({ track, initialOpenId }: { track?: TaskTrack; ini
 
                     <Divider sx={{ borderColor: 'rgba(201,168,76,0.08)' }} />
 
-                    {/* Файлы */}
-                    <Box>
+                    {/* Файлы — кнопка «Прикрепить» ИЛИ перетаскивание (drop) */}
+                    <Box
+                      onDragEnter={e => { e.preventDefault(); setDragDoc(true); }}
+                      onDragOver={e => { e.preventDefault(); setDragDoc(true); }}
+                      onDragLeave={e => { e.preventDefault(); if (e.currentTarget === e.target) setDragDoc(false); }}
+                      onDrop={handleDocDrop}
+                      sx={{ borderRadius: 1.5, p: dragDoc ? 1 : 0, border: `1px dashed ${dragDoc ? '#C9A84C' : 'transparent'}`, background: dragDoc ? 'rgba(201,168,76,0.06)' : 'transparent', transition: 'all .15s' }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography variant="caption" sx={{ color: '#64748B', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>Файлы</Typography>
                         <Button component="label" size="small" disabled={uploading}
                           startIcon={uploading ? <CircularProgress size={14} /> : <AttachFileRoundedIcon />}
                           sx={{ color: '#C9A84C', textTransform: 'none' }}>
                           Прикрепить
-                          <input type="file" hidden onChange={handleUpload} />
+                          <input type="file" hidden multiple onChange={handleUpload} />
                         </Button>
                       </Box>
                       {detail.attachments?.length === 0 ? (
-                        <Typography variant="caption" sx={{ color: '#64748B' }}>Файлов пока нет.</Typography>
+                        <Typography variant="caption" sx={{ color: '#64748B' }}>Файлов пока нет. Перетащите файлы сюда или нажмите «Прикрепить».</Typography>
                       ) : (
                         <Stack spacing={0.5} sx={{ mt: 0.5 }}>
                           {detail.attachments.map(at => (
