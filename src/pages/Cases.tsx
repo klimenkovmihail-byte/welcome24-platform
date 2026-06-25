@@ -15,25 +15,11 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { Link } from '@mui/material';
 import { casesApi, type CaseItem, type TaskTypeMeta, type TaskType, type TaskTrack, STATUS_RU } from '../api/cases';
-import { API_BASE_URL, getToken } from '../api/apiClient';
-import { uploadErr } from '../lib/uploadError';
 import { getCurrentAgent } from '../auth/auth';
 import Thread from '../components/Thread';
 import CaseTimeline from '../components/CaseTimeline';
 import DealParticipants from '../components/DealParticipants';
-
-// Загрузка файла в Yandex Storage через /api/upload.
-async function uploadCaseFile(file: File): Promise<{ url: string; name: string; size: number }> {
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('type', 'doc');
-  const res = await fetch(`${API_BASE_URL}/api/upload`, {
-    method: 'POST', headers: { Authorization: `Bearer ${getToken()}` }, body: fd,
-  });
-  if (!res.ok) throw new Error(await uploadErr(res));
-  const data = await res.json();
-  return { url: data.url, name: file.name, size: file.size };
-}
+import { uploadCaseAttachment, openCaseAttachment } from '../lib/attachments';
 
 // Цвет статуса задачи.
 function statusColor(status: string): string {
@@ -99,7 +85,7 @@ export default function Cases({ track, initialOpenId }: { track?: TaskTrack; ini
       // что документы прикреплены.
       const failed: string[] = [];
       for (const f of newFiles) {
-        try { const up = await uploadCaseFile(f); await casesApi.addAttachment(created.id, { name: up.name, url: up.url, size: up.size }); }
+        try { await uploadCaseAttachment(created.id, f); }
         catch { failed.push(f.name); }
       }
       setOpen(false);
@@ -149,8 +135,7 @@ export default function Cases({ track, initialOpenId }: { track?: TaskTrack; ini
     try {
       let cur = detail;
       for (const f of files) {
-        const meta = await uploadCaseFile(f);
-        cur = await casesApi.addAttachment(detail.id, meta);
+        cur = await uploadCaseAttachment(detail.id, f);
       }
       setDetail(cur);
       load();
@@ -383,7 +368,9 @@ export default function Cases({ track, initialOpenId }: { track?: TaskTrack; ini
                           {(detail.attachments || []).filter(a => a.participant_id == null).map(at => (
                             <Box key={at.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, borderRadius: 1.5, background: 'rgba(255,255,255,0.03)' }}>
                               <DescriptionRoundedIcon sx={{ fontSize: 18, color: '#94A3B8' }} />
-                              <Link href={at.url} target="_blank" rel="noopener" sx={{ color: '#E2C97E', flex: 1, fontSize: 13, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
+                              <Link component="button" type="button"
+                                onClick={() => { openCaseAttachment(detail.id, at).catch(e => setError(e instanceof Error ? e.message : 'Не удалось открыть файл')); }}
+                                sx={{ color: '#E2C97E', flex: 1, fontSize: 13, textAlign: 'left', textDecoration: 'none', background: 'none', border: 0, cursor: 'pointer', p: 0, '&:hover': { textDecoration: 'underline' } }}>
                                 {at.name}
                               </Link>
                               <Typography variant="caption" sx={{ color: '#64748B' }}>{at.uploader_name}</Typography>
