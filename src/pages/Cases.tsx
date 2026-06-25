@@ -12,6 +12,7 @@ import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded
 import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { Link } from '@mui/material';
 import { casesApi, type CaseItem, type TaskTypeMeta, type TaskType, type TaskTrack, STATUS_RU } from '../api/cases';
 import { API_BASE_URL, getToken } from '../api/apiClient';
@@ -165,6 +166,15 @@ export default function Cases({ track, initialOpenId }: { track?: TaskTrack; ini
   const handleDocDrop = (e: React.DragEvent) => {
     e.preventDefault(); setDragDoc(false);
     uploadCaseFiles(Array.from(e.dataTransfer?.files || []));
+  };
+  // Удаление вложения (бэк разрешает загрузившему или админу — кнопку показываем своему файлу).
+  const handleDeleteAttachment = async (attId: number) => {
+    if (!detail || !window.confirm('Удалить этот файл?')) return;
+    try {
+      const updated = await casesApi.deleteAttachment(detail.id, attId);
+      setDetail(updated);
+      load();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Не удалось удалить файл.'); }
   };
 
   const q = search.trim().toLowerCase();
@@ -368,6 +378,11 @@ export default function Cases({ track, initialOpenId }: { track?: TaskTrack; ini
                                 {at.name}
                               </Link>
                               <Typography variant="caption" sx={{ color: '#64748B' }}>{at.uploader_name}</Typography>
+                              {at.uploader_id === myId && (
+                                <IconButton size="small" onClick={() => handleDeleteAttachment(at.id)} sx={{ color: '#64748B', p: 0.3, '&:hover': { color: '#EF4444' } }}>
+                                  <DeleteOutlineRoundedIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              )}
                             </Box>
                           ))}
                         </Stack>
