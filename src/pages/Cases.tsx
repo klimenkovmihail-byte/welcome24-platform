@@ -445,7 +445,13 @@ export default function Cases({ track, initialOpenId }: { track?: TaskTrack; ini
             <TextField select label="Что нужно?" value={form.taskType} onChange={e => setForm({ ...form, taskType: e.target.value as TaskType })} fullWidth size="small" required>
               {formTypes.map(t => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
             </TextField>
-            <TextField label="Комментарий" value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} fullWidth size="small" multiline minRows={2} />
+            <TextField
+              label={form.taskType === 'other' ? 'Что нужно от юриста' : 'Комментарий'}
+              value={form.note} onChange={e => setForm({ ...form, note: e.target.value })}
+              fullWidth size="small" multiline minRows={2}
+              required={form.taskType === 'other'}
+              placeholder={form.taskType === 'other' ? 'Опишите задачу — например: вопрос по закрытию сделки' : undefined}
+              helperText={form.taskType === 'other' ? 'Опишите, что нужно — юрист увидит это в заявке' : undefined} />
             <Box>
               <Button component="label" size="small" sx={{ color: '#C9A84C', textTransform: 'none' }}>
                 Прикрепить документы
@@ -466,7 +472,7 @@ export default function Cases({ track, initialOpenId }: { track?: TaskTrack; ini
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => { setOpen(false); setNewFiles([]); }} sx={{ color: '#64748B' }}>Отмена</Button>
-          <Button variant="contained" disabled={saving || !form.clientName.trim() || !form.taskType} onClick={handleCreate}
+          <Button variant="contained" disabled={saving || !form.clientName.trim() || !form.taskType || (form.taskType === 'other' && !form.note.trim())} onClick={handleCreate}
             sx={{ background: 'linear-gradient(135deg, #C9A84C, #E2C97E)', color: '#0A0E1A', fontWeight: 700 }}>
             {saving ? <CircularProgress size={18} sx={{ color: '#0A0E1A' }} /> : 'Создать'}
           </Button>
