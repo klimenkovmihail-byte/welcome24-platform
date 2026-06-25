@@ -20,6 +20,7 @@ import { uploadErr } from '../lib/uploadError';
 import { getCurrentAgent } from '../auth/auth';
 import Thread from '../components/Thread';
 import CaseTimeline from '../components/CaseTimeline';
+import DealParticipants from '../components/DealParticipants';
 
 // Загрузка файла в Yandex Storage через /api/upload.
 async function uploadCaseFile(file: File): Promise<{ url: string; name: string; size: number }> {
@@ -350,6 +351,14 @@ export default function Cases({ track, initialOpenId }: { track?: TaskTrack; ini
                     </Box>
 
                     <Divider sx={{ borderColor: 'rgba(201,168,76,0.08)' }} />
+
+                    {/* Ипотека: документы по участникам сделки (только для брокерских заявок) */}
+                    {detail.tasks.some(t => t.track === 'mortgage') && (
+                      <>
+                        <DealParticipants caseItem={detail} myId={myId} onChanged={(c) => { setDetail(c); load(); }} />
+                        <Divider sx={{ borderColor: 'rgba(139,92,246,0.12)' }} />
+                      </>
+                    )}
 
                     {/* Файлы — кнопка «Прикрепить» ИЛИ перетаскивание (drop) */}
                     <Box
