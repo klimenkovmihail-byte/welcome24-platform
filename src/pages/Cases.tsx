@@ -376,11 +376,11 @@ export default function Cases({ track, initialOpenId }: { track?: TaskTrack; ini
                           <input type="file" hidden multiple onChange={handleUpload} />
                         </Button>
                       </Box>
-                      {detail.attachments?.length === 0 ? (
-                        <Typography variant="caption" sx={{ color: '#64748B' }}>Файлов пока нет. Перетащите файлы сюда или нажмите «Прикрепить».</Typography>
+                      {(detail.attachments || []).filter(a => a.participant_id == null).length === 0 ? (
+                        <Typography variant="caption" sx={{ color: '#64748B' }}>Общих файлов пока нет. Перетащите файлы сюда или нажмите «Прикрепить». (Документы участников — выше.)</Typography>
                       ) : (
                         <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-                          {detail.attachments.map(at => (
+                          {(detail.attachments || []).filter(a => a.participant_id == null).map(at => (
                             <Box key={at.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, borderRadius: 1.5, background: 'rgba(255,255,255,0.03)' }}>
                               <DescriptionRoundedIcon sx={{ fontSize: 18, color: '#94A3B8' }} />
                               <Link href={at.url} target="_blank" rel="noopener" sx={{ color: '#E2C97E', flex: 1, fontSize: 13, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
