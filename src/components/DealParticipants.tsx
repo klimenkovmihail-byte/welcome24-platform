@@ -66,7 +66,8 @@ export default function DealParticipants({ caseItem, myId, onChanged }: {
                 catch (e) { setErr(e instanceof Error ? e.message : 'Не удалось загрузить файл'); }
                 finally { setBusy(false); }
               }}
-              onDeleteFile={(attId) => { if (window.confirm('Удалить файл?')) run(() => casesApi.deleteAttachment(caseItem.id, attId)); }} />
+              onDeleteFile={(attId) => { if (window.confirm('Удалить файл?')) run(() => casesApi.deleteAttachment(caseItem.id, attId)); }}
+              onOpenError={(msg) => setErr(msg)} />
           ))}
         </Box>
       )}
@@ -74,12 +75,13 @@ export default function DealParticipants({ caseItem, myId, onChanged }: {
   );
 }
 
-function ParticipantCard({ caseItem, p, index, myId, busy, onPatch, onRemove, onUpload, onDeleteFile }: {
+function ParticipantCard({ caseItem, p, index, myId, busy, onPatch, onRemove, onUpload, onDeleteFile, onOpenError }: {
   caseItem: CaseItem; p: DealParticipant; index: number; myId: number | null; busy: boolean;
   onPatch: (body: { name?: string; phones?: string; email?: string }) => void;
   onRemove: () => void;
   onUpload: (category: string, files: File[]) => void;
   onDeleteFile: (attId: number) => void;
+  onOpenError: (msg: string) => void;
 }) {
   const [name, setName] = useState(p.name);
   const [phones, setPhones] = useState(p.phones);
@@ -124,7 +126,7 @@ function ParticipantCard({ caseItem, p, index, myId, busy, onPatch, onRemove, on
                       <Box key={at.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <DescriptionRoundedIcon sx={{ fontSize: 15, color: '#94A3B8' }} />
                         <Link component="button" type="button"
-                          onClick={() => { openCaseAttachment(caseItem.id, at).catch(() => {}); }}
+                          onClick={() => { openCaseAttachment(caseItem.id, at).catch(e => onOpenError(e instanceof Error ? e.message : 'Не удалось открыть файл')); }}
                           sx={{ color: '#E2C97E', flex: 1, fontSize: 12.5, textAlign: 'left', textDecoration: 'none', background: 'none', border: 0, cursor: 'pointer', p: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}>
                           {at.name}
                         </Link>

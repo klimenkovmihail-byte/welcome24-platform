@@ -89,8 +89,6 @@ export const casesApi = {
   addTask: (caseId: number, taskType: TaskType) =>
     api.post<CaseItem>(`/api/cases/${caseId}/tasks`, { taskType }),
   types: () => api.get<TaskTypeMeta[]>('/api/cases/meta/types'),
-  addAttachment: (caseId: number, body: { name: string; url: string; size?: number; participantId?: number; category?: string }) =>
-    api.post<CaseItem>(`/api/cases/${caseId}/attachments`, body),
   deleteAttachment: (caseId: number, attId: number) =>
     api.del<CaseItem>(`/api/cases/${caseId}/attachments/${attId}`),
   // Ипотека: участники сделки (заёмщики) — до 5.
