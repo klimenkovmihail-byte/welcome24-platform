@@ -21,7 +21,7 @@ function ChatDialog({ propertyId, title, onClose }: { propertyId: number; title:
       <IconButton onClick={onClose} sx={{ position: 'absolute', top: 8, right: 8, zIndex: 2, color: '#94A3B8', '&:hover': { color: '#F1F5F9' } }}><CloseRoundedIcon /></IconButton>
       <DialogContent sx={{ p: 2.5 }}>
         <Typography sx={{ color: '#4ade80', fontWeight: 700, fontSize: 14, mb: 1.5, pr: 4 }}>{title}</Typography>
-        <Thread apiBase={`/mls/properties/${propertyId}/client-chat`} myId={myId} myRole="agent" maxHeight={440} emptyText="Сообщений пока нет. Напишите собственнику." />
+        <Thread apiBase={`/mls/properties/${propertyId}/client-chat`} myId={myId} myRole="agent" maxHeight={440} privateFiles emptyText="Сообщений пока нет. Напишите собственнику." />
       </DialogContent>
     </Dialog>
   );

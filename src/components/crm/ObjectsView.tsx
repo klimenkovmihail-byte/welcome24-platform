@@ -358,7 +358,7 @@ function OwnerChatBlock({ propertyId, myId }: { propertyId: number; myId: number
   return (
     <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.22)' }}>
       <Typography sx={{ color: '#4ade80', fontWeight: 700, fontSize: 13, mb: 1 }}>Чат с собственником</Typography>
-      <Thread apiBase={`/mls/properties/${propertyId}/client-chat`} myId={myId} myRole="agent" maxHeight={300} emptyText="Сообщений пока нет. Напишите собственнику." />
+      <Thread apiBase={`/mls/properties/${propertyId}/client-chat`} myId={myId} myRole="agent" maxHeight={300} privateFiles emptyText="Сообщений пока нет. Напишите собственнику." />
     </Box>
   );
 }
