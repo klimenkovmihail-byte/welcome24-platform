@@ -435,7 +435,7 @@ export default function Cases({ track, initialOpenId }: { track?: TaskTrack; ini
                 <Box sx={{ display: 'flex', flexDirection: 'column', p: 2, minHeight: 0, borderTop: { xs: '1px solid rgba(201,168,76,0.08)', md: 'none' } }}>
                   <Typography variant="caption" sx={{ color: '#64748B', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em', display: 'block', mb: 1 }}>Обсуждение со специалистом</Typography>
                   <Box sx={{ flex: 1, minHeight: { xs: 420, md: 0 } }}>
-                    <Thread apiBase={`/cases/${detail.id}`} myId={myId} fillHeight emptyText="Сообщений пока нет. Напишите специалисту." />
+                    <Thread apiBase={`/cases/${detail.id}`} myId={myId} fillHeight privateFiles emptyText="Сообщений пока нет. Напишите специалисту." />
                   </Box>
                 </Box>
               </Box>
