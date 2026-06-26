@@ -385,14 +385,14 @@ export default function News() {
           const liked = isLiked(openArticle.id);
           return (
             <>
-              {/* Hero image */}
-              <Box sx={{ position: 'relative', height: 280, overflow: 'hidden' }}>
+              {/* Hero image — чистый баннер без наложенного текста (раньше заголовок
+                  съезжал на фото и наезжал на его собственный текст/иконки). */}
+              <Box sx={{ position: 'relative', height: 240, overflow: 'hidden', flexShrink: 0 }}>
                 <CoverImage
                   src={openArticle.image}
                   accentColor={c.color}
                   placeholderIcon={<ArticleRoundedIcon fontSize="inherit" />}
                 />
-                <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(15,22,41,0) 0%, rgba(15,22,41,0.6) 70%, rgba(15,22,41,1) 100%)', pointerEvents: 'none' }} />
                 <IconButton
                   onClick={() => setOpenId(null)}
                   sx={{
@@ -403,15 +403,14 @@ export default function News() {
                 >
                   <CloseRoundedIcon />
                 </IconButton>
-                <Box sx={{ position: 'absolute', bottom: 16, left: 24, right: 24 }}>
-                  <Chip label={openArticle.category} sx={{ background: c.bg, color: c.color, fontWeight: 700, mb: 1.5 }} />
-                  <Typography variant="h4" sx={{ fontWeight: 900, color: '#F1F5F9', lineHeight: 1.2 }}>
-                    {openArticle.title}
-                  </Typography>
-                </Box>
               </Box>
 
               <DialogContent sx={{ p: 3, pb: 1 }}>
+                {/* Категория + заголовок — ПОД фото, без наложения */}
+                <Chip label={openArticle.category} sx={{ background: c.bg, color: c.color, fontWeight: 700, mb: 1.5 }} />
+                <Typography variant="h4" sx={{ fontWeight: 900, color: '#F1F5F9', lineHeight: 1.25, mb: 2.5 }}>
+                  {openArticle.title}
+                </Typography>
                 {/* Author + meta */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
                   <Avatar sx={{ width: 36, height: 36, fontSize: 13, fontWeight: 700, background: 'linear-gradient(135deg, #C9A84C, #E2C97E)', color: '#0A0E1A' }}>
