@@ -620,17 +620,17 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
 
   return (
     <Dialog open onClose={onClose} maxWidth="md" fullWidth fullScreen={fullScreen}
-      slotProps={{ paper: { sx: { background: 'linear-gradient(135deg, #0F1629 0%, #0A0E1A 100%)', border: `1px solid ${GOLD}22`, borderRadius: fullScreen ? 0 : 3, maxHeight: fullScreen ? '100%' : '92vh' } } }}>
+      slotProps={{ paper: { sx: { background: 'linear-gradient(135deg, #0F1629 0%, #0A0E1A 100%)', border: `1px solid ${GOLD}22`, borderRadius: fullScreen ? 0 : 3, height: fullScreen ? '100%' : '86vh' } } }}>
       <IconButton onClick={onClose} sx={{ position: 'absolute', top: 8, right: 8, zIndex: 5, color: '#94A3B8', background: 'rgba(8,12,24,0.6)', '&:hover': { color: '#F1F5F9' } }}>
         <CloseRoundedIcon />
       </IconButton>
-      <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
+      <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {isLoading && <Box sx={{ p: 8, textAlign: 'center' }}><CircularProgress sx={{ color: GOLD }} /></Box>}
         {error && <Box sx={{ p: 4 }}><ErrorState message={(error as Error).message} onRetry={() => refetch()} /></Box>}
         {d && (
           <>
             {/* ── Закреплённая шапка: идентификация объекта + статус публикации + действия ── */}
-            <Box sx={{ position: 'sticky', top: 0, zIndex: 4, background: '#0B1120', borderBottom: `1px solid ${GOLD}1A` }}>
+            <Box sx={{ flexShrink: 0, background: '#0B1120', borderBottom: `1px solid ${GOLD}1A` }}>
               <Box sx={{ display: 'flex', gap: 1.5, p: 2, pr: 6, alignItems: 'center' }}>
                 <Box onClick={() => main && setLightbox(true)}
                   sx={{ width: 56, height: 56, borderRadius: 1.5, overflow: 'hidden', flexShrink: 0, cursor: main ? 'pointer' : 'default', background: '#05070F', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -645,7 +645,7 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
                 </Box>
                 <Stack spacing={0.75} alignItems="flex-end">
                   {pubCount > 0 && (
-                    <Chip size="small" label={`в рекламе · ${pubCount}`} sx={{ height: 22, fontSize: 11, fontWeight: 700, color: '#22C55E', background: 'rgba(34,197,94,0.12)' }} />
+                    <Chip size="small" label={`в рекламе · ${pubCount}`} sx={{ alignSelf: 'flex-end', width: 'fit-content', height: 22, fontSize: 11, fontWeight: 700, color: '#22C55E', background: 'rgba(34,197,94,0.12)' }} />
                   )}
                   <Stack direction="row" spacing={0.5} flexWrap="wrap" justifyContent="flex-end" useFlexGap>
                     {d.status !== 'sold' && (
@@ -674,6 +674,7 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
               </Tabs>
             </Box>
 
+            <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
             {/* ── Вкладка: Обзор ── */}
             {tab === 0 && (
               <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
@@ -826,6 +827,7 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
                 <ViewingsBlock propertyId={d.id} />
               </Box>
             )}
+            </Box>
 
             {sellOpen && (
               <SellDialog property={d} onClose={() => setSellOpen(false)}
