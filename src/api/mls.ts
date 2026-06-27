@@ -200,6 +200,24 @@ export function getMlsReadiness(id: number, platform = 'avito'): Promise<Readine
   return api.get<Readiness>(`/api/mls/properties/${id}/readiness?platform=${platform}`);
 }
 
+// ── Реклама: публикация объекта на площадках (мульти-площадочно) ──
+export interface PlatformPlacement {
+  key: string; label: string; active: boolean; supports: boolean; ready: boolean;
+  issues: { field: string; severity: string; message: string }[];
+  status: string;                       // none|pending|approved|published|error|removed
+  external_url: string | null; published_until: string | null;
+  views: number; contacts: number; favorites: number; moderation_note: string | null;
+}
+export function getPlacements(id: number): Promise<{ platforms: PlatformPlacement[] }> {
+  return api.get<{ platforms: PlatformPlacement[] }>(`/api/mls/properties/${id}/placements`);
+}
+export function publishToPlatform(id: number, platform: string, phone?: string): Promise<{ ok: boolean; platform: string; status: string }> {
+  return api.post(`/api/mls/properties/${id}/feed/${platform}`, phone ? { phone } : {});
+}
+export function unpublishFromPlatform(id: number, platform: string): Promise<{ ok: boolean }> {
+  return api.del(`/api/mls/properties/${id}/feed/${platform}`);
+}
+
 // ── Co-broking / проведение сделки по объекту ──
 export interface SellDealRow {
   id: number; agent_id: number; vkd: number; income: number; commission: number; share: number; is_main: boolean;

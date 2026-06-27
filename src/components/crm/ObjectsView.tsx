@@ -23,13 +23,14 @@ import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
 import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
+import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 import PropertyForm from './PropertyForm';
 import {
-  listMlsProperties, getMlsProperty, getMlsFacets, getMlsReadiness, getPropertyBuyers, updateMlsProperty, sellMlsProperty,
+  listMlsProperties, getMlsProperty, getMlsFacets, getPlacements, publishToPlatform, unpublishFromPlatform, getPropertyBuyers, updateMlsProperty, sellMlsProperty,
   getPortalLink, issuePortalLink, revokePortalLink, getPropertyCases, createPropertyCase,
   getPropertyDocuments, openClientDocument,
   logShowing, getPropertyClaims, releaseClaim, resolveDispute,
-  type MlsListItem, type MlsDetail, type SellResult, type BuyerClaim,
+  type MlsListItem, type MlsDetail, type SellResult, type BuyerClaim, type PlatformPlacement,
   TYPE_LABEL, DEAL_LABEL, ROOMS_LABEL, STATUS_LABEL, MARKET_LABEL, LAND_UNIT_LABEL,
   PARAM_LABEL, PARAM_ENUM_LABEL, priceFmt, phoneFmt,
   getPropertyViewings, patchViewing,
@@ -293,6 +294,82 @@ function PortalLinkBlock({ propertyId }: { propertyId: number }) {
   );
 }
 
+// Блок «Реклама на площадках»: строка на площадку (Авито активна; ЦИАН/ДомКлик/Яндекс — «скоро»).
+// Готовность под каждую площадку + статус + публикация/снятие + ссылка на объявление + статистика.
+function statusLabel(s: string): { label: string; color: string; bg: string } | null {
+  switch (s) {
+    case 'published': return { label: 'опубликовано', color: '#22C55E', bg: 'rgba(34,197,94,0.12)' };
+    case 'approved': return { label: 'одобрено', color: '#22C55E', bg: 'rgba(34,197,94,0.12)' };
+    case 'pending': return { label: 'в фиде, ждёт', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' };
+    case 'error': return { label: 'ошибка', color: '#FCA5A5', bg: 'rgba(239,68,68,0.12)' };
+    default: return null;
+  }
+}
+function AdvertBlock({ property }: { property: MlsDetail }) {
+  const { data, refetch, isLoading } = useQuery({ queryKey: ['mls-placements', property.id], queryFn: () => getPlacements(property.id), staleTime: 20_000 });
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const isPublished = (p: PlatformPlacement) => ['published', 'approved', 'pending'].includes(p.status);
+  async function toggle(p: PlatformPlacement) {
+    setBusy(p.key); setErr(null);
+    try {
+      if (isPublished(p)) await unpublishFromPlatform(property.id, p.key);
+      else await publishToPlatform(property.id, p.key);
+      await refetch();
+    } catch (e) {
+      const m = e instanceof ApiError ? (e.data as { error?: string })?.error || e.message : (e as Error)?.message;
+      setErr(m || 'Не удалось изменить публикацию');
+    } finally { setBusy(null); }
+  }
+  if (isLoading || !data) return null;
+  return (
+    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: `${GOLD}0E`, border: `1px solid ${GOLD}33` }}>
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+        <CampaignRoundedIcon sx={{ fontSize: 18, color: GOLD }} />
+        <Typography sx={{ color: GOLD, fontWeight: 700, fontSize: 13 }}>Реклама на площадках</Typography>
+      </Stack>
+      {err && <Typography sx={{ color: '#FCA5A5', fontSize: 12, mb: 1 }}>{err}</Typography>}
+      <Stack spacing={0.75}>
+        {data.platforms.map((p) => {
+          const published = isPublished(p);
+          const chip = statusLabel(p.status);
+          return (
+            <Box key={p.key} sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', px: 1, py: 0.75, borderRadius: 1.5, background: 'rgba(255,255,255,0.03)' }}>
+              <Typography sx={{ color: '#E2E8F0', fontWeight: 600, fontSize: 13, minWidth: 132 }}>{p.label}</Typography>
+              {!p.active ? (
+                <Chip label="скоро" size="small" sx={{ height: 20, fontSize: 11, background: 'rgba(100,116,139,0.18)', color: '#94A3B8' }} />
+              ) : !p.supports ? (
+                <Typography sx={{ color: '#94A3B8', fontSize: 12 }}>пока только квартиры на продажу</Typography>
+              ) : (
+                <>
+                  {chip && <Chip label={chip.label} size="small" sx={{ height: 20, fontSize: 11, background: chip.bg, color: chip.color, fontWeight: 700 }} />}
+                  {!published && !p.ready && (
+                    <Tooltip title={p.issues.filter((i) => i.severity === 'block').map((i) => i.message).join('; ')}>
+                      <Typography sx={{ color: '#F59E0B', fontSize: 12 }}>не готов — чего не хватает ⓘ</Typography>
+                    </Tooltip>
+                  )}
+                  {p.moderation_note && <Typography sx={{ color: '#FCA5A5', fontSize: 11 }}>{p.moderation_note}</Typography>}
+                  {p.external_url && <Link href={p.external_url} target="_blank" rel="noreferrer" sx={{ color: GOLD, fontSize: 12, fontWeight: 600 }}>объявление ↗</Link>}
+                  {(p.views > 0 || p.contacts > 0) && <Typography sx={{ color: '#64748B', fontSize: 11 }}>👁 {p.views} · ☎ {p.contacts}</Typography>}
+                  <Box sx={{ ml: 'auto' }}>
+                    <Button size="small" disabled={busy === p.key || (!published && !p.ready)} onClick={() => toggle(p)}
+                      sx={{ textTransform: 'none', fontSize: 12, color: published ? '#FCA5A5' : GOLD, minWidth: 'auto' }}>
+                      {busy === p.key ? '…' : published ? 'Снять' : 'Опубликовать'}
+                    </Button>
+                  </Box>
+                </>
+              )}
+            </Box>
+          );
+        })}
+      </Stack>
+      <Typography sx={{ color: '#64748B', fontSize: 11, mt: 1 }}>
+        Площадка забирает фид по расписанию — после публикации объявление появляется в течение ~часа.
+      </Typography>
+    </Box>
+  );
+}
+
 // Заявки специалистам (юрист/брокер) по объекту — этапы сделки: показ текущего этапа + создание.
 function CasesBlock({ propertyId }: { propertyId: number }) {
   const { data, refetch, isLoading } = useQuery({ queryKey: ['mls-property-cases', propertyId], queryFn: () => getPropertyCases(propertyId), staleTime: 30_000 });
@@ -504,8 +581,6 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
     queryKey: ['mls-property', id],
     queryFn: () => getMlsProperty(id),
   });
-  const readyQ = useQuery({ queryKey: ['mls-readiness', id], queryFn: () => getMlsReadiness(id), staleTime: 60_000 });
-  const readiness = readyQ.data;
   const buyersQ = useQuery({ queryKey: ['mls-property-buyers', id], queryFn: () => getPropertyBuyers(id), staleTime: 60_000 });
   const buyers = buyersQ.data;
   const qc = useQueryClient();
@@ -595,20 +670,8 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
                 </Box>
               )}
 
-              {/* Готовность к публикации на площадке */}
-              {readiness && (readiness.ready ? (
-                <Box sx={{ mt: 2, display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.5, py: 0.75, borderRadius: 2, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)' }}>
-                  <CheckCircleRoundedIcon sx={{ fontSize: 18, color: '#22C55E' }} />
-                  <Typography sx={{ color: '#22C55E', fontWeight: 700, fontSize: 13 }}>Готов к публикации на Авито</Typography>
-                </Box>
-              ) : (
-                <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
-                  <Typography sx={{ color: '#F59E0B', fontWeight: 700, fontSize: 13, mb: 0.5 }}>Готовность к Авито — не хватает:</Typography>
-                  {readiness.issues.map((iss, i) => (
-                    <Typography key={i} sx={{ color: iss.severity === 'block' ? '#FCA5A5' : '#FCD34D', fontSize: 13 }}>• {iss.message}{iss.severity === 'warn' ? ' (необязательно)' : ''}</Typography>
-                  ))}
-                </Box>
-              ))}
+              {/* Реклама на площадках (готовность + публикация по каждой) */}
+              <AdvertBlock property={d} />
 
               {/* Co-broking: условия для агента покупателя + контакт агента объекта */}
               <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: `${GOLD}0E`, border: `1px solid ${GOLD}33` }}>
@@ -716,7 +779,7 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
             </Box>
             {sellOpen && (
               <SellDialog property={d} onClose={() => setSellOpen(false)}
-                onDone={() => { refetch(); ['mls-properties', 'mls-count', 'mls-property-buyers', 'mls-readiness'].forEach((k) => qc.invalidateQueries({ queryKey: [k] })); }} />
+                onDone={() => { refetch(); ['mls-properties', 'mls-count', 'mls-property-buyers', 'mls-placements'].forEach((k) => qc.invalidateQueries({ queryKey: [k] })); }} />
             )}
           </>
         )}
