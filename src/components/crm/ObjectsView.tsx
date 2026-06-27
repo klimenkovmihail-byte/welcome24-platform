@@ -333,15 +333,13 @@ function AdvertBlock({ property }: { property: MlsDetail }) {
       </Stack>
       {err && <Typography sx={{ color: '#FCA5A5', fontSize: 12, mb: 1 }}>{err}</Typography>}
       <Stack spacing={0.75}>
-        {data.platforms.map((p) => {
+        {data.platforms.filter((p) => p.active).map((p) => {
           const published = isPublished(p);
           const chip = statusLabel(p.status);
           return (
             <Box key={p.key} sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', px: 1, py: 0.75, borderRadius: 1.5, background: 'rgba(255,255,255,0.03)' }}>
               <Typography sx={{ color: '#E2E8F0', fontWeight: 600, fontSize: 13, minWidth: 132 }}>{p.label}</Typography>
-              {!p.active ? (
-                <Chip label="скоро" size="small" sx={{ height: 20, fontSize: 11, background: 'rgba(100,116,139,0.18)', color: '#94A3B8' }} />
-              ) : !p.supports ? (
+              {!p.supports ? (
                 <Typography sx={{ color: '#94A3B8', fontSize: 12 }}>пока только квартиры на продажу</Typography>
               ) : (
                 <>
@@ -365,6 +363,12 @@ function AdvertBlock({ property }: { property: MlsDetail }) {
             </Box>
           );
         })}
+        {data.platforms.some((p) => !p.active) && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', px: 1, py: 0.75, borderRadius: 1.5, background: 'rgba(255,255,255,0.02)' }}>
+            <Chip label="скоро" size="small" sx={{ height: 20, fontSize: 11, background: 'rgba(100,116,139,0.18)', color: '#94A3B8' }} />
+            <Typography sx={{ color: '#94A3B8', fontSize: 12 }}>{data.platforms.filter((p) => !p.active).map((p) => p.label).join(' · ')}</Typography>
+          </Box>
+        )}
       </Stack>
       <Typography sx={{ color: '#64748B', fontSize: 11, mt: 1 }}>
         Площадка забирает фид по расписанию — после публикации объявление появляется в течение ~часа.
@@ -620,8 +624,8 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
 
   return (
     <Dialog open onClose={onClose} maxWidth="md" fullWidth fullScreen={fullScreen}
-      slotProps={{ paper: { sx: { background: 'linear-gradient(135deg, #0F1629 0%, #0A0E1A 100%)', border: `1px solid ${GOLD}22`, borderRadius: fullScreen ? 0 : 3, height: fullScreen ? '100%' : '86vh' } } }}>
-      <IconButton onClick={onClose} sx={{ position: 'absolute', top: 8, right: 8, zIndex: 5, color: '#94A3B8', background: 'rgba(8,12,24,0.6)', '&:hover': { color: '#F1F5F9' } }}>
+      slotProps={{ paper: { sx: { background: 'linear-gradient(135deg, #0F1629 0%, #0A0E1A 100%)', border: `1px solid ${GOLD}22`, borderRadius: fullScreen ? 0 : 3, height: fullScreen ? '100%' : '80vh', paddingTop: fullScreen ? 'env(safe-area-inset-top)' : 0, paddingBottom: fullScreen ? 'env(safe-area-inset-bottom)' : 0 } } }}>
+      <IconButton onClick={onClose} sx={{ position: 'absolute', top: fullScreen ? 'calc(env(safe-area-inset-top) + 8px)' : 8, right: 8, zIndex: 5, color: '#94A3B8', background: 'rgba(8,12,24,0.6)', '&:hover': { color: '#F1F5F9' } }}>
         <CloseRoundedIcon />
       </IconButton>
       <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -656,12 +660,9 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
                         ))}
                       </Select>
                     )}
-                    {(d.status === 'active' || d.status === 'deposit') && (
-                      <Button size="small" variant="contained" onClick={() => setSellOpen(true)} startIcon={<HandshakeRoundedIcon sx={{ fontSize: 16 }} />}
-                        sx={{ background: GOLD, color: '#06210F', fontWeight: 700, textTransform: 'none', '&:hover': { background: '#B8973F' } }}>Сделка</Button>
-                    )}
-                    <Button size="small" startIcon={<EditRoundedIcon sx={{ fontSize: 16 }} />} onClick={onEdit}
-                      sx={{ color: GOLD, textTransform: 'none', minWidth: 0, '&:hover': { background: `${GOLD}11` } }}>Править</Button>
+                    <Tooltip title="Редактировать">
+                      <IconButton size="small" onClick={onEdit} sx={{ color: GOLD, '&:hover': { background: `${GOLD}11` } }}><EditRoundedIcon sx={{ fontSize: 18 }} /></IconButton>
+                    </Tooltip>
                   </Stack>
                 </Stack>
               </Box>
@@ -836,7 +837,7 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
 
             {lightbox && main && (
               <Dialog open fullScreen onClose={() => setLightbox(false)} slotProps={{ paper: { sx: { background: 'rgba(5,7,15,0.97)' } } }}>
-                <IconButton onClick={() => setLightbox(false)} sx={{ position: 'absolute', top: 12, right: 12, zIndex: 5, color: '#E2E8F0', background: 'rgba(0,0,0,0.5)' }}><CloseRoundedIcon /></IconButton>
+                <IconButton onClick={() => setLightbox(false)} sx={{ position: 'absolute', top: 'calc(env(safe-area-inset-top) + 12px)', right: 12, zIndex: 5, color: '#E2E8F0', background: 'rgba(0,0,0,0.5)' }}><CloseRoundedIcon /></IconButton>
                 <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                   <Box component="img" src={main.url} alt="" sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                   {photos.length > 1 && (
