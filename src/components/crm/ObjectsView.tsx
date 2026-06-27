@@ -9,6 +9,7 @@ import {
   Box, Typography, Card, CardContent, Chip, Grid, Select, MenuItem, Button,
   Dialog, DialogContent, IconButton, Divider, CircularProgress, Stack, Tooltip,
   Autocomplete, TextField, Link, Alert, Checkbox, FormControlLabel,
+  Tabs, Tab, useMediaQuery, useTheme,
 } from '@mui/material';
 import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded';
 import PhotoLibraryRoundedIcon from '@mui/icons-material/PhotoLibraryRounded';
@@ -24,6 +25,8 @@ import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
 import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
 import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
+import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
+import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import PropertyForm from './PropertyForm';
 import {
   listMlsProperties, getMlsProperty, getMlsFacets, getPlacements, publishToPlatform, unpublishFromPlatform, getPropertyBuyers, updateMlsProperty, sellMlsProperty,
@@ -583,9 +586,15 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
   });
   const buyersQ = useQuery({ queryKey: ['mls-property-buyers', id], queryFn: () => getPropertyBuyers(id), staleTime: 60_000 });
   const buyers = buyersQ.data;
+  const placementsQ = useQuery({ queryKey: ['mls-placements', id], queryFn: () => getPlacements(id), staleTime: 20_000 });
+  const casesQ = useQuery({ queryKey: ['mls-property-cases', id], queryFn: () => getPropertyCases(id), staleTime: 30_000 });
   const qc = useQueryClient();
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const [statusBusy, setStatusBusy] = useState(false);
-  const [active, setActive] = useState(0);
+  const [tab, setTab] = useState(0);
+  const [photoIdx, setPhotoIdx] = useState(0);
+  const [lightbox, setLightbox] = useState(false);
   const [sellOpen, setSellOpen] = useState(false);
 
   async function changeStatus(s: string) {
@@ -598,188 +607,245 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
   }
   const d = data as MlsDetail | undefined;
   const photos = d?.photos || [];
-  const main = photos[active] || photos[0];
+  const main = photos[photoIdx] || photos[0];
+  const pubCount = (placementsQ.data?.platforms || []).filter((p) => ['published', 'approved', 'pending'].includes(p.status)).length;
+  const casesCount = casesQ.data?.items?.length || 0;
+  const movePhoto = (dir: number) => { if (photos.length) setPhotoIdx((i) => (i + dir + photos.length) % photos.length); };
+  const tabLabel = (text: string, count: number) => (
+    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+      {text}
+      {count > 0 && <Box component="span" sx={{ fontSize: 10, lineHeight: '16px', minWidth: 16, textAlign: 'center', px: 0.5, borderRadius: 5, background: `${GOLD}33`, color: GOLD, fontWeight: 700 }}>{count}</Box>}
+    </Box>
+  );
 
   return (
-    <Dialog open onClose={onClose} maxWidth="md" fullWidth
-      slotProps={{ paper: { sx: { background: 'linear-gradient(135deg, #0F1629 0%, #0A0E1A 100%)', border: `1px solid ${GOLD}22`, borderRadius: 3 } } }}>
-      <IconButton onClick={onClose} sx={{ position: 'absolute', top: 8, right: 8, zIndex: 2, color: '#94A3B8', background: 'rgba(8,12,24,0.6)', '&:hover': { color: '#F1F5F9' } }}>
+    <Dialog open onClose={onClose} maxWidth="md" fullWidth fullScreen={fullScreen}
+      slotProps={{ paper: { sx: { background: 'linear-gradient(135deg, #0F1629 0%, #0A0E1A 100%)', border: `1px solid ${GOLD}22`, borderRadius: fullScreen ? 0 : 3, maxHeight: fullScreen ? '100%' : '92vh' } } }}>
+      <IconButton onClick={onClose} sx={{ position: 'absolute', top: 8, right: 8, zIndex: 5, color: '#94A3B8', background: 'rgba(8,12,24,0.6)', '&:hover': { color: '#F1F5F9' } }}>
         <CloseRoundedIcon />
       </IconButton>
-      <DialogContent sx={{ p: 0 }}>
+      <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
         {isLoading && <Box sx={{ p: 8, textAlign: 'center' }}><CircularProgress sx={{ color: GOLD }} /></Box>}
         {error && <Box sx={{ p: 4 }}><ErrorState message={(error as Error).message} onRetry={() => refetch()} /></Box>}
         {d && (
           <>
-            <Box sx={{ position: 'relative', background: '#05070F' }}>
-              {main ? (
-                <Box component="img" src={main.url} alt=""
-                  sx={{ width: '100%', maxHeight: 420, objectFit: 'contain', display: 'block' }} />
-              ) : (
-                <Box sx={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155' }}>
-                  <ApartmentRoundedIcon sx={{ fontSize: 64 }} />
+            {/* ── Закреплённая шапка: идентификация объекта + статус публикации + действия ── */}
+            <Box sx={{ position: 'sticky', top: 0, zIndex: 4, background: '#0B1120', borderBottom: `1px solid ${GOLD}1A` }}>
+              <Box sx={{ display: 'flex', gap: 1.5, p: 2, pr: 6, alignItems: 'center' }}>
+                <Box onClick={() => main && setLightbox(true)}
+                  sx={{ width: 56, height: 56, borderRadius: 1.5, overflow: 'hidden', flexShrink: 0, cursor: main ? 'pointer' : 'default', background: '#05070F', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {main ? <Box component="img" src={main.thumb_url || main.url} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ApartmentRoundedIcon sx={{ color: '#334155' }} />}
                 </Box>
-              )}
-            </Box>
-            {photos.length > 1 && (
-              <Stack direction="row" spacing={1} sx={{ p: 1.5, overflowX: 'auto', '&::-webkit-scrollbar': { height: 6 }, '&::-webkit-scrollbar-thumb': { background: 'rgba(201,168,76,0.3)', borderRadius: 3 } }}>
-                {photos.map((ph, i) => (
-                  <Box key={ph.id} component="img" src={ph.thumb_url || ph.url} loading="lazy" onClick={() => setActive(i)}
-                    sx={{ width: 72, height: 54, flexShrink: 0, objectFit: 'cover', borderRadius: 1, cursor: 'pointer', border: i === active ? `2px solid ${GOLD}` : '2px solid transparent', opacity: i === active ? 1 : 0.7 }} />
-                ))}
-              </Stack>
-            )}
-
-            <Box sx={{ p: 3 }}>
-              <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap', gap: 1 }}>
-                <Chip label={DEAL_LABEL[d.deal_type] || d.deal_type} size="small" sx={{ fontWeight: 700, color: GOLD, background: `${GOLD}22` }} />
-                <Chip label={STATUS_LABEL[d.status] || d.status} size="small" sx={{ fontWeight: 700, color: d.status === 'active' ? '#22C55E' : '#94A3B8', background: d.status === 'active' ? 'rgba(34,197,94,0.12)' : 'rgba(148,163,184,0.12)' }} />
-                {d.market_type && <Chip label={MARKET_LABEL[d.market_type] || d.market_type} size="small" sx={{ fontWeight: 600, color: '#94A3B8', background: 'rgba(148,163,184,0.12)' }} />}
-                {d.exclusive_type && d.exclusive_type !== 'none' && <Chip label="Эксклюзив" size="small" sx={{ fontWeight: 700, color: '#3B82F6', background: 'rgba(59,130,246,0.12)' }} />}
-                <Box sx={{ flex: 1 }} />
-                {d.status !== 'sold' && (
-                  <Select size="small" value={d.status} disabled={statusBusy} onChange={(e) => changeStatus(e.target.value as string)}
-                    sx={{ minWidth: 160, height: 32, color: '#F1F5F9', fontSize: 13, '& .MuiOutlinedInput-notchedOutline': { borderColor: `${GOLD}33` }, '& .MuiSvgIcon-root': { color: '#94A3B8' } }}>
-                    {['draft', 'active', 'deposit', 'withdrawn', 'sold_external', 'archived'].map((s) => (
-                      <MenuItem key={s} value={s} sx={{ fontSize: 13 }}>{STATUS_LABEL[s]}</MenuItem>
-                    ))}
-                  </Select>
-                )}
-                {(d.status === 'active' || d.status === 'deposit') && (
-                  <Button size="small" variant="contained" onClick={() => setSellOpen(true)}
-                    startIcon={<HandshakeRoundedIcon sx={{ fontSize: 16 }} />}
-                    sx={{ background: GOLD, color: '#06210F', fontWeight: 700, textTransform: 'none', '&:hover': { background: '#B8973F' } }}>Провести сделку</Button>
-                )}
-                <Button size="small" startIcon={<EditRoundedIcon sx={{ fontSize: 16 }} />} onClick={onEdit}
-                  sx={{ color: GOLD, textTransform: 'none', '&:hover': { background: `${GOLD}11` } }}>Редактировать</Button>
-              </Stack>
-              <Typography sx={{ fontWeight: 800, color: GOLD, fontSize: 28 }}>
-                {priceFmt(d.price)}{d.deal_type === 'rent' ? <Box component="span" sx={{ fontSize: 16, color: '#94A3B8' }}> /мес</Box> : null}
-              </Typography>
-              <Typography sx={{ color: '#F1F5F9', fontWeight: 600, mt: 0.5 }}>{specsLine(d)}</Typography>
-              <Typography sx={{ color: '#94A3B8', mt: 0.5 }}>{d.address || '—'}</Typography>
-              {d.lat != null && d.lng != null && (
-                <Box sx={{ mt: 1 }}>
-                  <Box component="iframe" title="Карта" loading="lazy"
-                    src={`https://yandex.ru/map-widget/v1/?ll=${d.lng}%2C${d.lat}&z=16&pt=${d.lng}%2C${d.lat},pm2rdm`}
-                    sx={{ width: '100%', height: 260, border: 0, borderRadius: 2, display: 'block' }} />
-                  <Link href={`https://yandex.ru/maps/?ll=${d.lng}%2C${d.lat}&z=17&pt=${d.lng}%2C${d.lat}`} target="_blank" rel="noopener" underline="hover"
-                    sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mt: 0.5, color: GOLD, fontSize: 13 }}>
-                    <MapRoundedIcon sx={{ fontSize: 16 }} /> Открыть в Яндекс.Картах
-                  </Link>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 800, color: GOLD, fontSize: 20, lineHeight: 1.15 }}>
+                    {priceFmt(d.price)}{d.deal_type === 'rent' ? <Box component="span" sx={{ fontSize: 13, color: '#94A3B8' }}> /мес</Box> : null}
+                  </Typography>
+                  <Typography noWrap sx={{ color: '#F1F5F9', fontSize: 13 }}>{specsLine(d)}</Typography>
+                  <Typography noWrap sx={{ color: '#94A3B8', fontSize: 12 }}>{d.address || '—'}</Typography>
                 </Box>
-              )}
-
-              {/* Реклама на площадках (готовность + публикация по каждой) */}
-              <AdvertBlock property={d} />
-
-              {/* Co-broking: условия для агента покупателя + контакт агента объекта */}
-              <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: `${GOLD}0E`, border: `1px solid ${GOLD}33` }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
-                  <Box>
-                    <Typography sx={{ color: '#94A3B8', fontSize: 12 }}>Комиссия агенту покупателя (co-broking)</Typography>
-                    <Typography sx={{ color: GOLD, fontWeight: 800, fontSize: 22 }}>{d.buyer_side_share != null ? `${d.buyer_side_share}%` : '—'}</Typography>
-                  </Box>
-                  {d.agent && (
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography sx={{ color: '#94A3B8', fontSize: 12 }}>Агент объекта</Typography>
-                      <Typography sx={{ color: '#F1F5F9', fontWeight: 600, fontSize: 14 }}>{d.agent.name}</Typography>
-                      {d.agent.phone && <Link href={`tel:${d.agent.phone.replace(/\s/g, '')}`} underline="hover" sx={{ color: GOLD, fontSize: 14, fontWeight: 700 }}>{phoneFmt(d.agent.phone)}</Link>}
-                    </Box>
+                <Stack spacing={0.75} alignItems="flex-end">
+                  {pubCount > 0 && (
+                    <Chip size="small" label={`в рекламе · ${pubCount}`} sx={{ height: 22, fontSize: 11, fontWeight: 700, color: '#22C55E', background: 'rgba(34,197,94,0.12)' }} />
                   )}
+                  <Stack direction="row" spacing={0.5} flexWrap="wrap" justifyContent="flex-end" useFlexGap>
+                    {d.status !== 'sold' && (
+                      <Select size="small" value={d.status} disabled={statusBusy} onChange={(e) => changeStatus(e.target.value as string)}
+                        sx={{ minWidth: 130, height: 30, color: '#F1F5F9', fontSize: 12, '& .MuiOutlinedInput-notchedOutline': { borderColor: `${GOLD}33` }, '& .MuiSvgIcon-root': { color: '#94A3B8' } }}>
+                        {['draft', 'active', 'deposit', 'withdrawn', 'sold_external', 'archived'].map((s) => (
+                          <MenuItem key={s} value={s} sx={{ fontSize: 13 }}>{STATUS_LABEL[s]}</MenuItem>
+                        ))}
+                      </Select>
+                    )}
+                    {(d.status === 'active' || d.status === 'deposit') && (
+                      <Button size="small" variant="contained" onClick={() => setSellOpen(true)} startIcon={<HandshakeRoundedIcon sx={{ fontSize: 16 }} />}
+                        sx={{ background: GOLD, color: '#06210F', fontWeight: 700, textTransform: 'none', '&:hover': { background: '#B8973F' } }}>Сделка</Button>
+                    )}
+                    <Button size="small" startIcon={<EditRoundedIcon sx={{ fontSize: 16 }} />} onClick={onEdit}
+                      sx={{ color: GOLD, textTransform: 'none', minWidth: 0, '&:hover': { background: `${GOLD}11` } }}>Править</Button>
+                  </Stack>
                 </Stack>
               </Box>
+              <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile
+                sx={{ minHeight: 42, px: 1, borderTop: '1px solid rgba(148,163,184,0.08)', '& .MuiTab-root': { minHeight: 42, textTransform: 'none', color: '#94A3B8', fontSize: 13, fontWeight: 600, py: 0 }, '& .Mui-selected': { color: `${GOLD} !important` }, '& .MuiTabs-indicator': { background: GOLD } }}>
+                <Tab icon={<ApartmentRoundedIcon sx={{ fontSize: 17 }} />} iconPosition="start" label="Обзор" />
+                <Tab icon={<CampaignRoundedIcon sx={{ fontSize: 17 }} />} iconPosition="start" label={tabLabel('Реклама', pubCount)} />
+                <Tab icon={<HandshakeRoundedIcon sx={{ fontSize: 17 }} />} iconPosition="start" label="Сделка" />
+                <Tab icon={<AssignmentRoundedIcon sx={{ fontSize: 17 }} />} iconPosition="start" label={tabLabel('Клиент', casesCount)} />
+              </Tabs>
+            </Box>
 
-              <CasesBlock propertyId={d.id} />
-              <ClientDocsBlock propertyId={d.id} />
-              <PortalLinkBlock propertyId={d.id} />
-              {(d.owner || d.owner_locked) && <OwnerChatBlock propertyId={d.id} myId={myId} />}
-              <ViewingsBlock propertyId={d.id} />
-              <ProcuringBlock property={d} />
-
-              <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
-
-              <Grid container spacing={2}>
-                <Spec label="Общая площадь" value={d.total_area ? `${d.total_area} м²` : null} />
-                <Spec label="Жилая" value={d.living_area ? `${d.living_area} м²` : null} />
-                <Spec label="Кухня" value={d.kitchen_area ? `${d.kitchen_area} м²` : null} />
-                <Spec label="Участок" value={d.land_area ? `${d.land_area} ${LAND_UNIT_LABEL[d.land_unit || ''] || ''}`.trim() : null} />
-                <Spec label="Комнаты" value={d.rooms ? (ROOMS_LABEL[d.rooms] || d.rooms) : null} />
-                <Spec label="Этаж" value={d.floor && d.floors ? `${d.floor} из ${d.floors}` : (d.floors ? `${d.floors} эт.` : null)} />
-                {Object.entries(PARAM_LABEL).map(([key, label]) => {
-                  const raw = d.params?.[key];
-                  if (raw == null || raw === '') return null;
-                  const val = PARAM_ENUM_LABEL[key]?.[String(raw)] || String(raw);
-                  return <Spec key={key} label={label} value={val} />;
-                })}
-                <Spec label="Кадастр" value={d.cadastral_number} />
-              </Grid>
-
-              {d.description && (
-                <>
-                  <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
-                  <Typography variant="caption" sx={{ color: '#64748B' }}>Описание</Typography>
-                  <Typography sx={{ color: '#CBD5E1', fontSize: 14, whiteSpace: 'pre-line', mt: 0.5 }}>{d.description}</Typography>
-                </>
-              )}
-
-              {d.priceHistory.length > 0 && (
-                <>
-                  <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
-                  <Typography variant="caption" sx={{ color: '#64748B' }}>История цены</Typography>
-                  <Stack sx={{ mt: 0.5 }}>
-                    {d.priceHistory.map((h, i) => {
-                      const tech = h.reason === 'manual' || h.reason === 'sputnik_import';
-                      return (
-                        <Typography key={i} sx={{ color: '#94A3B8', fontSize: 13 }}>
-                          {h.created_at?.slice(0, 10)} — {priceFmt(h.new_price)}{h.reason && !tech ? ` (${h.reason})` : ''}
-                        </Typography>
-                      );
-                    })}
-                  </Stack>
-                </>
-              )}
-
-              {/* Покупатели на этот объект (reverse-match: «на твой объект N покупателей») */}
-              {buyers && buyers.total > 0 && (
-                <>
-                  <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
-                  <Typography sx={{ color: GOLD, fontWeight: 700, fontSize: 14, mb: 1 }}>Покупатели на этот объект — {buyers.total}</Typography>
-                  <Stack spacing={1}>
-                    {buyers.items.map((b) => (
-                      <Box key={b.id} sx={{ p: 1.25, borderRadius: 1.5, background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.18)' }}>
-                        <Typography sx={{ color: '#CBD5E1', fontSize: 13 }}>
-                          {[b.deal_type && DEAL_LABEL[b.deal_type], b.property_types?.map((t) => TYPE_LABEL[t] || t).join('/'), b.rooms?.map((r) => ROOMS_LABEL[r] || r).join('/'), (b.price_min || b.price_max) ? `${b.price_min ? priceFmt(b.price_min) : '0'}–${b.price_max ? priceFmt(b.price_max) : '∞'}` : '', b.localities?.join(', ')].filter(Boolean).join(' · ')}
-                        </Typography>
-                        <Typography sx={{ color: '#64748B', fontSize: 11 }}>агент: {b.agent_name}{b.note ? ` · ${b.note}` : ''}</Typography>
-                      </Box>
+            {/* ── Вкладка: Обзор ── */}
+            {tab === 0 && (
+              <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
+                <Box sx={{ position: 'relative', background: '#05070F', borderRadius: 2, overflow: 'hidden' }}>
+                  {main ? (
+                    <Box component="img" src={main.url} alt="" onClick={() => setLightbox(true)}
+                      sx={{ width: '100%', maxHeight: 360, objectFit: 'contain', display: 'block', cursor: 'zoom-in' }} />
+                  ) : (
+                    <Box sx={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155' }}><ApartmentRoundedIcon sx={{ fontSize: 56 }} /></Box>
+                  )}
+                  {photos.length > 1 && (
+                    <Box sx={{ position: 'absolute', bottom: 8, right: 8, px: 1, py: 0.25, borderRadius: 5, background: 'rgba(5,7,15,0.7)', color: '#E2E8F0', fontSize: 12 }}>{photoIdx + 1} / {photos.length}</Box>
+                  )}
+                </Box>
+                {photos.length > 1 && (
+                  <Stack direction="row" spacing={1} sx={{ pt: 1.5, overflowX: 'auto', '&::-webkit-scrollbar': { height: 6 }, '&::-webkit-scrollbar-thumb': { background: 'rgba(201,168,76,0.3)', borderRadius: 3 } }}>
+                    {photos.map((ph, i) => (
+                      <Box key={ph.id} component="img" src={ph.thumb_url || ph.url} loading="lazy" onClick={() => setPhotoIdx(i)}
+                        sx={{ width: 72, height: 54, flexShrink: 0, objectFit: 'cover', borderRadius: 1, cursor: 'pointer', border: i === photoIdx ? `2px solid ${GOLD}` : '2px solid transparent', opacity: i === photoIdx ? 1 : 0.7 }} />
                     ))}
                   </Stack>
-                </>
-              )}
+                )}
 
-              <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
-              <Grid container spacing={2}>
-                {d.owner ? (
-                  <Spec label="Собственник" value={
-                    <Box component="span">
-                      {d.owner.name || ''}{d.owner.name && d.owner.phone ? ' · ' : ''}
-                      {d.owner.phone && <Link href={`tel:${d.owner.phone.replace(/\s/g, '')}`} underline="hover" sx={{ color: GOLD }}>{phoneFmt(d.owner.phone)}</Link>}
-                    </Box>
-                  } />
-                ) : d.owner_locked ? (
-                  <Grid size={{ xs: 6, sm: 4 }}>
-                    <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>Собственник</Typography>
-                    <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: '#94A3B8' }}>
-                      <LockRoundedIcon sx={{ fontSize: 14 }} /><Typography sx={{ fontSize: 13 }}>Контакт скрыт</Typography>
+                {d.lat != null && d.lng != null && (
+                  <Box sx={{ mt: 2 }}>
+                    <Box component="iframe" title="Карта" loading="lazy"
+                      src={`https://yandex.ru/map-widget/v1/?ll=${d.lng}%2C${d.lat}&z=16&pt=${d.lng}%2C${d.lat},pm2rdm`}
+                      sx={{ width: '100%', height: 240, border: 0, borderRadius: 2, display: 'block' }} />
+                    <Link href={`https://yandex.ru/maps/?ll=${d.lng}%2C${d.lat}&z=17&pt=${d.lng}%2C${d.lat}`} target="_blank" rel="noopener" underline="hover"
+                      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mt: 0.5, color: GOLD, fontSize: 13 }}>
+                      <MapRoundedIcon sx={{ fontSize: 16 }} /> Открыть в Яндекс.Картах
+                    </Link>
+                  </Box>
+                )}
+
+                <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
+                <Grid container spacing={2}>
+                  <Spec label="Общая площадь" value={d.total_area ? `${d.total_area} м²` : null} />
+                  <Spec label="Жилая" value={d.living_area ? `${d.living_area} м²` : null} />
+                  <Spec label="Кухня" value={d.kitchen_area ? `${d.kitchen_area} м²` : null} />
+                  <Spec label="Участок" value={d.land_area ? `${d.land_area} ${LAND_UNIT_LABEL[d.land_unit || ''] || ''}`.trim() : null} />
+                  <Spec label="Комнаты" value={d.rooms ? (ROOMS_LABEL[d.rooms] || d.rooms) : null} />
+                  <Spec label="Этаж" value={d.floor && d.floors ? `${d.floor} из ${d.floors}` : (d.floors ? `${d.floors} эт.` : null)} />
+                  {Object.entries(PARAM_LABEL).map(([key, label]) => {
+                    const raw = d.params?.[key];
+                    if (raw == null || raw === '') return null;
+                    const val = PARAM_ENUM_LABEL[key]?.[String(raw)] || String(raw);
+                    return <Spec key={key} label={label} value={val} />;
+                  })}
+                  <Spec label="Кадастр" value={d.cadastral_number} />
+                </Grid>
+
+                {d.description && (
+                  <>
+                    <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
+                    <Typography variant="caption" sx={{ color: '#64748B' }}>Описание</Typography>
+                    <Typography sx={{ color: '#CBD5E1', fontSize: 14, whiteSpace: 'pre-line', mt: 0.5 }}>{d.description}</Typography>
+                  </>
+                )}
+
+                {d.priceHistory.length > 0 && (
+                  <>
+                    <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
+                    <Typography variant="caption" sx={{ color: '#64748B' }}>История цены</Typography>
+                    <Stack sx={{ mt: 0.5 }}>
+                      {d.priceHistory.map((h, i) => {
+                        const tech = h.reason === 'manual' || h.reason === 'sputnik_import';
+                        return (
+                          <Typography key={i} sx={{ color: '#94A3B8', fontSize: 13 }}>
+                            {h.created_at?.slice(0, 10)} — {priceFmt(h.new_price)}{h.reason && !tech ? ` (${h.reason})` : ''}
+                          </Typography>
+                        );
+                      })}
                     </Stack>
-                  </Grid>
-                ) : null}
-              </Grid>
-            </Box>
+                  </>
+                )}
+
+                <Divider sx={{ my: 2, borderColor: 'rgba(201,168,76,0.1)' }} />
+                <Grid container spacing={2}>
+                  {d.owner ? (
+                    <Spec label="Собственник" value={
+                      <Box component="span">
+                        {d.owner.name || ''}{d.owner.name && d.owner.phone ? ' · ' : ''}
+                        {d.owner.phone && <Link href={`tel:${d.owner.phone.replace(/\s/g, '')}`} underline="hover" sx={{ color: GOLD }}>{phoneFmt(d.owner.phone)}</Link>}
+                      </Box>
+                    } />
+                  ) : d.owner_locked ? (
+                    <Grid size={{ xs: 6, sm: 4 }}>
+                      <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>Собственник</Typography>
+                      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: '#94A3B8' }}>
+                        <LockRoundedIcon sx={{ fontSize: 14 }} /><Typography sx={{ fontSize: 13 }}>Контакт скрыт</Typography>
+                      </Stack>
+                    </Grid>
+                  ) : null}
+                </Grid>
+              </Box>
+            )}
+
+            {/* ── Вкладка: Реклама ── */}
+            {tab === 1 && <Box sx={{ p: { xs: 2, sm: 2.5 } }}><AdvertBlock property={d} /></Box>}
+
+            {/* ── Вкладка: Сделка ── */}
+            {tab === 2 && (
+              <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
+                <Box sx={{ p: 1.5, borderRadius: 2, background: `${GOLD}0E`, border: `1px solid ${GOLD}33` }}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+                    <Box>
+                      <Typography sx={{ color: '#94A3B8', fontSize: 12 }}>Комиссия агенту покупателя (co-broking)</Typography>
+                      <Typography sx={{ color: GOLD, fontWeight: 800, fontSize: 22 }}>{d.buyer_side_share != null ? `${d.buyer_side_share}%` : '—'}</Typography>
+                    </Box>
+                    {d.agent && (
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography sx={{ color: '#94A3B8', fontSize: 12 }}>Агент объекта</Typography>
+                        <Typography sx={{ color: '#F1F5F9', fontWeight: 600, fontSize: 14 }}>{d.agent.name}</Typography>
+                        {d.agent.phone && <Link href={`tel:${d.agent.phone.replace(/\s/g, '')}`} underline="hover" sx={{ color: GOLD, fontSize: 14, fontWeight: 700 }}>{phoneFmt(d.agent.phone)}</Link>}
+                      </Box>
+                    )}
+                  </Stack>
+                  {(d.status === 'active' || d.status === 'deposit') && (
+                    <Button fullWidth variant="contained" onClick={() => setSellOpen(true)} startIcon={<HandshakeRoundedIcon />}
+                      sx={{ mt: 1.5, background: GOLD, color: '#06210F', fontWeight: 700, textTransform: 'none', '&:hover': { background: '#B8973F' } }}>Провести сделку</Button>
+                  )}
+                </Box>
+                <ProcuringBlock property={d} />
+                {buyers && buyers.total > 0 && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography sx={{ color: GOLD, fontWeight: 700, fontSize: 14, mb: 1 }}>Покупатели на этот объект — {buyers.total}</Typography>
+                    <Stack spacing={1}>
+                      {buyers.items.map((b) => (
+                        <Box key={b.id} sx={{ p: 1.25, borderRadius: 1.5, background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.18)' }}>
+                          <Typography sx={{ color: '#CBD5E1', fontSize: 13 }}>
+                            {[b.deal_type && DEAL_LABEL[b.deal_type], b.property_types?.map((t) => TYPE_LABEL[t] || t).join('/'), b.rooms?.map((r) => ROOMS_LABEL[r] || r).join('/'), (b.price_min || b.price_max) ? `${b.price_min ? priceFmt(b.price_min) : '0'}–${b.price_max ? priceFmt(b.price_max) : '∞'}` : '', b.localities?.join(', ')].filter(Boolean).join(' · ')}
+                          </Typography>
+                          <Typography sx={{ color: '#64748B', fontSize: 11 }}>агент: {b.agent_name}{b.note ? ` · ${b.note}` : ''}</Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Box>
+                )}
+              </Box>
+            )}
+
+            {/* ── Вкладка: Клиент ── */}
+            {tab === 3 && (
+              <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
+                <CasesBlock propertyId={d.id} />
+                <PortalLinkBlock propertyId={d.id} />
+                {(d.owner || d.owner_locked) && <OwnerChatBlock propertyId={d.id} myId={myId} />}
+                <ClientDocsBlock propertyId={d.id} />
+                <ViewingsBlock propertyId={d.id} />
+              </Box>
+            )}
+
             {sellOpen && (
               <SellDialog property={d} onClose={() => setSellOpen(false)}
                 onDone={() => { refetch(); ['mls-properties', 'mls-count', 'mls-property-buyers', 'mls-placements'].forEach((k) => qc.invalidateQueries({ queryKey: [k] })); }} />
+            )}
+
+            {lightbox && main && (
+              <Dialog open fullScreen onClose={() => setLightbox(false)} slotProps={{ paper: { sx: { background: 'rgba(5,7,15,0.97)' } } }}>
+                <IconButton onClick={() => setLightbox(false)} sx={{ position: 'absolute', top: 12, right: 12, zIndex: 5, color: '#E2E8F0', background: 'rgba(0,0,0,0.5)' }}><CloseRoundedIcon /></IconButton>
+                <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                  <Box component="img" src={main.url} alt="" sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                  {photos.length > 1 && (
+                    <>
+                      <IconButton onClick={() => movePhoto(-1)} sx={{ position: 'absolute', left: 8, color: '#E2E8F0', background: 'rgba(0,0,0,0.4)', '&:hover': { background: 'rgba(0,0,0,0.6)' } }}><ChevronLeftRoundedIcon sx={{ fontSize: 32 }} /></IconButton>
+                      <IconButton onClick={() => movePhoto(1)} sx={{ position: 'absolute', right: 8, color: '#E2E8F0', background: 'rgba(0,0,0,0.4)', '&:hover': { background: 'rgba(0,0,0,0.6)' } }}><ChevronRightRoundedIcon sx={{ fontSize: 32 }} /></IconButton>
+                      <Box sx={{ position: 'absolute', bottom: 16, px: 1.5, py: 0.5, borderRadius: 5, background: 'rgba(0,0,0,0.5)', color: '#E2E8F0', fontSize: 13 }}>{photoIdx + 1} / {photos.length}</Box>
+                    </>
+                  )}
+                </Box>
+              </Dialog>
             )}
           </>
         )}
