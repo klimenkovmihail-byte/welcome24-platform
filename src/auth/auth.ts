@@ -111,6 +111,14 @@ export async function loginAgent(
   }
 }
 
+/** Установить сессию по готовому { token, user } — после самоактивации / восстановления пароля. */
+export function applySession(token: string, rawUser: AgentUser): AgentUser {
+  setToken(token);
+  const user: AgentUser = { ...rawUser, loginAt: new Date().toISOString() };
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  return user;
+}
+
 export function logoutAgent() {
   // Best-effort logout на бэке (можно в фоне).
   api.post('/api/auth/logout').catch(() => { /* ignore */ });

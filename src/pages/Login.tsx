@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Card, CardContent, Typography, TextField, Button, InputAdornment, IconButton, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Stack } from '@mui/material';
+import { Box, Card, CardContent, Typography, TextField, Button, InputAdornment, IconButton, Alert } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import EmailRoundedIcon from '@mui/icons-material/EmailRounded';
@@ -7,9 +7,9 @@ import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
-import SupportAgentRoundedIcon from '@mui/icons-material/SupportAgentRounded';
 import { loginAgent, trySsoFromUrl } from '../auth/auth';
 import Logo from '../components/Logo';
+import Activation from './Activation';
 
 // Кастомизация полей Email/Пароль: убираем уродливую сине-жёлтую подсветку
 // Chrome autofill и закругляем фон чтобы выглядело однородно с тёмной темой.
@@ -251,7 +251,7 @@ export default function Login() {
                   onClick={() => setForgotOpen(true)}
                   sx={{ color: '#C9A84C', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
                 >
-                  Забыли пароль?
+                  Первый вход · Забыли пароль?
                 </Typography>
               </Box>
 
@@ -291,36 +291,8 @@ export default function Login() {
         </Typography>
       </motion.div>
 
-      {/* Подсказка «Забыли пароль» */}
-      {/* Forgot password dialog */}
-      <Dialog open={forgotOpen} onClose={() => setForgotOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ pb: 1, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box sx={{
-            width: 40, height: 40, borderRadius: 2,
-            background: 'rgba(201,168,76,0.15)',
-            border: '1px solid rgba(201,168,76,0.3)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#C9A84C', flexShrink: 0,
-          }}>
-            <SupportAgentRoundedIcon />
-          </Box>
-          <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#F1F5F9' }}>
-            Забыли пароль?
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
-            <Typography variant="body2" sx={{ color: '#CBD5E1', lineHeight: 1.7 }}>
-              Свяжитесь с администратором компании <b style={{ color: '#C9A84C' }}>Welcome 24</b> — он сбросит пароль и пришлёт тебе новый.
-            </Typography>
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={() => setForgotOpen(false)} variant="contained" fullWidth>
-            Понятно
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Первый вход / восстановление пароля — самоактивация (телефон-звонком + email + пароль) */}
+      <Activation open={forgotOpen} onClose={() => setForgotOpen(false)} onDone={() => navigate('/dashboard')} />
     </Box>
   );
 }
