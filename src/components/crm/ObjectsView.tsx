@@ -39,6 +39,7 @@ import {
   PARAM_LABEL, PARAM_ENUM_LABEL, priceFmt, phoneFmt,
   getPropertyViewings, patchViewing,
 } from '../../api/mls';
+import { adPackagesApi, type ActivePackage } from '../../api/adPackages';
 import { ApiError } from '../../api/apiClient';
 import { agentsApi } from '../../api/agents';
 import { ErrorState, PageSkeleton } from '../States';
@@ -314,19 +315,52 @@ function AdvertBlock({ property }: { property: MlsDetail }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [quotas, setQuotas] = useState<ActivePackage[]>([]);
+  const [pubFor, setPubFor] = useState<PlatformPlacement | null>(null);
+  const [pubSource, setPubSource] = useState<'package' | 'account'>('account');
+  const [pubQuota, setPubQuota] = useState('');
+  const [pubBusy, setPubBusy] = useState(false);
+  const [pubErr, setPubErr] = useState<string | null>(null);
+  useEffect(() => { adPackagesApi.myQuotas().then(setQuotas).catch(() => setQuotas([])); }, []);
+  const quotaOptionsFor = (platformKey: string) => quotas
+    .filter((q) => q.platform === platformKey)
+    .flatMap((q) => q.items.filter((it) => it.remaining > 0).map((it) => ({
+      value: `${q.entry_id}:${it.category_key}`,
+      label: `${q.city} · ${it.category_label} — осталось ${it.remaining}`,
+    })));
   const isSuper = getCurrentAgent()?.role === 'super_admin';
   const isAdmin = isSuper || getCurrentAgent()?.role === 'listing_manager';
   const isPublished = (p: PlatformPlacement) => ['published', 'approved', 'pending'].includes(p.status);
-  async function toggle(p: PlatformPlacement) {
+  async function unpublish(p: PlatformPlacement) {
     setBusy(p.key); setErr(null);
+    try { await unpublishFromPlatform(property.id, p.key); await refetch(); }
+    catch (e) {
+      const m = e instanceof ApiError ? (e.data as { error?: string })?.error || e.message : (e as Error)?.message;
+      setErr(m || 'Не удалось снять с публикации');
+    } finally { setBusy(null); }
+  }
+  function openPublish(p: PlatformPlacement) {
+    const opts = quotaOptionsFor(p.key);
+    setPubFor(p); setPubErr(null);
+    setPubSource(opts.length > 0 ? 'package' : 'account');
+    setPubQuota(opts[0]?.value || '');
+  }
+  async function doPublish() {
+    if (!pubFor) return;
+    setPubBusy(true); setPubErr(null);
     try {
-      if (isPublished(p)) await unpublishFromPlatform(property.id, p.key);
-      else await publishToPlatform(property.id, p.key);
-      await refetch();
+      const opts: { source: 'package' | 'account'; quotaEntryId?: number; categoryKey?: string } = { source: pubSource };
+      if (pubSource === 'package' && pubQuota) {
+        const [eid, ckey] = pubQuota.split(':');
+        opts.quotaEntryId = Number(eid); opts.categoryKey = ckey;
+      }
+      await publishToPlatform(property.id, pubFor.key, opts);
+      setPubFor(null); await refetch();
+      adPackagesApi.myQuotas().then(setQuotas).catch(() => { /* остаток обновится позже */ });
     } catch (e) {
       const m = e instanceof ApiError ? (e.data as { error?: string })?.error || e.message : (e as Error)?.message;
-      setErr(m || 'Не удалось изменить публикацию');
-    } finally { setBusy(null); }
+      setPubErr(m || 'Не удалось опубликовать');
+    } finally { setPubBusy(false); }
   }
   async function approve(p: PlatformPlacement) {
     setBusy(p.key); setErr(null);
@@ -400,12 +434,13 @@ function AdvertBlock({ property }: { property: MlsDetail }) {
                   {p.external_url && <Link href={p.external_url} target="_blank" rel="noreferrer" sx={{ color: GOLD, fontSize: 12, fontWeight: 600 }}>объявление ↗</Link>}
                   {(p.views > 0 || p.contacts > 0 || p.favorites > 0) && <Typography sx={{ color: '#64748B', fontSize: 11 }}>👁 {p.views} · ☎ {p.contacts} · ♡ {p.favorites}</Typography>}
                   {p.published_until && <Typography sx={{ color: '#64748B', fontSize: 11 }}>до {p.published_until.slice(0, 10).split('-').reverse().slice(0, 2).join('.')}</Typography>}
+                  {p.source && <Typography sx={{ color: '#64748B', fontSize: 11 }}>{p.source === 'package' ? 'из пакета' : 'со счёта'}</Typography>}
                   <Box sx={{ ml: 'auto', display: 'flex', gap: 0.5 }}>
                     {p.status === 'pending' && isAdmin && (
                       <Button size="small" disabled={busy === p.key} onClick={() => approve(p)}
                         sx={{ textTransform: 'none', fontSize: 12, color: '#22C55E', minWidth: 'auto' }}>Подтвердить</Button>
                     )}
-                    <Button size="small" disabled={busy === p.key || (!published && !p.ready)} onClick={() => toggle(p)}
+                    <Button size="small" disabled={busy === p.key || (!published && !p.ready)} onClick={() => (published ? unpublish(p) : openPublish(p))}
                       sx={{ textTransform: 'none', fontSize: 12, color: published ? '#FCA5A5' : GOLD, minWidth: 'auto' }}>
                       {busy === p.key ? '…' : published ? 'Снять' : 'Опубликовать'}
                     </Button>
@@ -425,6 +460,34 @@ function AdvertBlock({ property }: { property: MlsDetail }) {
       <Typography sx={{ color: '#64748B', fontSize: 11, mt: 1 }}>
         Площадка забирает фид по расписанию — после публикации объявление появляется в течение ~часа.
       </Typography>
+      <Dialog open={!!pubFor} onClose={() => setPubFor(null)} maxWidth="xs" fullWidth>
+        <DialogContent>
+          <Typography sx={{ fontWeight: 700, fontSize: 15, mb: 1.5 }}>Опубликовать на «{pubFor?.label}»</Typography>
+          <Typography sx={{ color: '#94A3B8', fontSize: 12, mb: 0.5 }}>Источник оплаты</Typography>
+          <Select fullWidth size="small" value={pubSource} onChange={(e) => setPubSource(e.target.value as 'package' | 'account')}>
+            <MenuItem value="package" disabled={!pubFor || quotaOptionsFor(pubFor.key).length === 0}>
+              Из пакета{pubFor && quotaOptionsFor(pubFor.key).length === 0 ? ' — нет квоты' : ''}
+            </MenuItem>
+            <MenuItem value="account">Со счёта (оплата на площадке)</MenuItem>
+          </Select>
+          {pubSource === 'package' && pubFor && (
+            <>
+              <Typography sx={{ color: '#94A3B8', fontSize: 12, mt: 1.5, mb: 0.5 }}>Квота</Typography>
+              <Select fullWidth size="small" value={pubQuota} onChange={(e) => setPubQuota(e.target.value)}>
+                {quotaOptionsFor(pubFor.key).map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+              </Select>
+            </>
+          )}
+          {pubErr && <Typography sx={{ color: '#FCA5A5', fontSize: 12, mt: 1 }}>{pubErr}</Typography>}
+          <Stack direction="row" spacing={1} sx={{ mt: 2, justifyContent: 'flex-end' }}>
+            <Button onClick={() => setPubFor(null)} sx={{ color: '#94A3B8', textTransform: 'none' }}>Отмена</Button>
+            <Button onClick={doPublish} disabled={pubBusy || (pubSource === 'package' && !pubQuota)} variant="contained"
+              sx={{ textTransform: 'none', background: GOLD, color: '#0B0F19', '&:hover': { background: GOLD } }}>
+              {pubBusy ? '…' : 'Опубликовать'}
+            </Button>
+          </Stack>
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }

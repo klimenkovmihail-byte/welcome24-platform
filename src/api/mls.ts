@@ -207,12 +207,19 @@ export interface PlatformPlacement {
   status: string;                       // none|pending|approved|published|error|removed
   external_url: string | null; external_id: string | null; published_until: string | null;
   views: number; contacts: number; favorites: number; moderation_note: string | null;
+  source: string | null;                // package | account | null — тариф размещения
 }
 export function getPlacements(id: number): Promise<{ platforms: PlatformPlacement[]; premoderation: boolean }> {
   return api.get<{ platforms: PlatformPlacement[]; premoderation: boolean }>(`/api/mls/properties/${id}/placements`);
 }
-export function publishToPlatform(id: number, platform: string, phone?: string): Promise<{ ok: boolean; platform: string; status: string }> {
-  return api.post(`/api/mls/properties/${id}/feed/${platform}`, phone ? { phone } : {});
+export interface PublishOpts { phone?: string; source?: 'package' | 'account'; quotaEntryId?: number; categoryKey?: string; }
+export function publishToPlatform(id: number, platform: string, opts: PublishOpts = {}): Promise<{ ok: boolean; platform: string; status: string; source?: string }> {
+  const body: Record<string, unknown> = {};
+  if (opts.phone) body.phone = opts.phone;
+  if (opts.source) body.source = opts.source;
+  if (opts.quotaEntryId) body.quota_entry_id = opts.quotaEntryId;
+  if (opts.categoryKey) body.category_key = opts.categoryKey;
+  return api.post(`/api/mls/properties/${id}/feed/${platform}`, body);
 }
 export function unpublishFromPlatform(id: number, platform: string): Promise<{ ok: boolean }> {
   return api.del(`/api/mls/properties/${id}/feed/${platform}`);
