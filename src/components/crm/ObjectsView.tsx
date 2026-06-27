@@ -27,9 +27,10 @@ import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
 import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
+import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import PropertyForm from './PropertyForm';
 import {
-  listMlsProperties, getMlsProperty, getMlsFacets, getPlacements, publishToPlatform, unpublishFromPlatform, getPropertyBuyers, updateMlsProperty, sellMlsProperty,
+  listMlsProperties, getMlsProperty, getMlsFacets, getPlacements, publishToPlatform, unpublishFromPlatform, syncPlatformFeedback, getPropertyBuyers, updateMlsProperty, sellMlsProperty,
   getPortalLink, issuePortalLink, revokePortalLink, getPropertyCases, createPropertyCase,
   getPropertyDocuments, openClientDocument,
   logShowing, getPropertyClaims, releaseClaim, resolveDispute,
@@ -312,6 +313,8 @@ function AdvertBlock({ property }: { property: MlsDetail }) {
   const { data, refetch, isLoading } = useQuery({ queryKey: ['mls-placements', property.id], queryFn: () => getPlacements(property.id), staleTime: 20_000 });
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const isSuper = getCurrentAgent()?.role === 'super_admin';
   const isPublished = (p: PlatformPlacement) => ['published', 'approved', 'pending'].includes(p.status);
   async function toggle(p: PlatformPlacement) {
     setBusy(p.key); setErr(null);
@@ -324,12 +327,30 @@ function AdvertBlock({ property }: { property: MlsDetail }) {
       setErr(m || 'Не удалось изменить публикацию');
     } finally { setBusy(null); }
   }
+  async function doSync() {
+    setSyncing(true); setErr(null);
+    try {
+      const r = await syncPlatformFeedback('avito');
+      if (r && r.ok === false) setErr(r.reason === 'avito-not-configured' ? 'Avito API-креды не настроены' : r.reason === 'sync-in-progress' ? 'Синхронизация уже идёт' : 'Синхронизация не выполнена');
+      await refetch();
+    } catch (e) {
+      const m = e instanceof ApiError ? (e.data as { error?: string })?.error || e.message : (e as Error)?.message;
+      setErr(m || 'Не удалось обновить статусы');
+    } finally { setSyncing(false); }
+  }
   if (isLoading || !data) return null;
   return (
     <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: `${GOLD}0E`, border: `1px solid ${GOLD}33` }}>
       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
         <CampaignRoundedIcon sx={{ fontSize: 18, color: GOLD }} />
         <Typography sx={{ color: GOLD, fontWeight: 700, fontSize: 13 }}>Реклама на площадках</Typography>
+        {isSuper && (
+          <Tooltip title="Подтянуть с Авито статусы, ссылки и статистику ВСЕХ объявлений">
+            <Button size="small" disabled={syncing} onClick={doSync}
+              startIcon={syncing ? <CircularProgress size={12} sx={{ color: '#94A3B8' }} /> : <RefreshRoundedIcon sx={{ fontSize: 15 }} />}
+              sx={{ ml: 'auto', color: '#94A3B8', textTransform: 'none', fontSize: 11, minWidth: 0 }}>{syncing ? 'Обновляю…' : 'Обновить'}</Button>
+          </Tooltip>
+        )}
       </Stack>
       {err && <Typography sx={{ color: '#FCA5A5', fontSize: 12, mb: 1 }}>{err}</Typography>}
       <Stack spacing={0.75}>
@@ -351,7 +372,8 @@ function AdvertBlock({ property }: { property: MlsDetail }) {
                   )}
                   {p.moderation_note && <Typography sx={{ color: '#FCA5A5', fontSize: 11 }}>{p.moderation_note}</Typography>}
                   {p.external_url && <Link href={p.external_url} target="_blank" rel="noreferrer" sx={{ color: GOLD, fontSize: 12, fontWeight: 600 }}>объявление ↗</Link>}
-                  {(p.views > 0 || p.contacts > 0) && <Typography sx={{ color: '#64748B', fontSize: 11 }}>👁 {p.views} · ☎ {p.contacts}</Typography>}
+                  {(p.views > 0 || p.contacts > 0 || p.favorites > 0) && <Typography sx={{ color: '#64748B', fontSize: 11 }}>👁 {p.views} · ☎ {p.contacts} · ♡ {p.favorites}</Typography>}
+                  {p.published_until && <Typography sx={{ color: '#64748B', fontSize: 11 }}>до {p.published_until.slice(0, 10).split('-').reverse().slice(0, 2).join('.')}</Typography>}
                   <Box sx={{ ml: 'auto' }}>
                     <Button size="small" disabled={busy === p.key || (!published && !p.ready)} onClick={() => toggle(p)}
                       sx={{ textTransform: 'none', fontSize: 12, color: published ? '#FCA5A5' : GOLD, minWidth: 'auto' }}>

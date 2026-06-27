@@ -217,6 +217,10 @@ export function publishToPlatform(id: number, platform: string, phone?: string):
 export function unpublishFromPlatform(id: number, platform: string): Promise<{ ok: boolean }> {
   return api.del(`/api/mls/properties/${id}/feed/${platform}`);
 }
+// Синк обратной связи площадки (отчёт + статистика) → БД. Площадка-уровень (super_admin).
+export function syncPlatformFeedback(platform: string): Promise<{ ok: boolean; updated?: number; statsFor?: number; report_id?: number; reason?: string }> {
+  return api.post(`/api/mls/feed/${platform}/sync`, {});
+}
 
 // ── Co-broking / проведение сделки по объекту ──
 export interface SellDealRow {
