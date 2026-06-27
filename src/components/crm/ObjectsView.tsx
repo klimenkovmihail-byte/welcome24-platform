@@ -265,7 +265,7 @@ function PortalLinkBlock({ propertyId }: { propertyId: number }) {
   function copy() { if (link) { navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500); } }
   if (isLoading || !data) return null;
   return (
-    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.25)' }}>
+    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(148,163,184,0.15)' }}>
       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
         <LinkRoundedIcon sx={{ fontSize: 18, color: '#60A5FA' }} />
         <Typography sx={{ color: '#93C5FD', fontWeight: 700, fontSize: 13 }}>Кабинет собственника</Typography>
@@ -387,7 +387,7 @@ function CasesBlock({ propertyId }: { propertyId: number }) {
   }
   if (isLoading || !data) return null;
   return (
-    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.2)' }}>
+    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(148,163,184,0.15)' }}>
       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
         <AssignmentRoundedIcon sx={{ fontSize: 18, color: '#22C55E' }} />
         <Typography sx={{ color: '#86EFAC', fontWeight: 700, fontSize: 13 }}>Заявки специалистам (этапы сделки)</Typography>
@@ -423,7 +423,7 @@ function ClientDocsBlock({ propertyId }: { propertyId: number }) {
   const { data, isLoading } = useQuery({ queryKey: ['mls-property-docs', propertyId], queryFn: () => getPropertyDocuments(propertyId), staleTime: 30_000 });
   if (isLoading || !data || data.items.length === 0) return null;
   return (
-    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.25)' }}>
+    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(148,163,184,0.15)' }}>
       <Typography sx={{ color: '#C4B5FD', fontWeight: 700, fontSize: 13, mb: 1 }}>Документы от клиента</Typography>
       <Stack spacing={0.75}>
         {data.items.map((d) => (
@@ -440,7 +440,7 @@ function ClientDocsBlock({ propertyId }: { propertyId: number }) {
 // Чат с собственником по объекту (агентская сторона) — переиспользует портальный Thread.
 function OwnerChatBlock({ propertyId, myId }: { propertyId: number; myId: number | null }) {
   return (
-    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.22)' }}>
+    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(148,163,184,0.15)' }}>
       <Typography sx={{ color: '#4ade80', fontWeight: 700, fontSize: 13, mb: 1 }}>Чат с собственником</Typography>
       <Thread apiBase={`/mls/properties/${propertyId}/client-chat`} myId={myId} myRole="agent" maxHeight={300} privateFiles emptyText="Сообщений пока нет. Напишите собственнику." />
     </Box>
@@ -455,7 +455,7 @@ function ViewingsBlock({ propertyId }: { propertyId: number }) {
   if (items.length === 0) return null;
   const act = async (vid: number, status: string) => { await patchViewing(propertyId, vid, { status }); qc.invalidateQueries({ queryKey: ['mls-viewings', propertyId] }); };
   return (
-    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.25)' }}>
+    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(148,163,184,0.15)' }}>
       <Typography sx={{ color: '#93C5FD', fontWeight: 700, fontSize: 13, mb: 1 }}>Заявки на показ от покупателей</Typography>
       <Stack spacing={1}>
         {items.map((v) => (
@@ -521,7 +521,7 @@ function ProcuringBlock({ property }: { property: MlsDetail }) {
   const fieldSx = { '& .MuiOutlinedInput-root': { color: '#F1F5F9', '& fieldset': { borderColor: `${GOLD}33` } }, '& .MuiInputLabel-root': { color: '#94A3B8' } };
 
   return (
-    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.22)' }}>
+    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(148,163,184,0.15)' }}>
       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: claims.length || open ? 1 : 0 }}>
         <GavelRoundedIcon sx={{ fontSize: 18, color: '#C084FC' }} />
         <Typography sx={{ color: '#C084FC', fontWeight: 700, fontSize: 13, flex: 1 }}>Показы и закрепление покупателя</Typography>
@@ -679,6 +679,11 @@ export function DetailDialog({ id, onClose, onEdit }: { id: number; onClose: () 
             {/* ── Вкладка: Обзор ── */}
             {tab === 0 && (
               <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
+                  <Chip label={DEAL_LABEL[d.deal_type] || d.deal_type} size="small" sx={{ fontWeight: 700, color: GOLD, background: `${GOLD}22` }} />
+                  {d.market_type && <Chip label={MARKET_LABEL[d.market_type] || d.market_type} size="small" sx={{ fontWeight: 600, color: '#94A3B8', background: 'rgba(148,163,184,0.12)' }} />}
+                  {d.exclusive_type && d.exclusive_type !== 'none' && <Chip label="Эксклюзив" size="small" sx={{ fontWeight: 700, color: '#3B82F6', background: 'rgba(59,130,246,0.12)' }} />}
+                </Stack>
                 <Box sx={{ position: 'relative', background: '#05070F', borderRadius: 2, overflow: 'hidden' }}>
                   {main ? (
                     <Box component="img" src={main.url} alt="" onClick={() => setLightbox(true)}
