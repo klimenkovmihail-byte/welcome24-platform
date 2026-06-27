@@ -42,7 +42,7 @@ function normalize(r: RawNotification): Notification {
 }
 
 export const notificationsApi = {
-  list:        () => api.get<RawNotification[]>('/api/notifications').then(rows => rows.map(normalize)),
+  list:        () => api.get<RawNotification[]>('/api/notifications?scope=portal').then(rows => rows.map(normalize)),
   markRead:    (id: number) => api.post<{ ok: true }>(`/api/notifications/${id}/read`),
-  markAllRead: () => api.post<{ ok: true }>('/api/notifications/read-all'),
+  markAllRead: () => api.post<{ ok: true }>('/api/notifications/read-all?scope=portal'),
 };
