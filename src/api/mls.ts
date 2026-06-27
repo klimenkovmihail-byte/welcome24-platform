@@ -205,17 +205,25 @@ export interface PlatformPlacement {
   key: string; label: string; active: boolean; supports: boolean; ready: boolean;
   issues: { field: string; severity: string; message: string }[];
   status: string;                       // none|pending|approved|published|error|removed
-  external_url: string | null; published_until: string | null;
+  external_url: string | null; external_id: string | null; published_until: string | null;
   views: number; contacts: number; favorites: number; moderation_note: string | null;
 }
-export function getPlacements(id: number): Promise<{ platforms: PlatformPlacement[] }> {
-  return api.get<{ platforms: PlatformPlacement[] }>(`/api/mls/properties/${id}/placements`);
+export function getPlacements(id: number): Promise<{ platforms: PlatformPlacement[]; premoderation: boolean }> {
+  return api.get<{ platforms: PlatformPlacement[]; premoderation: boolean }>(`/api/mls/properties/${id}/placements`);
 }
 export function publishToPlatform(id: number, platform: string, phone?: string): Promise<{ ok: boolean; platform: string; status: string }> {
   return api.post(`/api/mls/properties/${id}/feed/${platform}`, phone ? { phone } : {});
 }
 export function unpublishFromPlatform(id: number, platform: string): Promise<{ ok: boolean }> {
   return api.del(`/api/mls/properties/${id}/feed/${platform}`);
+}
+// Подтвердить премодерацию (pending → published). Доступ: super_admin / listing_manager.
+export function approvePlatform(id: number, platform: string): Promise<{ ok: boolean; status: string }> {
+  return api.post(`/api/mls/properties/${id}/feed/${platform}/approve`, {});
+}
+// Глобальный тумблер премодерации рекламы (super_admin).
+export function setPremoderation(enabled: boolean): Promise<{ premoderation: boolean }> {
+  return api.post(`/api/mls/feed/premoderation`, { enabled });
 }
 // Синк обратной связи площадки (отчёт + статистика) → БД. Площадка-уровень (super_admin).
 export function syncPlatformFeedback(platform: string): Promise<{ ok: boolean; updated?: number; statsFor?: number; report_id?: number; reason?: string }> {

@@ -30,7 +30,7 @@ import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import PropertyForm from './PropertyForm';
 import {
-  listMlsProperties, getMlsProperty, getMlsFacets, getPlacements, publishToPlatform, unpublishFromPlatform, syncPlatformFeedback, getPropertyBuyers, updateMlsProperty, sellMlsProperty,
+  listMlsProperties, getMlsProperty, getMlsFacets, getPlacements, publishToPlatform, unpublishFromPlatform, approvePlatform, setPremoderation, syncPlatformFeedback, getPropertyBuyers, updateMlsProperty, sellMlsProperty,
   getPortalLink, issuePortalLink, revokePortalLink, getPropertyCases, createPropertyCase,
   getPropertyDocuments, openClientDocument,
   logShowing, getPropertyClaims, releaseClaim, resolveDispute,
@@ -304,7 +304,7 @@ function statusLabel(s: string): { label: string; color: string; bg: string } | 
   switch (s) {
     case 'published': return { label: 'опубликовано', color: '#22C55E', bg: 'rgba(34,197,94,0.12)' };
     case 'approved': return { label: 'одобрено', color: '#22C55E', bg: 'rgba(34,197,94,0.12)' };
-    case 'pending': return { label: 'в фиде, ждёт', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' };
+    case 'pending': return { label: 'на премодерации', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' };
     case 'error': return { label: 'ошибка', color: '#FCA5A5', bg: 'rgba(239,68,68,0.12)' };
     default: return null;
   }
@@ -315,6 +315,7 @@ function AdvertBlock({ property }: { property: MlsDetail }) {
   const [err, setErr] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const isSuper = getCurrentAgent()?.role === 'super_admin';
+  const isAdmin = isSuper || getCurrentAgent()?.role === 'listing_manager';
   const isPublished = (p: PlatformPlacement) => ['published', 'approved', 'pending'].includes(p.status);
   async function toggle(p: PlatformPlacement) {
     setBusy(p.key); setErr(null);
@@ -326,6 +327,22 @@ function AdvertBlock({ property }: { property: MlsDetail }) {
       const m = e instanceof ApiError ? (e.data as { error?: string })?.error || e.message : (e as Error)?.message;
       setErr(m || 'Не удалось изменить публикацию');
     } finally { setBusy(null); }
+  }
+  async function approve(p: PlatformPlacement) {
+    setBusy(p.key); setErr(null);
+    try { await approvePlatform(property.id, p.key); await refetch(); }
+    catch (e) {
+      const m = e instanceof ApiError ? (e.data as { error?: string })?.error || e.message : (e as Error)?.message;
+      setErr(m || 'Не удалось подтвердить');
+    } finally { setBusy(null); }
+  }
+  async function togglePremod(v: boolean) {
+    setErr(null);
+    try { await setPremoderation(v); await refetch(); }
+    catch (e) {
+      const m = e instanceof ApiError ? (e.data as { error?: string })?.error || e.message : (e as Error)?.message;
+      setErr(m || 'Не удалось переключить премодерацию');
+    }
   }
   async function doSync() {
     setSyncing(true); setErr(null);
@@ -345,10 +362,18 @@ function AdvertBlock({ property }: { property: MlsDetail }) {
         <CampaignRoundedIcon sx={{ fontSize: 18, color: GOLD }} />
         <Typography sx={{ color: GOLD, fontWeight: 700, fontSize: 13 }}>Реклама на площадках</Typography>
         {isSuper && (
+          <Tooltip title="Премодерация: при включении пометка объекта встаёт «на премодерации» и попадает в фид только после подтверждения админом">
+            <Button size="small" onClick={() => togglePremod(!data.premoderation)}
+              sx={{ ml: 'auto', textTransform: 'none', fontSize: 11, minWidth: 0, color: data.premoderation ? '#F59E0B' : '#64748B' }}>
+              Премодерация: {data.premoderation ? 'вкл' : 'выкл'}
+            </Button>
+          </Tooltip>
+        )}
+        {isSuper && (
           <Tooltip title="Подтянуть с Авито статусы, ссылки и статистику ВСЕХ объявлений">
             <Button size="small" disabled={syncing} onClick={doSync}
               startIcon={syncing ? <CircularProgress size={12} sx={{ color: '#94A3B8' }} /> : <RefreshRoundedIcon sx={{ fontSize: 15 }} />}
-              sx={{ ml: 'auto', color: '#94A3B8', textTransform: 'none', fontSize: 11, minWidth: 0 }}>{syncing ? 'Обновляю…' : 'Обновить'}</Button>
+              sx={{ ml: 0, color: '#94A3B8', textTransform: 'none', fontSize: 11, minWidth: 0 }}>{syncing ? 'Обновляю…' : 'Обновить'}</Button>
           </Tooltip>
         )}
       </Stack>
@@ -365,6 +390,7 @@ function AdvertBlock({ property }: { property: MlsDetail }) {
               ) : (
                 <>
                   {chip && <Chip label={chip.label} size="small" sx={{ height: 20, fontSize: 11, background: chip.bg, color: chip.color, fontWeight: 700 }} />}
+                  {p.external_id && <Typography sx={{ color: '#94A3B8', fontSize: 11 }}>№{p.external_id}</Typography>}
                   {!published && !p.ready && (
                     <Tooltip title={p.issues.filter((i) => i.severity === 'block').map((i) => i.message).join('; ')}>
                       <Typography sx={{ color: '#F59E0B', fontSize: 12 }}>не готов — чего не хватает ⓘ</Typography>
@@ -374,7 +400,11 @@ function AdvertBlock({ property }: { property: MlsDetail }) {
                   {p.external_url && <Link href={p.external_url} target="_blank" rel="noreferrer" sx={{ color: GOLD, fontSize: 12, fontWeight: 600 }}>объявление ↗</Link>}
                   {(p.views > 0 || p.contacts > 0 || p.favorites > 0) && <Typography sx={{ color: '#64748B', fontSize: 11 }}>👁 {p.views} · ☎ {p.contacts} · ♡ {p.favorites}</Typography>}
                   {p.published_until && <Typography sx={{ color: '#64748B', fontSize: 11 }}>до {p.published_until.slice(0, 10).split('-').reverse().slice(0, 2).join('.')}</Typography>}
-                  <Box sx={{ ml: 'auto' }}>
+                  <Box sx={{ ml: 'auto', display: 'flex', gap: 0.5 }}>
+                    {p.status === 'pending' && isAdmin && (
+                      <Button size="small" disabled={busy === p.key} onClick={() => approve(p)}
+                        sx={{ textTransform: 'none', fontSize: 12, color: '#22C55E', minWidth: 'auto' }}>Подтвердить</Button>
+                    )}
                     <Button size="small" disabled={busy === p.key || (!published && !p.ready)} onClick={() => toggle(p)}
                       sx={{ textTransform: 'none', fontSize: 12, color: published ? '#FCA5A5' : GOLD, minWidth: 'auto' }}>
                       {busy === p.key ? '…' : published ? 'Снять' : 'Опубликовать'}
