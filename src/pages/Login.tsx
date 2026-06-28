@@ -251,7 +251,7 @@ export default function Login() {
                   onClick={() => setForgotOpen(true)}
                   sx={{ color: '#C9A84C', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
                 >
-                  Первый вход · Забыли пароль?
+                  Забыли пароль?
                 </Typography>
               </Box>
 

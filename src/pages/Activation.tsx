@@ -18,6 +18,22 @@ const EXP_OPTIONS = [
   { v: 0, label: 'Нет опыта' }, { v: 1, label: 'Меньше года' }, { v: 2, label: '1–3 года' },
   { v: 4, label: '3–5 лет' }, { v: 6, label: 'Более 5 лет' },
 ];
+// Тёмная премиум-тема (как на логине): золото на тёмно-синем.
+const paperSx = {
+  background: 'linear-gradient(135deg, rgba(15,22,41,0.98) 0%, rgba(11,16,30,0.99) 100%)',
+  backgroundImage: 'none', border: '1px solid rgba(201,168,76,0.18)', borderRadius: 3, color: '#F1F5F9',
+  boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
+};
+const fieldSx = {
+  '& .MuiInputBase-input': { color: '#F1F5F9' },
+  '& .MuiInputLabel-root': { color: '#94A3B8' },
+  '& .MuiInputLabel-root.Mui-focused': { color: GOLD },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(201,168,76,0.22)' },
+  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(201,168,76,0.45)' },
+  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: GOLD },
+  '& .MuiFormHelperText-root': { color: '#64748B' },
+  '& .MuiSelect-icon, & .MuiSvgIcon-root': { color: '#94A3B8' },
+};
 const errOf = (e: unknown) => (e instanceof ApiError ? ((e.data as { error?: string })?.error || e.message) : (e as Error)?.message) || 'Что-то пошло не так';
 
 type Step = 'phone' | 'call' | 'form' | 'recover';
@@ -106,7 +122,7 @@ export default function Activation({ open, onClose, onDone }: { open: boolean; o
     } catch (e) { setErr(errOf(e)); } finally { setBusy(false); }
   }
 
-  const fld = { fullWidth: true, size: 'small' as const };
+  const fld = { fullWidth: true, size: 'small' as const, sx: fieldSx };
   const pwdHint = 'Минимум 8 символов, буква и цифра';
   const pwdAdorn = {
     endAdornment: (
@@ -117,10 +133,10 @@ export default function Activation({ open, onClose, onDone }: { open: boolean; o
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth slotProps={{ paper: { sx: paperSx } }}>
       <DialogContent sx={{ p: 3 }}>
-        <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#0f172a', mb: 0.5 }}>
-          {step === 'recover' ? 'Восстановление пароля' : 'Первый вход в портал'}
+        <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#F1F5F9', mb: 0.5 }}>
+          {step === 'recover' ? 'Восстановление пароля' : 'Доступ к порталу'}
         </Typography>
         {err && <Alert severity="error" sx={{ my: 1.5 }}>{err}</Alert>}
 
@@ -137,8 +153,8 @@ export default function Activation({ open, onClose, onDone }: { open: boolean; o
         {step === 'call' && (
           <Stack spacing={2} sx={{ mt: 1.5, alignItems: 'center', textAlign: 'center' }}>
             <PhoneInTalkRoundedIcon sx={{ fontSize: 40, color: GOLD }} />
-            <Typography sx={{ color: '#334155', fontSize: 14 }}>Позвоните <b>с этого же телефона</b> на номер (звонок бесплатный, сбросится сам):</Typography>
-            <Typography sx={{ fontWeight: 800, fontSize: 22, color: '#0f172a', letterSpacing: 1 }}>{callPhone}</Typography>
+            <Typography sx={{ color: '#CBD5E1', fontSize: 14 }}>Позвоните <b>с этого же телефона</b> на номер (звонок бесплатный, сбросится сам):</Typography>
+            <Typography sx={{ fontWeight: 800, fontSize: 22, color: GOLD, letterSpacing: 1 }}>{callPhone}</Typography>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ color: '#64748B' }}>
               <CircularProgress size={16} /><Typography sx={{ fontSize: 13 }}>Ждём подтверждения звонка…</Typography>
             </Stack>
@@ -162,8 +178,8 @@ export default function Activation({ open, onClose, onDone }: { open: boolean; o
               <Typography sx={{ color: '#64748B', fontSize: 12, mb: 0.3 }}>Чем занимаетесь</Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0 }}>
                 {SPECS.map((s) => (
-                  <FormControlLabel key={s} sx={{ mr: 1, '& .MuiFormControlLabel-label': { fontSize: 13 } }}
-                    control={<Checkbox size="small" checked={spec.includes(s)} onChange={(e) => setSpec((cur) => e.target.checked ? [...cur, s] : cur.filter((x) => x !== s))} />} label={s} />
+                  <FormControlLabel key={s} sx={{ mr: 1, '& .MuiFormControlLabel-label': { fontSize: 13, color: '#CBD5E1' } }}
+                    control={<Checkbox size="small" sx={{ color: '#64748B', '&.Mui-checked': { color: GOLD } }} checked={spec.includes(s)} onChange={(e) => setSpec((cur) => e.target.checked ? [...cur, s] : cur.filter((x) => x !== s))} />} label={s} />
                 ))}
               </Box>
             </Box>
