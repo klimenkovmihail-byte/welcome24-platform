@@ -19,11 +19,18 @@ const EXP_OPTIONS = [
   { v: 4, label: '3–5 лет' }, { v: 6, label: 'Более 5 лет' },
 ];
 // Тёмная премиум-тема (как на логине): золото на тёмно-синем.
+// Фон НЕПРОЗРАЧНЫЙ: форма логина под диалогом не должна просвечивать сквозь paper.
 const paperSx = {
-  background: 'linear-gradient(135deg, rgba(15,22,41,0.98) 0%, rgba(11,16,30,0.99) 100%)',
+  background: 'linear-gradient(135deg, #0F1629 0%, #0B101E 100%)',
   backgroundImage: 'none', border: '1px solid rgba(201,168,76,0.18)', borderRadius: 3, color: '#F1F5F9',
   boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
 };
+// Backdrop диалога в MUI идёт с z-index:-1. На странице логина карточка стеклянная
+// (backdrop-filter: blur), и Chromium некорректно компонует отрицательный z-слой
+// относительно этого слоя — затемнение проваливалось ПОД форму логина, диалог наезжал
+// на неё (две формы накладывались). Поднимаем backdrop в нормальный слой (zIndex:0,
+// он остаётся ниже контейнера/paper) и затемняем плотнее.
+const backdropSx = { zIndex: 0, backgroundColor: 'rgba(2,4,10,0.92)', backdropFilter: 'blur(6px)' };
 const fieldSx = {
   '& .MuiInputBase-input': { color: '#F1F5F9' },
   '& .MuiInputLabel-root': { color: '#94A3B8' },
@@ -133,7 +140,7 @@ export default function Activation({ open, onClose, onDone }: { open: boolean; o
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth slotProps={{ paper: { sx: paperSx } }}>
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth slotProps={{ paper: { sx: paperSx }, backdrop: { sx: backdropSx } }}>
       <DialogContent sx={{ p: 3 }}>
         <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#F1F5F9', mb: 0.5 }}>
           {step === 'recover' ? 'Восстановление пароля' : 'Доступ к порталу'}
