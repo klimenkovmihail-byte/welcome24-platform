@@ -63,7 +63,7 @@ export default function Activation({ open, onClose, onDone }: { open: boolean; o
         return;
       }
       setCallPhone(r.call_phone_pretty || r.call_phone || ''); setPendingToken(r.pendingToken || ''); setStep('call');
-      stopPoll(); pollRef.current = window.setInterval(pollCall, 3000); pollCall();
+      stopPoll(); pollRef.current = window.setInterval(pollCall, 4000); pollCall();
     } catch (e) { setErr(errOf(e)); } finally { setBusy(false); }
   }
 
