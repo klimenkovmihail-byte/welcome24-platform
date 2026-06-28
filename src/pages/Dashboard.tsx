@@ -20,6 +20,7 @@ import { useDeals, useTeam, useSharePackets, useShareQuotes, useSettings } from 
 import type { TeamLevelStats, MarketingPlanLevel } from '../api/team';
 import { getCurrentAgent } from '../auth/auth';
 import { ErrorState, PageSkeleton } from '../components/States';
+import OnboardingCard from '../components/OnboardingCard';
 import type { Deal, ShareQuote, SharePacket } from '../types/api';
 
 // Считает мой пассивный доход с команды по MLM-плану — идентично логике
@@ -305,6 +306,9 @@ export default function Dashboard() {
 
   return (
     <Box>
+      {/* Онбординг нового агента — приветствие основателя + чек-лист (виден только новичку) */}
+      <OnboardingCard />
+
       {/* Welcome banner + achievements */}
       <motion.div {...fadeIn(0)}>
         <Box sx={{

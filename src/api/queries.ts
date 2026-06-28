@@ -10,6 +10,7 @@ import { ratingApi } from './rating';
 import { agentsApi } from './agents';
 import { backofficeApi } from './backoffice';
 import { settingsApi } from './settings';
+import { onboardingApi } from './onboarding';
 
 export const useDeals = (agentId?: number) =>
   useQuery({ queryKey: ['deals', agentId ?? 'me'], queryFn: () => dealsApi.list({ agentId }) });
@@ -35,3 +36,7 @@ export const useBackoffice = () =>
 // Глобальные настройки компании (пороги уровней комиссии и пр.) — единый источник с бэка.
 export const useSettings = () =>
   useQuery({ queryKey: ['settings'], queryFn: () => settingsApi.get() });
+
+// Онбординг нового агента: показывать ли блок приветствия + статусы шагов чек-листа.
+export const useOnboarding = () =>
+  useQuery({ queryKey: ['onboarding'], queryFn: () => onboardingApi.get() });
