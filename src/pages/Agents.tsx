@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useDeferredValue } from 'react';
 import {
   Box, Card, CardContent, Typography, Chip, Avatar, Grid, TextField, InputAdornment,
   Select, MenuItem, alpha, IconButton, Tooltip, Dialog, DialogContent, Divider, Button, Rating,
-  CircularProgress, Alert,
+  CircularProgress, Alert, Autocomplete,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PageSkeleton } from '../components/States';
@@ -45,7 +45,7 @@ function pluralDeals(n: number): string {
   return 'сделок';
 }
 
-type BaseRecord = AgentBaseRecord & { reviewsCount: number };
+type BaseRecord = AgentBaseRecord & { reviewsCount: number; joinDate: string };
 
 /** Адаптер: бэковый Agent → формат базы агентов на портале. */
 function toBaseRecord(a: Agent): BaseRecord {
@@ -65,6 +65,7 @@ function toBaseRecord(a: Agent): BaseRecord {
     rating: a.rating,
     reviews: [], // загружаются лениво при открытии карточки
     reviewsCount: a.reviewsCount,
+    joinDate: a.joinDate,
   };
 }
 
@@ -182,11 +183,28 @@ export default function Agents() {
   const deferredSearch = useDeferredValue(search);
   const filtered = useMemo(() => {
     const q = deferredSearch.toLowerCase();
-    return agentsBase.filter(a =>
+    const list = agentsBase.filter(a =>
       (a.name.toLowerCase().includes(q) || a.city.toLowerCase().includes(q) || [...a.primaryDir, ...a.secondaryDir].some(d => d.toLowerCase().includes(q))) &&
       (city === 'Все города' || a.city === city) &&
       (direction === 'Все направления' || [...a.primaryDir, ...a.secondaryDir].includes(direction))
     );
+    // Ранжирование (решение CEO): по ГОДУ прихода (раньше пришёл — выше), внутри одного года —
+    // высокооценённые (≥3 оценок) сверху по рейтингу; агенты с <3 оценок без оценочного ранга, ниже.
+    const MIN_RATED = 3;
+    const yearOf = (d?: string) => { const y = d ? new Date(d).getFullYear() : NaN; return Number.isFinite(y) ? y : 9999; };
+    return [...list].sort((a, b) => {
+      const ya = yearOf(a.joinDate), yb = yearOf(b.joinDate);
+      if (ya !== yb) return ya - yb;                                  // старший год выше
+      const ra = a.reviewsCount >= MIN_RATED, rb = b.reviewsCount >= MIN_RATED;
+      if (ra !== rb) return ra ? -1 : 1;                              // оценённые (≥3) выше неоценённых
+      if (ra && rb) {
+        if (b.rating !== a.rating) return b.rating - a.rating;        // выше оценка — выше
+        if (b.reviewsCount !== a.reviewsCount) return b.reviewsCount - a.reviewsCount;
+      }
+      const da = a.joinDate || '', dbb = b.joinDate || '';
+      if (da !== dbb) return da < dbb ? -1 : 1;                       // тай-брейк: раньше по дате
+      return a.name.localeCompare(b.name, 'ru');
+    });
   }, [agentsBase, deferredSearch, city, direction]);
 
   // Пагинация: не рендерим все ~800 карточек разом. Сброс при смене фильтра.
@@ -249,9 +267,23 @@ export default function Agents() {
           sx={{ flex: 1, minWidth: 240 }}
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchRoundedIcon sx={{ color: '#64748B', fontSize: 20 }} /></InputAdornment> } }}
         />
-        <Select value={city} onChange={e => setCity(e.target.value)} size="small" sx={{ minWidth: 180, ...selectSx }}>
-          {cities.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-        </Select>
+        <Autocomplete
+          value={city}
+          onChange={(_, v) => setCity(v || 'Все города')}
+          options={cities}
+          size="small"
+          disableClearable
+          sx={{ minWidth: 200 }}
+          slotProps={{ paper: { sx: { background: '#0F1629', color: '#F1F5F9', border: '1px solid rgba(201,168,76,0.2)' } } }}
+          renderInput={(params) => (
+            <TextField {...params} placeholder="Город (введите название)" sx={{
+              '& .MuiOutlinedInput-root': { color: '#F1F5F9', background: 'rgba(15,22,41,0.6)' },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(201,168,76,0.2)' },
+              '& .MuiInputBase-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(201,168,76,0.4)' },
+              '& .MuiSvgIcon-root': { color: '#94A3B8' },
+            }} />
+          )}
+        />
         <Select value={direction} onChange={e => setDirection(e.target.value)} size="small" sx={{ minWidth: 200, ...selectSx }}>
           {directions.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
         </Select>
