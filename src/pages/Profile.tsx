@@ -148,6 +148,7 @@ export default function Profile() {
   const [form, setForm] = useState({
     name: '', email: '', phone: '', city: '',
     specialization: [] as string[],
+    citiesExtra: [] as string[],
     experienceYears: '',
     bio: '',
     photo: '' as string | null,
@@ -203,6 +204,8 @@ export default function Profile() {
       phone: currentUser.phone || '',
       city: currentUser.city || '',
       specialization: currentUser.specialization || [],
+      citiesExtra: (currentUser as { citiesExtra?: string[]; cities_extra?: string[] }).citiesExtra
+        ?? (currentUser as { cities_extra?: string[] }).cities_extra ?? [],
       experienceYears: String((currentUser as { experience_years?: number; experienceYears?: number }).experience_years
         ?? (currentUser as { experienceYears?: number }).experienceYears ?? ''),
       bio: (currentUser as { bio?: string }).bio || '',
@@ -318,6 +321,7 @@ export default function Profile() {
         bio: form.bio,
         experienceYears: Math.max(0, parseInt(form.experienceYears, 10) || 0),
         specialization: form.specialization,
+        citiesExtra: form.citiesExtra,
         socials: {
           telegram: form.telegram || undefined,
           telegramChannel: form.telegramChannel || undefined,
@@ -484,7 +488,7 @@ export default function Profile() {
                 {[
                   { icon: <EmailRoundedIcon sx={{ fontSize: 16 }} />, value: currentUser.email },
                   { icon: <PhoneRoundedIcon sx={{ fontSize: 16 }} />, value: currentUser.phone },
-                  { icon: <LocationOnRoundedIcon sx={{ fontSize: 16 }} />, value: currentUser.city },
+                  { icon: <LocationOnRoundedIcon sx={{ fontSize: 16 }} />, value: [currentUser.city, ...((currentUser as { citiesExtra?: string[] }).citiesExtra || [])].filter(Boolean).join(', ') },
                   { icon: <CalendarTodayRoundedIcon sx={{ fontSize: 16 }} />, value: currentUser.joinDate ? `В Welcome 24 с ${new Date(currentUser.joinDate).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })} · ${daysAt} дн.` : 'Дата регистрации уточняется' },
                 ].map(({ icon, value }) => (
                   <Box key={value} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5, px: 1 }}>
@@ -960,7 +964,13 @@ export default function Profile() {
               <TextField fullWidth size="small" label="Email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
               <TextField fullWidth size="small" label="Телефон" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
             </Box>
-            <TextField fullWidth size="small" label="Город" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
+            <TextField fullWidth size="small" label="Основной город" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField fullWidth size="small" label="Доп. город (необяз.)" value={form.citiesExtra[0] || ''}
+                onChange={e => setForm(f => { const c = [f.citiesExtra[0] || '', f.citiesExtra[1] || '']; c[0] = e.target.value; return { ...f, citiesExtra: c }; })} />
+              <TextField fullWidth size="small" label="Ещё город (необяз.)" value={form.citiesExtra[1] || ''}
+                onChange={e => setForm(f => { const c = [f.citiesExtra[0] || '', f.citiesExtra[1] || '']; c[1] = e.target.value; return { ...f, citiesExtra: c }; })} />
+            </Box>
             <TextField fullWidth size="small" type="number" label="Опыт работы (лет)" value={form.experienceYears}
               onChange={e => setForm(f => ({ ...f, experienceYears: e.target.value }))}
               slotProps={{ htmlInput: { min: 0, max: 60 } }}

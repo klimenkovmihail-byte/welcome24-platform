@@ -62,6 +62,7 @@ export interface Agent {
 
   // Agency
   specialization: string[];
+  citiesExtra: string[];
   socials: AgentSocials;
 
   // Public rating

@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Dialog, DialogContent, Typography, TextField, Button, Stack, Box, Alert,
-  CircularProgress, MenuItem, FormControlLabel, Checkbox, IconButton, InputAdornment,
+  CircularProgress, FormControlLabel, Checkbox, IconButton, InputAdornment,
 } from '@mui/material';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
@@ -14,10 +14,6 @@ import { applySession } from '../auth/auth';
 
 const GOLD = '#C9A84C';
 const SPECS = ['Первичная', 'Вторичная', 'Аренда', 'Коммерческая', 'Загородная'];
-const EXP_OPTIONS = [
-  { v: 0, label: 'Нет опыта' }, { v: 1, label: 'Меньше года' }, { v: 2, label: '1–3 года' },
-  { v: 4, label: '3–5 лет' }, { v: 6, label: 'Более 5 лет' },
-];
 // Тёмная премиум-тема (как на логине): золото на тёмно-синем.
 // Фон НЕПРОЗРАЧНЫЙ: форма логина под диалогом не должна просвечивать сквозь paper.
 const paperSx = {
@@ -51,7 +47,6 @@ export default function Activation({ open, onClose, onDone }: { open: boolean; o
   const [err, setErr] = useState<string | null>(null);
   const [phone, setPhone] = useState('');
   const [callPhone, setCallPhone] = useState('');
-  const [pendingToken, setPendingToken] = useState('');
   const [activateToken, setActivateToken] = useState('');
   const [email, setEmail] = useState('');
   const [emailSent, setEmailSent] = useState(false);
@@ -68,6 +63,10 @@ export default function Activation({ open, onClose, onDone }: { open: boolean; o
   const [resetToken, setResetToken] = useState('');
   const [recoverHint, setRecoverHint] = useState('');
   const pollRef = useRef<number | null>(null);
+  // pendingToken держим в ref, а не в state: поллинг звонка стартует синхронно
+  // сразу после получения токена (до ре-рендера), иначе первый тик уходит с пустым
+  // токеном → бэк отвечает 401 «Сессия истекла» и сбрасывает на шаг телефона.
+  const ptRef = useRef('');
 
   const stopPoll = () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } };
   useEffect(() => () => stopPoll(), []);
@@ -85,14 +84,15 @@ export default function Activation({ open, onClose, onDone }: { open: boolean; o
         setResetToken(r.resetToken); setRecoverHint(r.email_hint || ''); if (r.debug_code) setEmailCode(r.debug_code); setStep('recover');
         return;
       }
-      setCallPhone(r.call_phone_pretty || r.call_phone || ''); setPendingToken(r.pendingToken || ''); setStep('call');
+      setCallPhone(r.call_phone_pretty || r.call_phone || ''); ptRef.current = r.pendingToken || ''; setStep('call');
       stopPoll(); pollRef.current = window.setInterval(pollCall, 4000); pollCall();
     } catch (e) { setErr(errOf(e)); } finally { setBusy(false); }
   }
 
   async function pollCall() {
     try {
-      const r = await api.post<{ confirmed?: boolean; activateToken?: string; email_prefill?: string; birth_date?: string; experience_years?: number; specialization?: string[]; city?: string; cities_extra?: string[] }>('/api/auth/activate/call-status', { pendingToken });
+      const r = await api.post<{ confirmed?: boolean; activateToken?: string; email_prefill?: string; birth_date?: string; experience_years?: number; specialization?: string[]; city?: string; cities_extra?: string[] }>('/api/auth/activate/call-status', { pendingToken: ptRef.current });
+      if (pollRef.current === null) return; // поллинг остановлен (диалог закрыт / сменили номер), пока ждали ответ — не трогаем чужую сессию
       if (r.confirmed) {
         stopPoll(); setActivateToken(r.activateToken || '');
         const pf = r.email_prefill || ''; setEmail(pf.endsWith('@activate.local') ? '' : pf);
@@ -104,7 +104,16 @@ export default function Activation({ open, onClose, onDone }: { open: boolean; o
         if (Array.isArray(r.cities_extra)) { if (r.cities_extra[0]) setCity2(r.cities_extra[0]); if (r.cities_extra[1]) setCity3(r.cities_extra[1]); }
         setStep('form');
       }
-    } catch (e) { stopPoll(); setErr(errOf(e)); setStep('phone'); }
+    } catch (e) {
+      if (pollRef.current === null) return; // поздний резолв после остановки поллинга — игнор (гонка с закрытием диалога)
+      // Транзиентный сбой (сеть/таймаут = status 0, либо 5xx при рестарте бэка на деплое) НЕ фатален:
+      // call-status — POST и не ретраится; звонок мог уже подтвердиться, поэтому просто ждём следующий тик,
+      // а не выкидываем агента обратно на ввод телефона.
+      const st = e instanceof ApiError ? e.status : -1;
+      if (st === 0 || st >= 500) return;
+      // Реальный отказ (401 невалидный токен, 410 «время вышло», прочие 4xx) — стоп и начать заново.
+      stopPoll(); setErr(errOf(e)); setStep('phone');
+    }
   }
 
   async function sendEmailCode() {
@@ -189,9 +198,7 @@ export default function Activation({ open, onClose, onDone }: { open: boolean; o
             </Stack>
             {emailSent && <TextField {...fld} label="Код из письма" value={emailCode} onChange={(e) => setEmailCode(e.target.value)} />}
             <TextField {...fld} type="date" label="Дата рождения" value={birth} onChange={(e) => setBirth(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
-            <TextField {...fld} select label="Опыт в недвижимости" value={exp} onChange={(e) => setExp(e.target.value === '' ? '' : Number(e.target.value))}>
-              {EXP_OPTIONS.map((o) => <MenuItem key={o.v} value={o.v}>{o.label}</MenuItem>)}
-            </TextField>
+            <TextField {...fld} type="number" label="Опыт работы (лет)" value={exp} onChange={(e) => setExp(e.target.value === '' ? '' : Number(e.target.value))} slotProps={{ htmlInput: { min: 0, max: 60 } }} />
             <Box>
               <Typography sx={{ color: '#64748B', fontSize: 12, mb: 0.3 }}>Чем занимаетесь</Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0 }}>

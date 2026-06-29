@@ -28,6 +28,7 @@ type RawAgent = {
   join_date: string;
   experience_years: number;
   specialization: string[];
+  cities_extra: string[];
   socials: AgentSocials;
   rating: number;
   reviews_count: number;
@@ -75,6 +76,7 @@ export function normalizeAgent(raw: RawAgent): Agent {
     yearVkd: raw.year_vkd || 0,
     yearIncome: raw.year_income || 0,
     specialization: raw.specialization || [],
+    citiesExtra: raw.cities_extra || [],
     socials: raw.socials || {},
     rating: raw.rating || 0,
     reviewsCount: raw.reviews_count || 0,
