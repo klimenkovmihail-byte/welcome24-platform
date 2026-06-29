@@ -40,6 +40,7 @@ import {
   getPropertyViewings, patchViewing,
 } from '../../api/mls';
 import { adPackagesApi, type ActivePackage } from '../../api/adPackages';
+import { AdRequestDialog } from '../../pages/AdRequests';
 import { ApiError } from '../../api/apiClient';
 import { agentsApi } from '../../api/agents';
 import { ErrorState, PageSkeleton } from '../States';
@@ -321,15 +322,18 @@ function AdvertBlock({ property }: { property: MlsDetail }) {
   const [pubQuota, setPubQuota] = useState('');
   const [pubBusy, setPubBusy] = useState(false);
   const [pubErr, setPubErr] = useState<string | null>(null);
-  useEffect(() => { adPackagesApi.myQuotas().then(setQuotas).catch(() => setQuotas([])); }, []);
+  const [reqOpen, setReqOpen] = useState(false);   // диалог «Подать заявку на рекламу» (для агента)
+  const isSuper = getCurrentAgent()?.role === 'super_admin';
+  const isAdmin = isSuper || getCurrentAgent()?.role === 'listing_manager';
+  // Квоты нужны только админу (ручная публикация со списанием). Агент квоту не списывает —
+  // он подаёт заявку в отдел рекламы, который списывает квоту сам при «Готово».
+  useEffect(() => { if (isAdmin) adPackagesApi.myQuotas().then(setQuotas).catch(() => setQuotas([])); }, [isAdmin]);
   const quotaOptionsFor = (platformKey: string) => quotas
     .filter((q) => q.platform === platformKey)
     .flatMap((q) => q.items.filter((it) => it.remaining > 0).map((it) => ({
       value: `${q.entry_id}:${it.category_key}`,
       label: `${q.city} · ${it.category_label} — осталось ${it.remaining}`,
     })));
-  const isSuper = getCurrentAgent()?.role === 'super_admin';
-  const isAdmin = isSuper || getCurrentAgent()?.role === 'listing_manager';
   const isPublished = (p: PlatformPlacement) => ['published', 'approved', 'pending'].includes(p.status);
   async function unpublish(p: PlatformPlacement) {
     setBusy(p.key); setErr(null);
@@ -423,9 +427,13 @@ function AdvertBlock({ property }: { property: MlsDetail }) {
                 <Typography sx={{ color: '#94A3B8', fontSize: 12 }}>пока только квартиры на продажу</Typography>
               ) : (
                 <>
-                  {chip && <Chip label={chip.label} size="small" sx={{ height: 20, fontSize: 11, background: chip.bg, color: chip.color, fontWeight: 700 }} />}
+                  {/* Витрина статуса: Опубликовано / В обработке / Не размещён (для всех ролей). */}
+                  {chip
+                    ? <Chip label={chip.label} size="small" sx={{ height: 20, fontSize: 11, background: chip.bg, color: chip.color, fontWeight: 700 }} />
+                    : <Chip label="не размещён" size="small" sx={{ height: 20, fontSize: 11, background: 'rgba(148,163,184,0.14)', color: '#94A3B8', fontWeight: 700 }} />}
                   {p.external_id && <Typography sx={{ color: '#94A3B8', fontSize: 11 }}>№{p.external_id}</Typography>}
-                  {!published && !p.ready && (
+                  {/* «не готов» — только админу (агент готовность объекта не правит здесь). */}
+                  {isAdmin && !published && !p.ready && (
                     <Tooltip title={p.issues.filter((i) => i.severity === 'block').map((i) => i.message).join('; ')}>
                       <Typography sx={{ color: '#F59E0B', fontSize: 12 }}>не готов — чего не хватает ⓘ</Typography>
                     </Tooltip>
@@ -435,16 +443,19 @@ function AdvertBlock({ property }: { property: MlsDetail }) {
                   {(p.views > 0 || p.contacts > 0 || p.favorites > 0) && <Typography sx={{ color: '#64748B', fontSize: 11 }}>👁 {p.views} · ☎ {p.contacts} · ♡ {p.favorites}</Typography>}
                   {p.published_until && <Typography sx={{ color: '#64748B', fontSize: 11 }}>до {p.published_until.slice(0, 10).split('-').reverse().slice(0, 2).join('.')}</Typography>}
                   {p.source && <Typography sx={{ color: '#64748B', fontSize: 11 }}>{p.source === 'package' ? 'из пакета' : 'со счёта'}</Typography>}
-                  <Box sx={{ ml: 'auto', display: 'flex', gap: 0.5 }}>
-                    {p.status === 'pending' && isAdmin && (
-                      <Button size="small" disabled={busy === p.key} onClick={() => approve(p)}
-                        sx={{ textTransform: 'none', fontSize: 12, color: '#22C55E', minWidth: 'auto' }}>Подтвердить</Button>
-                    )}
-                    <Button size="small" disabled={busy === p.key || (!published && !p.ready)} onClick={() => (published ? unpublish(p) : openPublish(p))}
-                      sx={{ textTransform: 'none', fontSize: 12, color: published ? '#FCA5A5' : GOLD, minWidth: 'auto' }}>
-                      {busy === p.key ? '…' : published ? 'Снять' : 'Опубликовать'}
-                    </Button>
-                  </Box>
+                  {/* Управление публикацией — только листинг-менеджеру/админу. Агент НЕ публикует сам. */}
+                  {isAdmin && (
+                    <Box sx={{ ml: 'auto', display: 'flex', gap: 0.5 }}>
+                      {p.status === 'pending' && (
+                        <Button size="small" disabled={busy === p.key} onClick={() => approve(p)}
+                          sx={{ textTransform: 'none', fontSize: 12, color: '#22C55E', minWidth: 'auto' }}>Подтвердить</Button>
+                      )}
+                      <Button size="small" disabled={busy === p.key || (!published && !p.ready)} onClick={() => (published ? unpublish(p) : openPublish(p))}
+                        sx={{ textTransform: 'none', fontSize: 12, color: published ? '#FCA5A5' : GOLD, minWidth: 'auto' }}>
+                        {busy === p.key ? '…' : published ? 'Снять' : 'Опубликовать'}
+                      </Button>
+                    </Box>
+                  )}
                 </>
               )}
             </Box>
@@ -457,9 +468,27 @@ function AdvertBlock({ property }: { property: MlsDetail }) {
           </Box>
         )}
       </Stack>
-      <Typography sx={{ color: '#64748B', fontSize: 11, mt: 1 }}>
-        Площадка забирает фид по расписанию — после публикации объявление появляется в течение ~часа.
-      </Typography>
+      {/* Агент: подаёт заявку в отдел рекламы (из пакета / разовое) с предзаполненным № объекта. */}
+      {!isAdmin && (
+        <Box sx={{ mt: 1.25 }}>
+          <Button size="small" variant="contained" startIcon={<CampaignRoundedIcon sx={{ fontSize: 16 }} />} onClick={() => setReqOpen(true)}
+            sx={{ background: GOLD, color: '#0B0F19', fontWeight: 700, textTransform: 'none', '&:hover': { background: '#B8973F' } }}>
+            Подать заявку на рекламу
+          </Button>
+          <Typography sx={{ color: '#64748B', fontSize: 11, mt: 0.75 }}>
+            Отдел рекламы разместит объект на площадках (из пакета или разово) и спишет квоту при готовности.
+          </Typography>
+        </Box>
+      )}
+      {isAdmin && (
+        <Typography sx={{ color: '#64748B', fontSize: 11, mt: 1 }}>
+          Площадка забирает фид по расписанию — после публикации объявление появляется в течение ~часа.
+        </Typography>
+      )}
+      {reqOpen && (
+        <AdRequestDialog presetObjectRef={String(property.id)} onClose={() => setReqOpen(false)}
+          onCreated={() => { /* размещение появится после обработки отделом рекламы */ }} />
+      )}
       <Dialog open={!!pubFor} onClose={() => setPubFor(null)} maxWidth="xs" fullWidth>
         <DialogContent>
           <Typography sx={{ fontWeight: 700, fontSize: 15, mb: 1.5 }}>Опубликовать на «{pubFor?.label}»</Typography>
