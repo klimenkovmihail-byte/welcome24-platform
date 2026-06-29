@@ -93,7 +93,7 @@ export default function Activation({ open, onClose, onDone }: { open: boolean; o
   async function pollCall() {
     try {
       const r = await api.post<{ confirmed?: boolean; activateToken?: string; email_prefill?: string }>('/api/auth/activate/call-status', { pendingToken });
-      if (r.confirmed) { stopPoll(); setActivateToken(r.activateToken || ''); setEmail(r.email_prefill || ''); setStep('form'); }
+      if (r.confirmed) { stopPoll(); setActivateToken(r.activateToken || ''); const pf = r.email_prefill || ''; setEmail(pf.endsWith('@activate.local') ? '' : pf); setStep('form'); }
     } catch (e) { stopPoll(); setErr(errOf(e)); setStep('phone'); }
   }
 
@@ -129,7 +129,8 @@ export default function Activation({ open, onClose, onDone }: { open: boolean; o
     } catch (e) { setErr(errOf(e)); } finally { setBusy(false); }
   }
 
-  const fld = { fullWidth: true, size: 'small' as const, sx: fieldSx };
+  // autoComplete='off' по умолчанию — чтобы браузер не вписывал сохранённый email/пароль в города и пр.
+  const fld = { fullWidth: true, size: 'small' as const, sx: fieldSx, autoComplete: 'off' };
   const pwdHint = 'Минимум 8 символов, буква и цифра';
   const pwdAdorn = {
     endAdornment: (
@@ -195,8 +196,8 @@ export default function Activation({ open, onClose, onDone }: { open: boolean; o
               <TextField {...fld} label="Доп. город (необяз.)" value={city2} onChange={(e) => setCity2(e.target.value)} />
               <TextField {...fld} label="Ещё город (необяз.)" value={city3} onChange={(e) => setCity3(e.target.value)} />
             </Stack>
-            <TextField {...fld} type={showPwd ? 'text' : 'password'} label="Пароль" value={pwd} onChange={(e) => setPwd(e.target.value)} helperText={pwdHint} slotProps={{ input: pwdAdorn }} />
-            <TextField {...fld} type={showPwd ? 'text' : 'password'} label="Повторите пароль" value={pwd2} onChange={(e) => setPwd2(e.target.value)} />
+            <TextField {...fld} autoComplete="new-password" type={showPwd ? 'text' : 'password'} label="Пароль" value={pwd} onChange={(e) => setPwd(e.target.value)} helperText={pwdHint} slotProps={{ input: pwdAdorn }} />
+            <TextField {...fld} autoComplete="new-password" type={showPwd ? 'text' : 'password'} label="Повторите пароль" value={pwd2} onChange={(e) => setPwd2(e.target.value)} />
             <Button variant="contained" disabled={busy || !emailSent || !emailCode.trim() || !pwd} onClick={complete} sx={{ py: 1.2, fontWeight: 700, background: GOLD, '&:hover': { background: GOLD } }}>
               {busy ? <CircularProgress size={20} /> : 'Завершить и войти'}
             </Button>
