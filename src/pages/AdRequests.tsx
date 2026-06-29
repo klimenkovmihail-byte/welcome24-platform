@@ -202,13 +202,14 @@ export function CreateDialog({ meta, allowedKinds, presetKind, presetObjectRef, 
   // pkgEntryId+pkgCategoryKey; площадка берётся из пакета (привязана к виду). Предупреждаем, если квоты нет.
   const [packs, setPacks] = useState<ActivePackage[]>([]);
   const [packsLoading, setPacksLoading] = useState(false);
+  const [packsLoaded, setPacksLoaded] = useState(false);   // грузим квоты ОДИН раз (даже если []); иначе при пустом ответе цикл
   const [pkgSel, setPkgSel] = useState('');   // "entryId:categoryKey"
   const isFromPackage = kind === 'from_package';
   useEffect(() => {
-    if (!isFromPackage || packs.length || packsLoading) return;
+    if (!isFromPackage || packsLoaded || packsLoading) return;
     setPacksLoading(true);
-    adPackagesApi.myQuotas().then(setPacks).catch(() => setPacks([])).finally(() => setPacksLoading(false));
-  }, [isFromPackage, packs.length, packsLoading]);
+    adPackagesApi.myQuotas().then(setPacks).catch(() => setPacks([])).finally(() => { setPacksLoaded(true); setPacksLoading(false); });
+  }, [isFromPackage, packsLoaded, packsLoading]);
   // Все виды из действующих пакетов (и с остатком, и без — чтобы показать предупреждение при выборе нулевого).
   const pkgOptions = useMemo(() => packs.flatMap(p => p.items.map(it => ({
     value: `${p.entry_id}:${it.category_key}`,
