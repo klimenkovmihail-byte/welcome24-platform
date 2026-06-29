@@ -92,8 +92,18 @@ export default function Activation({ open, onClose, onDone }: { open: boolean; o
 
   async function pollCall() {
     try {
-      const r = await api.post<{ confirmed?: boolean; activateToken?: string; email_prefill?: string }>('/api/auth/activate/call-status', { pendingToken });
-      if (r.confirmed) { stopPoll(); setActivateToken(r.activateToken || ''); const pf = r.email_prefill || ''; setEmail(pf.endsWith('@activate.local') ? '' : pf); setStep('form'); }
+      const r = await api.post<{ confirmed?: boolean; activateToken?: string; email_prefill?: string; birth_date?: string; experience_years?: number; specialization?: string[]; city?: string; cities_extra?: string[] }>('/api/auth/activate/call-status', { pendingToken });
+      if (r.confirmed) {
+        stopPoll(); setActivateToken(r.activateToken || '');
+        const pf = r.email_prefill || ''; setEmail(pf.endsWith('@activate.local') ? '' : pf);
+        // Предзаполнение профиля тем, что админ задал при создании (агент видит и может скорректировать).
+        if (r.birth_date) setBirth(r.birth_date);
+        if (r.experience_years && r.experience_years > 0) setExp(r.experience_years);
+        if (Array.isArray(r.specialization) && r.specialization.length) setSpec(r.specialization);
+        if (r.city) setCity(r.city);
+        if (Array.isArray(r.cities_extra)) { if (r.cities_extra[0]) setCity2(r.cities_extra[0]); if (r.cities_extra[1]) setCity3(r.cities_extra[1]); }
+        setStep('form');
+      }
     } catch (e) { stopPoll(); setErr(errOf(e)); setStep('phone'); }
   }
 
