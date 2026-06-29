@@ -23,6 +23,7 @@ import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import TelegramIcon from '@mui/icons-material/Telegram';
+import InstallMobileRoundedIcon from '@mui/icons-material/InstallMobileRounded';
 import InstagramIcon from '@mui/icons-material/Instagram';
 import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 import ChatRoundedIcon from '@mui/icons-material/ChatRounded';
@@ -744,6 +745,33 @@ export default function Profile() {
               </CardContent>
             </Card>
             </>)}
+
+            {/* Мобильное приложение (PWA — добавить на главный экран) */}
+            <Card sx={{ mb: 3 }}>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                  <Box sx={{ width: 36, height: 36, borderRadius: 2, background: 'rgba(201,168,76,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <InstallMobileRoundedIcon sx={{ color: '#C9A84C', fontSize: 20 }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#F1F5F9' }}>Мобильное приложение</Typography>
+                    <Typography variant="caption" sx={{ color: '#64748B' }}>Добавьте портал на главный экран — откроется как приложение, без браузера</Typography>
+                  </Box>
+                </Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.2 }}>
+                  <Box sx={{ p: 1.4, borderRadius: 2, background: 'rgba(201,168,76,0.06)', border: '1px dashed rgba(201,168,76,0.25)' }}>
+                    <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', lineHeight: 1.6 }}>
+                      <b style={{ color: '#E2E8F0' }}>iPhone (Safari):</b> кнопка «Поделиться» внизу экрана → «На экран „Домой“» → «Добавить». Иконка Welcome 24 появится на рабочем столе.
+                    </Typography>
+                  </Box>
+                  <Box sx={{ p: 1.4, borderRadius: 2, background: 'rgba(201,168,76,0.06)', border: '1px dashed rgba(201,168,76,0.25)' }}>
+                    <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', lineHeight: 1.6 }}>
+                      <b style={{ color: '#E2E8F0' }}>Android (Chrome):</b> меню «⋮» вверху справа → «Установить приложение» (или «Добавить на главный экран»).
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
 
             {/* Support */}
             <Card>

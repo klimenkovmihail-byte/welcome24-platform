@@ -289,9 +289,6 @@ export default function Agents() {
         </Select>
       </Box>
 
-      <Typography variant="caption" sx={{ color: '#64748B', mb: 2, display: 'block' }}>
-        Найдено агентов: <b style={{ color: '#C9A84C' }}>{filtered.length}</b> из {agentsBase.length}
-      </Typography>
 
       {loading && (
         <PageSkeleton />
