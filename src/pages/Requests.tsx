@@ -69,12 +69,9 @@ const SECTIONS: CardMeta[] = [
 
 // Внутри «Рекламы» — плитки по типам заявок (разделено: реклама объектов vs прикрепление).
 const AD_SECTIONS: CardMeta[] = [
-  { key: 'go-quota', label: 'Разовое размещение объекта', color: '#C9A84C', icon: <ReceiptLongRoundedIcon sx={{ fontSize: 32 }} />,
-    description: 'Заказ и оплата размещения конкретного объекта на площадке.' },
-  { key: 'go-from-package', label: 'Реклама объекта из пакета', color: '#F59E0B', icon: <Inventory2RoundedIcon sx={{ fontSize: 32 }} />,
-    description: 'Списать квоту из действующего пакета на объект — бесплатно (в рамках купленного пакета).' },
-  { key: 'go-fix', label: 'Ошибка при выгрузке', color: '#EF4444', icon: <ConstructionRoundedIcon sx={{ fontSize: 32 }} />,
-    description: 'Объект не выгрузился или ошибка в объявлении — отдел разберётся.' },
+  // Разовое / из пакета / ошибка выгрузки — это типы ОДНОЙ заявки, выбираются в форме (не отдельные плитки).
+  { key: 'go-new', label: 'Новая заявка на рекламу', color: '#C9A84C', icon: <ReceiptLongRoundedIcon sx={{ fontSize: 32 }} />,
+    description: 'Разовое размещение, реклама из пакета или ошибка выгрузки — тип выбирается в форме.' },
   { key: 'go-active', label: 'Действующий пакет', color: '#22C55E', icon: <Inventory2RoundedIcon sx={{ fontSize: 32 }} />,
     description: 'Сколько квот куплено, списано и осталось по площадкам, и до какого числа действует пакет.' },
   { key: 'go-packages', label: 'Сбор пакета', color: '#F59E0B', icon: <Inventory2RoundedIcon sx={{ fontSize: 32 }} />,
@@ -96,9 +93,7 @@ export default function Requests({ initialTab = 0 }: { initialTab?: number }) {
   // Клик по плитке внутри «Рекламы».
   const pickAd = (key: string) => {
     setOpenTarget(null); setAdPreset(null); setAdFromPackage(false);
-    if (key === 'go-quota') { setAdPreset('quota'); setView('ads-requests'); }
-    else if (key === 'go-fix') { setAdPreset('fix'); setView('ads-requests'); }
-    else if (key === 'go-from-package') { setAdFromPackage(true); setView('ads-requests'); }
+    if (key === 'go-new') setView('ads-requests');   // список заявок + «Новая заявка» с выбором типа
     else if (key === 'go-packages') setView('ads-packages');
     else if (key === 'go-connect') setView('ads-connect');
     else if (key === 'go-active') setView('ads-active');
