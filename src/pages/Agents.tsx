@@ -45,7 +45,7 @@ function pluralDeals(n: number): string {
   return 'сделок';
 }
 
-type BaseRecord = AgentBaseRecord & { reviewsCount: number; joinDate: string };
+type BaseRecord = AgentBaseRecord & { reviewsCount: number; joinDate: string; citiesExtra: string[] };
 
 /** Адаптер: бэковый Agent → формат базы агентов на портале. */
 function toBaseRecord(a: Agent): BaseRecord {
@@ -54,6 +54,7 @@ function toBaseRecord(a: Agent): BaseRecord {
     id: a.id,
     name: a.name,
     city: a.city,
+    citiesExtra: a.citiesExtra || [],
     primaryDir: primary,
     secondaryDir: [],
     deals: a.yearDeals,
@@ -175,7 +176,7 @@ export default function Agents() {
   }, [openId]);
 
   const cities = useMemo(
-    () => ['Все города', ...Array.from(new Set(agentsBase.map(a => a.city).filter(Boolean)))],
+    () => ['Все города', ...Array.from(new Set(agentsBase.flatMap(a => [a.city, ...a.citiesExtra]).filter(Boolean)))],
     [agentsBase],
   );
 
@@ -183,27 +184,22 @@ export default function Agents() {
   const deferredSearch = useDeferredValue(search);
   const filtered = useMemo(() => {
     const q = deferredSearch.toLowerCase();
-    const list = agentsBase.filter(a =>
-      (a.name.toLowerCase().includes(q) || a.city.toLowerCase().includes(q) || [...a.primaryDir, ...a.secondaryDir].some(d => d.toLowerCase().includes(q))) &&
-      (city === 'Все города' || a.city === city) &&
-      (direction === 'Все направления' || [...a.primaryDir, ...a.secondaryDir].includes(direction))
-    );
-    // Ранжирование (решение CEO): по ГОДУ прихода (раньше пришёл — выше), внутри одного года —
-    // высокооценённые (≥3 оценок) сверху по рейтингу; агенты с <3 оценок без оценочного ранга, ниже.
-    const MIN_RATED = 3;
-    const yearOf = (d?: string) => { const y = d ? new Date(d).getFullYear() : NaN; return Number.isFinite(y) ? y : 9999; };
+    const list = agentsBase.filter(a => {
+      const allCities = [a.city, ...a.citiesExtra].filter(Boolean);
+      return (
+        (a.name.toLowerCase().includes(q) || allCities.some(c => c.toLowerCase().includes(q)) || [...a.primaryDir, ...a.secondaryDir].some(d => d.toLowerCase().includes(q))) &&
+        (city === 'Все города' || allCities.includes(city)) &&
+        (direction === 'Все направления' || [...a.primaryDir, ...a.secondaryDir].includes(direction))
+      );
+    });
+    // Ранжирование (решение CEO 30.06): сначала агенты С ФОТО, затем без фото;
+    // внутри каждой группы — по количеству сделок за год (больше — выше).
+    // Прежнее авто-ранжирование по году прихода и по рейтингу убрано.
     return [...list].sort((a, b) => {
-      const ya = yearOf(a.joinDate), yb = yearOf(b.joinDate);
-      if (ya !== yb) return ya - yb;                                  // старший год выше
-      const ra = a.reviewsCount >= MIN_RATED, rb = b.reviewsCount >= MIN_RATED;
-      if (ra !== rb) return ra ? -1 : 1;                              // оценённые (≥3) выше неоценённых
-      if (ra && rb) {
-        if (b.rating !== a.rating) return b.rating - a.rating;        // выше оценка — выше
-        if (b.reviewsCount !== a.reviewsCount) return b.reviewsCount - a.reviewsCount;
-      }
-      const da = a.joinDate || '', dbb = b.joinDate || '';
-      if (da !== dbb) return da < dbb ? -1 : 1;                       // тай-брейк: раньше по дате
-      return a.name.localeCompare(b.name, 'ru');
+      const pa = a.photo ? 0 : 1, pb = b.photo ? 0 : 1;
+      if (pa !== pb) return pa - pb;                       // с фото — выше, без фото — ниже
+      if (b.deals !== a.deals) return b.deals - a.deals;   // больше сделок — выше
+      return a.name.localeCompare(b.name, 'ru');           // тай-брейк по имени
     });
   }, [agentsBase, deferredSearch, city, direction]);
 
@@ -337,6 +333,11 @@ export default function Agents() {
                           <LocationOnRoundedIcon sx={{ fontSize: 14 }} />
                           <Typography variant="caption">{agent.city}</Typography>
                         </Box>
+                        {agent.citiesExtra.length > 0 && (
+                          <Typography variant="caption" sx={{ color: '#475569', fontSize: 11, mt: 0.25, textAlign: 'center', lineHeight: 1.3 }}>
+                            + {agent.citiesExtra.join(', ')}
+                          </Typography>
+                        )}
 
                         {/* Rating */}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1.5 }}>
@@ -443,9 +444,12 @@ export default function Agents() {
                   />
                   <Box sx={{ flex: 1, minWidth: 240 }}>
                     <Typography variant="h5" sx={{ fontWeight: 800, color: '#F1F5F9' }}>{openAgent.name}</Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, color: '#94A3B8', mt: 0.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, color: '#94A3B8', mt: 0.5, flexWrap: 'wrap' }}>
                       <LocationOnRoundedIcon sx={{ fontSize: 16 }} />
                       <Typography variant="body2">{openAgent.city}</Typography>
+                      {openAgent.citiesExtra.map(c => (
+                        <Chip key={c} label={c} size="small" sx={{ height: 18, fontSize: 11, background: 'rgba(148,163,184,0.12)', color: '#94A3B8' }} />
+                      ))}
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.5 }}>
                       <Rating

@@ -69,7 +69,7 @@ export default function Backoffice() {
           // Маскируем телефон для tooltip (показываем только номер, не модифицируем)
           const tgClean = m.telegram?.replace('@', '');
           return (
-            <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={m.id}>
+            <Grid size={{ xs: 12, sm: 6, lg: 6, xl: 4 }} key={m.id}>
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i, 8) * 0.06 }}>
                 <Card sx={{
                   height: '100%',
@@ -100,11 +100,11 @@ export default function Backoffice() {
 
                   <CardContent sx={{ p: 3, pl: 3.5, position: 'relative', zIndex: 1 }}>
                     {/* Аватар + имя + должность */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                       <SmartAvatar
                         src={m.photo}
                         name={m.name}
-                        size={108}
+                        size={84}
                         sx={{
                           background: `linear-gradient(135deg, ${alpha(color, 0.55)}, ${alpha(color, 0.18)})`,
                           color: '#F1F5F9',

@@ -77,20 +77,24 @@ const fadeIn = (delay: number) => ({
   transition: { delay, duration: 0.45 },
 });
 
+// Между числом и единицей («₽», «шт», «млн») ставим неразрывный пробел, чтобы единица
+// не отрывалась на новую строку на узких карточках (13"). Разделители групп в ru-RU
+// уже неразрывные (U+00A0), рвался только пробел перед единицей.
+const nbspUnit = (s: string) => s.replace(/ (₽|шт|млн)/g, ' $1');
 const StatCard = ({ icon, label, value, sub, color, delay }: { icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string; delay: number }) => (
   <motion.div {...fadeIn(delay)} style={{ height: '100%' }}>
     <Card sx={{ height: '100%', position: 'relative', overflow: 'hidden' }}>
       <Box sx={{ position: 'absolute', top: -20, right: -20, width: 100, height: 100, borderRadius: '50%', background: `${color}14` }} />
       <CardContent sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+          <Box sx={{ minWidth: 0 }}>
             <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: 11 }}>
               {label}
             </Typography>
-            <Typography variant="h4" sx={{ fontWeight: 800, color: '#F1F5F9', mt: 0.5, lineHeight: 1 }}>
-              {value}
+            <Typography variant="h4" sx={{ fontWeight: 800, color: '#F1F5F9', mt: 0.5, lineHeight: 1.1, whiteSpace: 'nowrap', fontSize: { xs: 30, sm: 26, lg: 22 } }}>
+              {typeof value === 'string' ? nbspUnit(value) : value}
             </Typography>
-            {sub && <Typography variant="caption" sx={{ color: '#64748B', mt: 0.5, display: 'block' }}>{sub}</Typography>}
+            {sub && <Typography variant="caption" sx={{ color: '#64748B', mt: 0.5, display: 'block' }}>{nbspUnit(sub)}</Typography>}
           </Box>
           <Box sx={{ width: 48, height: 48, borderRadius: 3, background: `${color}26`, border: `1px solid ${color}4D`, display: 'flex', alignItems: 'center', justifyContent: 'center', color, flexShrink: 0 }}>
             {icon}

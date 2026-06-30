@@ -452,8 +452,10 @@ export default function Profile() {
   return (
     <Box>
       <Grid container spacing={3}>
-        {/* Left column: avatar + contacts + actions */}
-        <Grid size={{ xs: 12, md: 4 }}>
+        {/* Left column: avatar + contacts + actions.
+            sticky + alignSelf:flex-start — чтобы при длинной правой колонке (достижения)
+            левый сайдбар не обрывался вверху пустотой, а сопровождал прокрутку. */}
+        <Grid size={{ xs: 12, md: 4 }} sx={{ position: { md: 'sticky' }, top: 16, alignSelf: 'flex-start' }}>
           <motion.div initial={{ opacity: 0, x: -24 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.45 }}>
             <Card sx={{ mb: 3, textAlign: 'center', overflow: 'visible', position: 'relative' }}>
               <Box sx={{ height: 80, background: 'linear-gradient(135deg, rgba(201,168,76,0.3) 0%, rgba(67,97,238,0.2) 100%)', borderRadius: '16px 16px 0 0', position: 'relative' }}>
