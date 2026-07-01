@@ -376,7 +376,7 @@ function MonthCalendar({ events, selectedDate, onSelectDate, viewDate, setViewDa
 }
 
 // ----------------- Event card (for selected day or list) -----------------
-function EventCard({ e, compact = false }: { e: AcademyEvent; compact?: boolean }) {
+function EventCard({ e, compact = false, showDate = false }: { e: AcademyEvent; compact?: boolean; showDate?: boolean }) {
   const [calAnchor, setCalAnchor] = useState<HTMLElement | null>(null);
   // Фолбэк: бэк не валидирует format при PATCH — неизвестное значение без него
   // роняло всю Академию (TypeError на cfg.color).
@@ -429,7 +429,7 @@ function EventCard({ e, compact = false }: { e: AcademyEvent; compact?: boolean 
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 0.5, color: '#94A3B8' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
             <AccessTimeRoundedIcon sx={{ fontSize: 13 }} />
-            <Typography variant="caption">{e.startTime} – {e.endTime}</Typography>
+            <Typography variant="caption">{showDate ? `${new Date(e.date + 'T00:00:00').toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' })}, ` : ''}{e.startTime} – {e.endTime}</Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
             <LocationOnRoundedIcon sx={{ fontSize: 13 }} />
@@ -840,7 +840,7 @@ function AcademyImpl() {
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                   {upcomingEvents.map(e => (
                     <Box key={e.id} onClick={() => { setSelectedDate(e.date); setViewDate(new Date(e.date)); }} sx={{ cursor: 'pointer' }}>
-                      <EventCard e={e} compact />
+                      <EventCard e={e} compact showDate />
                     </Box>
                   ))}
                 </Box>
